@@ -51,3 +51,5 @@ __pycache__
 
 # Eslint
 .eslintcache
+# Claude Code (local, not part of the deliverable)
+.claude/settings.local.json
