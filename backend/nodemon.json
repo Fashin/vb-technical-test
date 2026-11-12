@@ -1,5 +1,7 @@
 {
 	"ext": "js,ts,json",
+	"watch": ["src"],
+	"legacyWatch": true,
 	"exec": "ts-node --project ./tsconfig.app.json ./src/app.ts"
   }
   

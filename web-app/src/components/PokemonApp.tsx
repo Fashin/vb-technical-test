@@ -3,6 +3,9 @@ import PokemonList from './PokemonList';
 import { Header } from './Header';
 import { useTheme } from './ThemeContext';
 import axios from 'axios';
+import { ArenaCanvas, PokemonActor } from '../arena';
+import { MultiplayerPanel } from './MultiplayerPanel';
+import { MapScene } from '../map';
 
 const API_URL = 'http://localhost:3001'
 
@@ -32,6 +35,16 @@ const PokemonApp: React.FC = () => {
     <div className={`${theme === "light" ? "bg-amber-50" : "bg-slate-800"} flex flex-col items-center`}>
       <Header/>
       <PokemonList pokemons={pokemonList}/>
+      <MultiplayerPanel />
+      <div className="w-full h-[520px]">
+        <MapScene />
+      </div>
+      <div className="w-full h-[420px]">
+        <ArenaCanvas>
+          <PokemonActor image={pokemonList[0].image} position={[-3, 1.4, 0]} />
+          <PokemonActor image={pokemonList[0].image} position={[3, 1.4, 0]} flipped />
+        </ArenaCanvas>
+      </div>
     </div>
   );
 };
