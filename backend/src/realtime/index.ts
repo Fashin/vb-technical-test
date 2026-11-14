@@ -10,6 +10,18 @@ import {
 	type ServerToClientEvents,
 	type SocketData,
 } from './events'
+import { verifySession } from '../auth/sessions'
+import { findById } from '../auth/users'
+import {
+	WORLD_SPEED,
+	addPlayer as addWorldPlayer,
+	getMap,
+	getPlayer as getWorldPlayer,
+	listPlayers,
+	removePlayer as removeWorldPlayer,
+	toState,
+	tryStep,
+} from '../world/world'
 import {
 	addPlayer,
 	createRoom,
@@ -31,6 +43,8 @@ const ERROR_MESSAGES: Record<RealtimeErrorCode, string> = {
 	ALREADY_IN_ROOM: 'You are already in a room',
 	NOT_IN_ROOM: 'You are not in a room',
 	INVALID_PAYLOAD: 'Invalid payload',
+	UNAUTHORIZED: 'Sign in again',
+	NOT_IN_WORLD: 'You have not joined the world',
 }
 
 function fail(code: RealtimeErrorCode): Ack<never> {
@@ -40,6 +54,9 @@ function fail(code: RealtimeErrorCode): Ack<never> {
 function succeed<T>(data: T): Ack<T> {
 	return { ok: true, data }
 }
+
+/** socket.io room holding everyone walking the shared overworld. */
+const WORLD_ROOM = 'world'
 
 function sanitizeName(name: unknown): string | null {
 	if (typeof name !== 'string') return null
@@ -56,9 +73,33 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 		cors: { origin: true, credentials: true },
 	})
 
+	/**
+	 * Every socket carries a session token in its handshake. Authentication
+	 * happens once, here, so no handler below ever has to ask who is talking —
+	 * and an anonymous client simply never gets a connection.
+	 */
+	io.use((socket, next) => {
+		const token = socket.handshake.auth?.token
+		const user = verifySession(typeof token === 'string' ? token : null)
+		if (!user) return next(new Error('UNAUTHORIZED'))
+
+		socket.data.userId = user.id
+		socket.data.playerName = user.display_name
+		next()
+	})
+
+	/** Drop the player from the world and tell the others, once. */
+	const leaveWorld = (socket: ArenaSocket) => {
+		if (!socket.data.inWorld) return
+		socket.data.inWorld = false
+		const left = removeWorldPlayer(socket.id)
+		void socket.leave(WORLD_ROOM)
+		if (left) io.to(WORLD_ROOM).emit('world:left', { id: left.id })
+	}
+
 	io.on('connection', (socket: ArenaSocket) => {
 		socket.data.roomId = null
-		socket.data.playerName = ''
+		socket.data.inWorld = false
 
 		/** Push the authoritative snapshot to every player in the room. */
 		const broadcast = (room: RoomState) => {
@@ -148,7 +189,56 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 			else io.to(roomId).emit('room:closed', { roomId, reason: 'empty' })
 		})
 
+		/* ------------------------------ shared overworld ------------------------------ */
+
+		socket.on('world:join', (ack) => {
+			if (socket.data.inWorld) {
+				const existing = getWorldPlayer(socket.id)
+				if (existing) {
+					return ack(succeed({ map: getMap(), speed: WORLD_SPEED, you: toState(existing), players: listPlayers() }))
+				}
+			}
+
+			const user = findById(socket.data.userId)
+			if (!user) return ack(fail('UNAUTHORIZED'))
+
+			const player = addWorldPlayer(socket.id, user)
+			socket.data.inWorld = true
+			void socket.join(WORLD_ROOM)
+
+			ack(succeed({ map: getMap(), speed: WORLD_SPEED, you: toState(player), players: listPlayers() }))
+			// The joiner is already in the snapshot it just received.
+			socket.to(WORLD_ROOM).emit('world:joined', toState(player))
+		})
+
+		socket.on('world:move', ({ dx, dy }) => {
+			if (!socket.data.inWorld) return
+
+			const moved = tryStep(socket.id, Number(dx), Number(dy))
+			if (!moved) {
+				// Out of bounds, into a tree, or too fast: the client predicted a
+				// step that never happened, so hand it the real position back.
+				const current = getWorldPlayer(socket.id)
+				if (current) socket.emit('world:rejected', { x: current.x, y: current.y })
+				return
+			}
+
+			io.to(WORLD_ROOM).emit('world:moved', {
+				id: moved.id,
+				x: moved.x,
+				y: moved.y,
+				facing: moved.facing,
+			})
+		})
+
+		socket.on('world:leave', () => {
+			if (!socket.data.inWorld) return
+			leaveWorld(socket)
+		})
+
 		socket.on('disconnect', () => {
+			leaveWorld(socket)
+
 			const roomId = socket.data.roomId
 			if (!roomId) return
 

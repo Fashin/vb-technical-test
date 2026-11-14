@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client'
 
+import { readToken } from '../auth/api'
 import type { ClientToServerEvents, ServerToClientEvents } from './events'
 
 export type ArenaSocket = Socket<ServerToClientEvents, ClientToServerEvents>
@@ -11,13 +12,16 @@ let socket: ArenaSocket | null = null
 /**
  * Lazily created singleton: socket.io keeps one multiplexed connection for the
  * whole tab, so components share this instance instead of each opening their own.
- * `autoConnect` is off — nothing connects until a player actually enters the lobby.
+ * `autoConnect` is off — nothing connects until a signed-in player enters the world.
  */
 export function getSocket(): ArenaSocket {
 	if (!socket) {
 		socket = io(REALTIME_URL, {
 			autoConnect: false,
 			transports: ['websocket', 'polling'],
+			// Read at every (re)connection attempt, so a token refreshed after a
+			// new sign-in is picked up without recreating the socket.
+			auth: (cb) => cb({ token: readToken() }),
 		})
 	}
 	return socket

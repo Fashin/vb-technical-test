@@ -1,22 +1,24 @@
-import { defineConfig } from "eslint/config";
-import mainConfig from "../../eslint.config.mjs";
+import js from '@eslint/js'
+import globals from 'globals'
+import tseslint from 'typescript-eslint'
 
-export default defineConfig([
-	mainConfig,
+/**
+ * Flat config for the API.
+ *
+ * Mirrors `web-app/eslint.config.js` so both packages behave the same, minus
+ * the React plugins: this is plain Node. It is deliberately self-contained —
+ * the previous version extended a config from outside the repository, which
+ * made `npm run lint` fail on every machine but its author's.
+ */
+export default tseslint.config(
+	{ ignores: ['dist', 'build', 'data'] },
 	{
-		files: ["./**/*.ts", "./**/*.tsx"],
-
+		extends: [js.configs.recommended, ...tseslint.configs.recommended],
+		files: ['**/*.ts'],
 		languageOptions: {
-			ecmaVersion: 12,
-			sourceType: "module",
-
-			parserOptions: {
-				ecmaFeatures: {
-					jsx: true,
-				},
-
-				project: ["apps/api/tsconfig.*?.json"],
-			},
+			ecmaVersion: 2022,
+			sourceType: 'module',
+			globals: globals.node,
 		},
-	}
-]);
+	},
+)

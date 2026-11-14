@@ -13,7 +13,13 @@ export const SPACING = 1
 export const ATLAS_W = 968
 export const ATLAS_H = 526
 
-/** Logical tiles of this project, decoupled from their position in the sheet. */
+/**
+ * Logical tiles of this project, decoupled from their position in the sheet.
+ *
+ * ⚠️ Mirrored from `backend/src/world/tiles.ts`, which is what fills the tile
+ * arrays sent over the socket — these numeric values are a wire format and
+ * must stay identical on both sides.
+ */
 export enum Tile {
 	Empty = 0,
 

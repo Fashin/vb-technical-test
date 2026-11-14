@@ -5,6 +5,23 @@
  * in this repo, so any change there must be copied here (and vice versa).
  */
 
+import type { TileMapData } from '../map/mapData'
+
+export type { TileMapData, TileLayer, LayerName } from '../map/mapData'
+
+export type Facing = 'left' | 'right'
+
+/** One character walking the shared overworld. `id` is the socket id. */
+export interface WorldPlayerState {
+	id: string
+	userId: string
+	name: string
+	spriteId: number
+	x: number
+	y: number
+	facing: Facing
+}
+
 export type RoomPhase = 'lobby' | 'picking' | 'battle' | 'finished'
 
 export interface PlayerState {
@@ -27,12 +44,27 @@ export interface RoomState {
 
 export const MAX_PLAYERS_PER_ROOM = 2
 
+/**
+ * Everything needed to draw the world the moment we join: the map itself
+ * (generated server-side, so there is one source of truth), the walking speed
+ * to animate at, who we are, and who else is already there.
+ */
+export interface WorldSnapshot {
+	map: TileMapData
+	/** Tiles per second — the server rejects steps that arrive faster. */
+	speed: number
+	you: WorldPlayerState
+	players: WorldPlayerState[]
+}
+
 export type RealtimeErrorCode =
 	| 'ROOM_NOT_FOUND'
 	| 'ROOM_FULL'
 	| 'ALREADY_IN_ROOM'
 	| 'NOT_IN_ROOM'
 	| 'INVALID_PAYLOAD'
+	| 'UNAUTHORIZED'
+	| 'NOT_IN_WORLD'
 
 export interface RealtimeError {
 	code: RealtimeErrorCode
@@ -50,6 +82,14 @@ export interface ClientToServerEvents {
 	'room:leave': (ack?: (res: Ack<null>) => void) => void
 	'room:pick': (payload: { pokedexId: number }, ack?: (res: Ack<RoomState>) => void) => void
 	'room:ready': (payload: { ready: boolean }, ack?: (res: Ack<RoomState>) => void) => void
+
+	/* ------------------------------ shared overworld ------------------------------ */
+
+	/** Enter the world; the ack carries the map and everyone already walking it. */
+	'world:join': (ack: (res: Ack<WorldSnapshot>) => void) => void
+	/** One step, one tile per axis: `dx`/`dy` are each -1, 0 or 1. */
+	'world:move': (payload: { dx: number; dy: number }) => void
+	'world:leave': () => void
 }
 
 /* ------------------------------- server → client ------------------------------- */
@@ -61,4 +101,13 @@ export interface ServerToClientEvents {
 	'room:error': (error: RealtimeError) => void
 	/** Both players are ready: the arena takes over from here. */
 	'battle:start': (room: RoomState) => void
+
+	/* ------------------------------ shared overworld ------------------------------ */
+
+	'world:joined': (player: WorldPlayerState) => void
+	/** Every accepted step, including our own — we reconcile on it. */
+	'world:moved': (payload: { id: string; x: number; y: number; facing: Facing }) => void
+	/** Our step was refused: snap back to this authoritative position. */
+	'world:rejected': (payload: { x: number; y: number }) => void
+	'world:left': (payload: { id: string }) => void
 }

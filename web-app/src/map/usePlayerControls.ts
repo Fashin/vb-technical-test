@@ -59,7 +59,8 @@ export function usePlayerControls() {
 		const direction = directionOf(event)
 		if (!direction) return
 		event.preventDefault()
-		// Last key pressed wins, so a diagonal input still picks one axis.
+		// Most recent first: the scene reads one direction per axis from this,
+		// so two keys down at once produce a diagonal.
 		held.current = [direction, ...held.current.filter((d) => d !== direction)]
 		tapped.current = direction
 	}, [])
