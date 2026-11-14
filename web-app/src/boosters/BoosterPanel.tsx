@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { GiCardPickup } from 'react-icons/gi'
 
-import { CardFace } from './CardFace'
+import { useEscapeToClose } from '../ui'
+import { RARITY, bestRarity } from './rarity'
+import { RevealCard } from './RevealCard'
+import { useReveal } from './useReveal'
 import type { BoostersValue } from './useBoosters'
 
 function formatCountdown(ms: number): string {
@@ -23,10 +26,12 @@ function formatCountdown(ms: number): string {
  */
 export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; onClose: () => void }) {
 	const { state, remainingMs, cards, opening, error, open, dismiss } = boosters
+	const reveal = useReveal(cards)
 	const backdrop = useRef<HTMLDivElement>(null)
 
 	// Focus the panel so Escape reaches it rather than the map underneath.
 	useEffect(() => backdrop.current?.focus(), [])
+	useEscapeToClose(onClose)
 
 	return (
 		<div
@@ -35,10 +40,7 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 			className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 p-4 outline-none"
 			// The map listens for arrow keys on its wrapper; the panel is a
 			// separate context and must not make the character walk.
-			onKeyDown={(event) => {
-				event.stopPropagation()
-				if (event.key === 'Escape') onClose()
-			}}
+			onKeyDown={(event) => event.stopPropagation()}
 			onKeyUp={(event) => event.stopPropagation()}
 			onPointerDown={(event) => {
 				// Only a click on the backdrop itself, never one that bubbled up
@@ -72,20 +74,44 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 				)}
 
 				{cards ? (
-					<div className="mt-4">
-						<p className="text-sm text-slate-300">Tu as obtenu&nbsp;:</p>
-						<ul className="mt-3 flex flex-wrap justify-center gap-2">
-							{cards.map((card) => (
-								<CardFace key={card.id} card={card} />
+					<div className="relative mt-4">
+						{/* The burst is tinted by the best card in the pack, so the
+						    colour already hints at the pull before anything turns over. */}
+						{reveal.bursting && (
+							<span
+								aria-hidden
+								className="pointer-events-none absolute left-1/2 top-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 animate-pack-burst rounded-full"
+								style={{ backgroundImage: RARITY[bestRarity(cards.map((c) => c.rarity))].burst }}
+							/>
+						)}
+
+						<p className="text-sm text-slate-300">
+							{reveal.done ? 'Tu as obtenu :' : 'Ouverture du booster…'}
+						</p>
+
+						<ul className="relative mt-3 flex flex-wrap justify-center gap-2">
+							{cards.map((card, index) => (
+								<RevealCard key={card.id} card={card} revealed={index < reveal.revealed} />
 							))}
 						</ul>
-						<button
-							type="button"
-							onClick={dismiss}
-							className="mt-5 w-full rounded-md bg-emerald-500 px-4 py-2 font-medium text-emerald-950 hover:bg-emerald-400"
-						>
-							Continuer
-						</button>
+
+						{reveal.done ? (
+							<button
+								type="button"
+								onClick={dismiss}
+								className="mt-5 w-full rounded-md bg-emerald-500 px-4 py-2 font-medium text-emerald-950 hover:bg-emerald-400"
+							>
+								Continuer
+							</button>
+						) : (
+							<button
+								type="button"
+								onClick={reveal.skip}
+								className="mt-5 w-full rounded-md border border-white/15 px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+							>
+								Tout révéler
+							</button>
+						)}
 					</div>
 				) : (
 					<div className="mt-4">

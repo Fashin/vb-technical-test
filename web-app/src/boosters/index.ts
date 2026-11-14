@@ -1,5 +1,7 @@
 export { BoosterPanel } from './BoosterPanel'
 export { CardFace } from './CardFace'
-export { RARITY } from './rarity'
+export { RARITY, bestRarity } from './rarity'
+export { RevealCard } from './RevealCard'
+export { useReveal } from './useReveal'
 export { useBoosters, type BoostersValue } from './useBoosters'
 export type { BoosterState, Card, Rarity } from './api'

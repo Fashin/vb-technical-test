@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { useTexture } from '@react-three/drei'
-import { NearestFilter, Vector3, type Group } from 'three'
+import { Vector3, type Group } from 'three'
+
+import { TrainerSprite, type Appearance } from '../trainer'
 
 import { layerOf, type TileMapData } from './mapData'
 import { isSolid } from './tileset'
@@ -50,7 +51,8 @@ export interface PlayerProps {
 	map: TileMapData
 	held: MutableRefObject<Direction[]>
 	tapped: MutableRefObject<Direction | null>
-	spriteUrl: string
+	/** How this trainer looks; edited in the barber panel. */
+	appearance: Appearance
 	start?: { x: number; y: number }
 	/**
 	 * Written with the character's world position on every frame, so the camera
@@ -81,22 +83,13 @@ export function Player({
 	map,
 	held,
 	tapped,
-	spriteUrl,
+	appearance,
 	start = { x: 13, y: 18 },
 	tracker,
 	speed = DEFAULT_SPEED,
 	onStep,
 	correction = null,
 }: PlayerProps) {
-	const texture = useTexture(spriteUrl, (loaded) => {
-		const list = Array.isArray(loaded) ? loaded : [loaded]
-		list.forEach((t) => {
-			t.magFilter = NearestFilter
-			t.minFilter = NearestFilter
-			t.generateMipmaps = false
-		})
-	})
-
 	const group = useRef<Group>(null)
 	const from = useRef({ ...start })
 	const to = useRef({ ...start })
@@ -104,6 +97,8 @@ export function Player({
 	/** Tiles covered by the step in progress — √2 on a diagonal, so it is not faster. */
 	const stepLength = useRef(1)
 	const [facingLeft, setFacingLeft] = useState(false)
+	// Legs alternate while a step is in progress and settle when it lands.
+	const [walkFrame, setWalkFrame] = useState(0)
 
 	// The server refused a step: drop whatever we predicted and stand where it
 	// says we are. Applied in an effect so the frame loop stays free of props.
@@ -175,6 +170,12 @@ export function Player({
 
 		node.position.set(x + 0.5, bob, y + Z_OFFSET)
 
+		const striding = t < 1
+		setWalkFrame((current) => {
+			const next = striding ? 1 : 0
+			return current === next ? current : next
+		})
+
 		// The map mesh is centred on the origin by its parent group, so the camera
 		// needs the world position, not the tile position.
 		if (tracker) node.getWorldPosition(tracker.current)
@@ -182,10 +183,7 @@ export function Player({
 
 	return (
 		<group ref={group}>
-			<mesh position={[0, 0.9, 0]} scale={[facingLeft ? -1.8 : 1.8, 1.8, 1.8]}>
-				<planeGeometry args={[1, 1]} />
-				<meshBasicMaterial map={texture} alphaTest={0.5} toneMapped={false} />
-			</mesh>
+			<TrainerSprite appearance={appearance} facingLeft={facingLeft} frame={walkFrame} />
 		</group>
 	)
 }

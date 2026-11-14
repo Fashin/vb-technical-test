@@ -1,0 +1,1 @@
+export { BarberPanel } from './BarberPanel'

@@ -5,14 +5,15 @@ import { Vector3 } from 'three'
 
 import { useAuth } from '../auth'
 import { BoosterPanel, useBoosters } from '../boosters'
+import { BarberPanel } from '../barber'
 import { CollectionPanel } from '../collection'
+import { OptionsPanel } from '../options'
 import { HudBar, type HudAction } from '../hud'
 import { useWorld } from '../world'
 import { CameraFollow, type MapBounds } from './CameraFollow'
 import { type TileMapData } from './mapData'
 import { Player } from './Player'
 import { RemotePlayer } from './RemotePlayer'
-import { spriteUrlFor } from './sprites'
 import { TileMapMesh } from './TileMapMesh'
 import { ATLAS_URL, configureAtlas } from './tileset'
 import { usePlayerControls } from './usePlayerControls'
@@ -45,7 +46,7 @@ interface MapSceneProps {
  */
 export function MapScene({ className }: MapSceneProps) {
 	const { user, logout } = useAuth()
-	const { status, error, map, speed, me, others, move, correction } = useWorld(Boolean(user))
+	const { status, error, map, speed, me, others, move, correction, announceProfile } = useWorld(Boolean(user))
 	const { held, tapped, onKeyDown, onKeyUp, onBlur } = usePlayerControls()
 	// Which HUD entry is selected. The panels themselves do not exist yet, so
 	// clicking one only lights it up — and clicking it again puts it away.
@@ -103,7 +104,7 @@ export function MapScene({ className }: MapSceneProps) {
 								map={map}
 								held={held}
 								tapped={tapped}
-								spriteUrl={spriteUrlFor(me.spriteId)}
+								appearance={me.appearance}
 								start={spawn.current ?? undefined}
 								tracker={playerPosition}
 								speed={speed}
@@ -151,6 +152,10 @@ export function MapScene({ className }: MapSceneProps) {
 
 			{panel === 'booster' && <BoosterPanel boosters={boosters} onClose={() => setPanel(null)} />}
 			{panel === 'collection' && <CollectionPanel onClose={() => setPanel(null)} />}
+			{panel === 'barber' && <BarberPanel onClose={() => setPanel(null)} onSaved={(appearance) => announceProfile({ appearance })} />}
+			{panel === 'options' && (
+				<OptionsPanel onClose={() => setPanel(null)} onRenamed={(name) => announceProfile({ name })} />
+			)}
 		</div>
 	)
 }

@@ -1,10 +1,10 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Html, useTexture } from '@react-three/drei'
-import { NearestFilter, type Group } from 'three'
+import { Html } from '@react-three/drei'
+import { type Group } from 'three'
 
 import type { WorldPlayerState } from '../realtime'
-import { spriteUrlFor } from './sprites'
+import { TrainerSprite } from '../trainer'
 
 /** Same forward nudge as the local player, so depth sorting agrees. */
 const Z_OFFSET = 0.9
@@ -18,17 +18,10 @@ const Z_OFFSET = 0.9
  * fancier (dead reckoning, extrapolation) would guess ahead of the server.
  */
 export function RemotePlayer({ player, speed }: { player: WorldPlayerState; speed: number }) {
-	const texture = useTexture(spriteUrlFor(player.spriteId), (loaded) => {
-		const list = Array.isArray(loaded) ? loaded : [loaded]
-		list.forEach((t) => {
-			t.magFilter = NearestFilter
-			t.minFilter = NearestFilter
-			t.generateMipmaps = false
-		})
-	})
-
 	const group = useRef<Group>(null)
 	const placed = useRef(false)
+	// Driven by whether the sprite is still catching up with its target tile.
+	const [walkFrame, setWalkFrame] = useState(0)
 
 	useFrame((_state, delta) => {
 		const node = group.current
@@ -48,8 +41,11 @@ export function RemotePlayer({ player, speed }: { player: WorldPlayerState; spee
 		const distance = Math.hypot(dx, dz)
 		if (distance < 0.001) {
 			node.position.set(targetX, 0, targetZ)
+			setWalkFrame((current) => (current === 0 ? current : 0))
 			return
 		}
+
+		setWalkFrame((current) => (current === 1 ? current : 1))
 
 		// Never fall behind: if we are more than a step and a half out of date
 		// (a tab that was in the background, a lost packet), jump.
@@ -63,15 +59,14 @@ export function RemotePlayer({ player, speed }: { player: WorldPlayerState; spee
 		node.position.z += (dz / distance) * travel
 	})
 
-	const scale = player.facing === 'left' ? -1.8 : 1.8
-
 	return (
 		<group ref={group}>
-			<mesh position={[0, 0.9, 0]} scale={[scale, 1.8, 1.8]}>
-				<planeGeometry args={[1, 1]} />
-				<meshBasicMaterial map={texture} alphaTest={0.5} toneMapped={false} transparent />
-			</mesh>
-			<Html position={[0, 2.1, 0]} center zIndexRange={[10, 0]} className="pointer-events-none select-none">
+			<TrainerSprite
+				appearance={player.appearance}
+				facingLeft={player.facing === 'left'}
+				frame={walkFrame}
+			/>
+			<Html position={[0, 1.9, 0]} center zIndexRange={[10, 0]} className="pointer-events-none select-none">
 				<span className="whitespace-nowrap rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">
 					{player.name}
 				</span>

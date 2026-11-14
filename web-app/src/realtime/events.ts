@@ -6,8 +6,10 @@
  */
 
 import type { TileMapData } from '../map/mapData'
+import type { Appearance } from '../trainer/appearance'
 
 export type { TileMapData, TileLayer, LayerName } from '../map/mapData'
+export type { Appearance } from '../trainer/appearance'
 
 export type Facing = 'left' | 'right'
 
@@ -17,6 +19,7 @@ export interface WorldPlayerState {
 	userId: string
 	name: string
 	spriteId: number
+	appearance: Appearance
 	x: number
 	y: number
 	facing: Facing
@@ -90,6 +93,12 @@ export interface ClientToServerEvents {
 	/** One step, one tile per axis: `dx`/`dy` are each -1, 0 or 1. */
 	'world:move': (payload: { dx: number; dy: number }) => void
 	'world:leave': () => void
+	/**
+	 * Ask the server to re-read our profile and tell everyone. Payload-free on
+	 * purpose: name and look are saved over REST, and the server trusts the
+	 * database, never the client.
+	 */
+	'world:profile': () => void
 }
 
 /* ------------------------------- server → client ------------------------------- */
@@ -110,4 +119,5 @@ export interface ServerToClientEvents {
 	/** Our step was refused: snap back to this authoritative position. */
 	'world:rejected': (payload: { x: number; y: number }) => void
 	'world:left': (payload: { id: string }) => void
+	'world:profile': (payload: { id: string; name: string; appearance: Appearance }) => void
 }

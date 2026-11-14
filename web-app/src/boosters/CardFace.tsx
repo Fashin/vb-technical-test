@@ -8,11 +8,16 @@ interface CardFaceProps {
 	count?: number
 }
 
-/** One card tile, shared by the booster reveal and the collection. */
+/**
+ * One card tile, shared by the booster reveal and the collection.
+ *
+ * Renders a plain block, not a list item: the reveal wraps it in animation
+ * layers, so the `<li>` belongs to whichever list is doing the rendering.
+ */
 export function CardFace({ card, count = 1 }: CardFaceProps) {
 	const style = RARITY[card.rarity]
 	return (
-		<li className={`relative flex w-28 flex-col items-center rounded-lg border-2 bg-black/40 p-2 ${style.ring}`}>
+		<div className={`relative flex w-28 flex-col items-center rounded-lg border-2 bg-black/40 p-2 ${style.ring}`}>
 			<img
 				src={spriteUrlFor(card.pokedexId)}
 				alt=""
@@ -26,6 +31,6 @@ export function CardFace({ card, count = 1 }: CardFaceProps) {
 					×{count}
 				</span>
 			)}
-		</li>
+		</div>
 	)
 }

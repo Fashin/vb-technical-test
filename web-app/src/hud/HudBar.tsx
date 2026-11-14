@@ -1,8 +1,8 @@
 import type { ComponentType } from 'react'
-import { GiCardPickup, GiCardRandom, GiCrossedSwords } from 'react-icons/gi'
+import { GiCardPickup, GiCardRandom, GiCog, GiCrossedSwords, GiScissors } from 'react-icons/gi'
 
 /** The panels the HUD can open. Nothing is wired to them yet. */
-export type HudAction = 'booster' | 'collection' | 'arena'
+export type HudAction = 'booster' | 'collection' | 'arena' | 'barber' | 'options'
 
 interface HudEntry {
 	action: HudAction
@@ -14,6 +14,8 @@ const ENTRIES: HudEntry[] = [
 	{ action: 'booster', label: 'Booster', Icon: GiCardPickup },
 	{ action: 'collection', label: 'Ma collection', Icon: GiCardRandom },
 	{ action: 'arena', label: 'Arène', Icon: GiCrossedSwords },
+	{ action: 'barber', label: 'Coiffeur', Icon: GiScissors },
+	{ action: 'options', label: 'Options', Icon: GiCog },
 ]
 
 interface HudBarProps {

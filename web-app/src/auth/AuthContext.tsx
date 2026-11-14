@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import * as api from './api'
 import type { PublicUser } from './api'
+import type { Appearance } from '../trainer/appearance'
 
 export type AuthStatus = 'checking' | 'anonymous' | 'authenticated'
 
@@ -11,6 +12,13 @@ interface AuthValue {
 	login: (email: string, password: string) => Promise<void>
 	register: (email: string, password: string, displayName: string) => Promise<void>
 	logout: () => Promise<void>
+	/** Persist a new trainer look and refresh the cached user. */
+	restyle: (appearance: Appearance) => Promise<void>
+	/** Rename the trainer and refresh the cached user. */
+	rename: (displayName: string) => Promise<void>
+	changePassword: (currentPassword: string, newPassword: string) => Promise<void>
+	/** Erase the account and drop back to the sign-in screen. */
+	deleteAccount: (password: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthValue | null>(null)
@@ -74,9 +82,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		setStatus('anonymous')
 	}, [])
 
+	const restyle = useCallback(async (appearance: Appearance) => {
+		const saved = await api.saveAppearance(appearance)
+		// Trust the server's clamped version, not the one we sent.
+		setUser((current) => (current ? { ...current, appearance: saved.appearance } : current))
+	}, [])
+
+	const rename = useCallback(async (displayName: string) => {
+		const { user: saved } = await api.changeDisplayName(displayName)
+		setUser(saved)
+	}, [])
+
+	const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+		const { token } = await api.changePassword(currentPassword, newPassword)
+		// The old token was revoked along with the others; adopt the new one or
+		// this tab logs itself out.
+		api.writeToken(token)
+	}, [])
+
+	const deleteAccount = useCallback(async (password: string) => {
+		await api.deleteAccount(password)
+		api.writeToken(null)
+		setUser(null)
+		setStatus('anonymous')
+	}, [])
+
 	const value = useMemo<AuthValue>(
-		() => ({ status, user, login, register, logout }),
-		[status, user, login, register, logout],
+		() => ({ status, user, login, register, logout, restyle, rename, changePassword, deleteAccount }),
+		[status, user, login, register, logout, restyle, rename, changePassword, deleteAccount],
 	)
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

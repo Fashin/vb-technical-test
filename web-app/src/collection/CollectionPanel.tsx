@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { GiCardRandom } from 'react-icons/gi'
 
+import { useEscapeToClose } from '../ui'
 import { CardFace } from '../boosters/CardFace'
 import { RARITY } from '../boosters/rarity'
 import type { Rarity } from '../boosters/api'
@@ -29,6 +30,7 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 	const backdrop = useRef<HTMLDivElement>(null)
 
 	useEffect(() => backdrop.current?.focus(), [])
+	useEscapeToClose(onClose)
 
 	return (
 		<div
@@ -37,10 +39,7 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 			className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 p-4 outline-none"
 			// The map listens for arrow keys on its wrapper; the panel must not
 			// make the character walk.
-			onKeyDown={(event) => {
-				event.stopPropagation()
-				if (event.key === 'Escape') onClose()
-			}}
+			onKeyDown={(event) => event.stopPropagation()}
 			onKeyUp={(event) => event.stopPropagation()}
 			onPointerDown={(event) => {
 				if (event.target === event.currentTarget) onClose()
@@ -134,7 +133,9 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 					) : (
 						<ul className="flex flex-wrap justify-center gap-2">
 							{entries.map((entry) => (
-								<CardFace key={entry.pokedexId} card={entry} count={entry.count} />
+								<li key={entry.pokedexId}>
+									<CardFace card={entry} count={entry.count} />
+								</li>
 							))}
 						</ul>
 					)}

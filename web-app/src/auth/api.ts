@@ -11,12 +11,15 @@ export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 const TOKEN_KEY = 'vb.session'
 
+import type { Appearance } from '../trainer/appearance'
+
 export interface PublicUser {
 	id: string
 	email: string
 	displayName: string
 	spriteId: number
 	lastSeenAt: number
+	appearance: Appearance
 }
 
 export interface ApiError {
@@ -92,6 +95,42 @@ export function login(email: string, password: string): Promise<Session> {
 /** Auto-login probe. Resolves with the user, or throws on an invalid token. */
 export function me(): Promise<{ user: PublicUser }> {
 	return send<{ user: PublicUser }>('/auth/me')
+}
+
+/** Save the trainer's look; the server clamps it to the known palettes. */
+export function saveAppearance(appearance: Appearance): Promise<{ appearance: Appearance }> {
+	return send<{ appearance: Appearance }>('/auth/appearance', {
+		method: 'PUT',
+		body: JSON.stringify({ appearance }),
+	})
+}
+
+/** Rename the trainer. Cosmetic, so no password is required. */
+export function changeDisplayName(displayName: string): Promise<{ user: PublicUser }> {
+	return send<{ user: PublicUser }>('/auth/display-name', {
+		method: 'PUT',
+		body: JSON.stringify({ displayName }),
+	})
+}
+
+/**
+ * Change the password. The server revokes every existing session and returns
+ * a fresh token, so the tab doing the change stays signed in while the others
+ * are logged out.
+ */
+export function changePassword(currentPassword: string, newPassword: string): Promise<{ token: string }> {
+	return send<{ token: string }>('/auth/password', {
+		method: 'PUT',
+		body: JSON.stringify({ currentPassword, newPassword }),
+	})
+}
+
+/** Delete the account for good. Guarded by the password, and irreversible. */
+export function deleteAccount(password: string): Promise<void> {
+	return send<void>('/auth/me', {
+		method: 'DELETE',
+		body: JSON.stringify({ password }),
+	})
 }
 
 export function logout(): Promise<void> {

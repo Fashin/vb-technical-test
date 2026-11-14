@@ -72,4 +72,9 @@ function addColumn(table: string, column: string, definition: string): void {
 addColumn('users', 'boosters_pending', 'INTEGER NOT NULL DEFAULT 1')
 addColumn('users', 'booster_since', `INTEGER NOT NULL DEFAULT 0`)
 
+// Trainer look, stored as JSON so a new feature (a jacket, a bag) does not
+// need a migration. Empty means "never customised": the account's generated
+// starting look is used instead.
+addColumn('users', 'appearance', `TEXT NOT NULL DEFAULT ''`)
+
 export { DB_PATH }

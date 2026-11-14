@@ -1,6 +1,7 @@
 import { createRouteMap, layerOf, type TileMapData } from './mapData'
 import { isSolid } from './tiles'
-import { savePosition, type UserRow } from '../auth/users'
+import { appearanceOf, savePosition, type UserRow } from '../auth/users'
+import type { Appearance } from '../appearance/appearance'
 
 /**
  * The shared overworld, held in memory.
@@ -34,6 +35,7 @@ export interface WorldPlayer {
 	userId: string
 	name: string
 	spriteId: number
+	appearance: Appearance
 	x: number
 	y: number
 	facing: Facing
@@ -46,6 +48,7 @@ export interface WorldPlayerState {
 	userId: string
 	name: string
 	spriteId: number
+	appearance: Appearance
 	x: number
 	y: number
 	facing: Facing
@@ -68,8 +71,8 @@ export function canWalk(x: number, y: number): boolean {
 }
 
 export function toState(player: WorldPlayer): WorldPlayerState {
-	const { id, userId, name, spriteId, x, y, facing } = player
-	return { id, userId, name, spriteId, x, y, facing }
+	const { id, userId, name, spriteId, appearance, x, y, facing } = player
+	return { id, userId, name, spriteId, appearance, x, y, facing }
 }
 
 export function listPlayers(): WorldPlayerState[] {
@@ -94,6 +97,7 @@ export function addPlayer(socketId: string, user: UserRow): WorldPlayer {
 		userId: user.id,
 		name: user.display_name,
 		spriteId: user.sprite_id,
+		appearance: appearanceOf(user),
 		x,
 		y,
 		facing: 'right',
@@ -166,6 +170,24 @@ function resolveStep(x: number, y: number, dx: number, dy: number): { x: number;
 		return null
 	}
 	return canWalk(x + dx, y + dy) ? { x: x + dx, y: y + dy } : null
+}
+
+/**
+ * Apply a profile change to every connection this account has open.
+ *
+ * Name and look travel together because they change the same thing for the
+ * other players — the character they see walking past — and a single event
+ * means they can never arrive half-applied.
+ */
+export function setProfile(userId: string, name: string, appearance: Appearance): WorldPlayer[] {
+	const changed: WorldPlayer[] = []
+	for (const player of players.values()) {
+		if (player.userId !== userId) continue
+		player.name = name
+		player.appearance = appearance
+		changed.push(player)
+	}
+	return changed
 }
 
 /** Flush every position — used when the process is shutting down. */

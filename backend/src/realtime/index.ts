@@ -11,7 +11,7 @@ import {
 	type SocketData,
 } from './events'
 import { verifySession } from '../auth/sessions'
-import { findById } from '../auth/users'
+import { appearanceOf, findById } from '../auth/users'
 import {
 	WORLD_SPEED,
 	addPlayer as addWorldPlayer,
@@ -19,6 +19,7 @@ import {
 	getPlayer as getWorldPlayer,
 	listPlayers,
 	removePlayer as removeWorldPlayer,
+	setProfile,
 	toState,
 	tryStep,
 } from '../world/world'
@@ -58,6 +59,28 @@ function succeed<T>(data: T): Ack<T> {
 /** socket.io room holding everyone walking the shared overworld. */
 const WORLD_ROOM = 'world'
 
+/**
+ * The running server, so HTTP handlers can act on live connections. Set by
+ * `attachRealtime`; null before the server is up and in unit tests.
+ */
+let server: ArenaServer | null = null
+
+/**
+ * Kick every connection belonging to an account — used right after the
+ * account is deleted, so its character does not keep walking around with no
+ * row behind it.
+ */
+export async function disconnectUser(userId: string): Promise<void> {
+	if (!server) return
+
+	for (const socket of await server.fetchSockets()) {
+		if (socket.data.userId !== userId) continue
+		// Disconnecting is enough: the `disconnect` handler removes the player
+		// from the world and tells everyone, exactly as for a closed tab.
+		socket.disconnect(true)
+	}
+}
+
 function sanitizeName(name: unknown): string | null {
 	if (typeof name !== 'string') return null
 	const trimmed = name.trim().slice(0, 24)
@@ -72,6 +95,7 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 	const io: ArenaServer = new Server(httpServer, {
 		cors: { origin: true, credentials: true },
 	})
+	server = io
 
 	/**
 	 * Every socket carries a session token in its handshake. Authentication
@@ -229,6 +253,26 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 				y: moved.y,
 				facing: moved.facing,
 			})
+		})
+
+		/**
+		 * The profile itself is saved and validated by the `/auth` routes; this
+		 * only re-reads it from the database and tells the other players. There
+		 * is no payload to trust — that is the point.
+		 */
+		socket.on('world:profile', () => {
+			if (!socket.data.inWorld) return
+
+			const user = findById(socket.data.userId)
+			if (!user) return
+
+			const appearance = appearanceOf(user)
+			const name = user.display_name
+			socket.data.playerName = name
+
+			for (const player of setProfile(user.id, name, appearance)) {
+				io.to(WORLD_ROOM).emit('world:profile', { id: player.id, name, appearance })
+			}
 		})
 
 		socket.on('world:leave', () => {

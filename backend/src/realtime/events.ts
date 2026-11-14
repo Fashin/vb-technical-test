@@ -6,10 +6,12 @@
  */
 
 import type { TileMapData } from '../world/mapData'
+import type { Appearance } from '../appearance/appearance'
 import type { Facing, WorldPlayerState } from '../world/world'
 
 export type { TileMapData, TileLayer, LayerName } from '../world/mapData'
 export type { Facing, WorldPlayerState } from '../world/world'
+export type { Appearance } from '../appearance/appearance'
 
 export type RoomPhase = 'lobby' | 'picking' | 'battle' | 'finished'
 
@@ -79,6 +81,12 @@ export interface ClientToServerEvents {
 	/** One step, one tile per axis: `dx`/`dy` are each -1, 0 or 1. */
 	'world:move': (payload: { dx: number; dy: number }) => void
 	'world:leave': () => void
+	/**
+	 * Ask the server to re-read this account's profile and tell everyone.
+	 * Payload-free on purpose: the name and the look are saved over REST, and
+	 * the server trusts the database, never the client.
+	 */
+	'world:profile': () => void
 }
 
 /* ------------------------------- server → client ------------------------------- */
@@ -99,6 +107,7 @@ export interface ServerToClientEvents {
 	/** Your step was refused: snap back to this authoritative position. */
 	'world:rejected': (payload: { x: number; y: number }) => void
 	'world:left': (payload: { id: string }) => void
+	'world:profile': (payload: { id: string; name: string; appearance: Appearance }) => void
 }
 
 /** Per-socket server-side bookkeeping. */

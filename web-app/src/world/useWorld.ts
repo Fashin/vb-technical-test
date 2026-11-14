@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { Ack, TileMapData, WorldPlayerState, WorldSnapshot } from '../realtime'
+import type { Ack, Appearance, TileMapData, WorldPlayerState, WorldSnapshot } from '../realtime'
 import { getSocket, request } from '../realtime'
 
 export type WorldStatus = 'connecting' | 'joined' | 'error'
@@ -16,6 +16,8 @@ export interface WorldState {
 	others: Map<string, WorldPlayerState>
 	/** Ask the server for one step. Our own movement is predicted locally. */
 	move: (dx: number, dy: number) => void
+	/** Tell the others our name or look changed, once it is saved. */
+	announceProfile: (profile: { name?: string; appearance?: Appearance }) => void
 	/** Set when the server refused a step; read and cleared by the renderer. */
 	correction: { x: number; y: number; at: number } | null
 }
@@ -94,6 +96,18 @@ export function useWorld(enabled: boolean): WorldState {
 			setCorrection({ x, y, at: Date.now() })
 		}
 
+		const onProfile = ({ id, name, appearance }: { id: string; name: string; appearance: Appearance }) => {
+			if (id === selfId.current) {
+				setMe((current) => (current ? { ...current, name, appearance } : current))
+				return
+			}
+			setOthers((current) => {
+				const player = current.get(id)
+				if (!player) return current
+				return new Map(current).set(id, { ...player, name, appearance })
+			})
+		}
+
 		const onLeft = ({ id }: { id: string }) => {
 			setOthers((current) => {
 				if (!current.has(id)) return current
@@ -109,6 +123,7 @@ export function useWorld(enabled: boolean): WorldState {
 		socket.on('world:joined', onJoined)
 		socket.on('world:moved', onMoved)
 		socket.on('world:rejected', onRejected)
+		socket.on('world:profile', onProfile)
 		socket.on('world:left', onLeft)
 
 		if (socket.connected) void join()
@@ -122,6 +137,7 @@ export function useWorld(enabled: boolean): WorldState {
 			socket.off('world:joined', onJoined)
 			socket.off('world:moved', onMoved)
 			socket.off('world:rejected', onRejected)
+			socket.off('world:profile', onProfile)
 			socket.off('world:left', onLeft)
 			if (socket.connected) socket.emit('world:leave')
 		}
@@ -132,5 +148,13 @@ export function useWorld(enabled: boolean): WorldState {
 		if (socket.connected) socket.emit('world:move', { dx, dy })
 	}, [])
 
-	return { status, error, map, speed, me, others, move, correction }
+	const announceProfile = useCallback((profile: { name?: string; appearance?: Appearance }) => {
+		// Reflect it locally at once; the server echoes the stored version back
+		// through `world:profile` for everyone, us included.
+		setMe((current) => (current ? { ...current, ...profile } : current))
+		const socket = getSocket()
+		if (socket.connected) socket.emit('world:profile')
+	}, [])
+
+	return { status, error, map, speed, me, others, move, correction, announceProfile }
 }

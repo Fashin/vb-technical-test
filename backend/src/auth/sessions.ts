@@ -62,6 +62,17 @@ export function revokeSession(token: string): void {
 	db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(hashToken(token))
 }
 
+/**
+ * Drop every session of an account.
+ *
+ * Called when the password changes: a password change is how someone locks
+ * out whoever else was logged in, so leaving the other tokens alive would
+ * defeat the point.
+ */
+export function revokeAllSessions(userId: string): number {
+	return db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId).changes
+}
+
 export function purgeExpiredSessions(): number {
 	return db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(Date.now()).changes
 }

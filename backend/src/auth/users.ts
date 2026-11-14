@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 
 import { db } from '../db'
+import { appearanceForId, parseAppearance, type Appearance } from '../appearance/appearance'
 import { hashPassword } from './passwords'
 
 /** Row as stored. `password_hash` never leaves this module's callers. */
@@ -18,6 +19,8 @@ export interface UserRow {
 	boosters_pending: number
 	/** Start of the current accrual window; 0 until the first visit. */
 	booster_since: number
+	/** JSON appearance; empty string until the account is first drawn. */
+	appearance: string
 }
 
 /** What the client is allowed to see. */
@@ -27,6 +30,7 @@ export interface PublicUser {
 	displayName: string
 	spriteId: number
 	lastSeenAt: number
+	appearance: Appearance
 }
 
 export function toPublicUser(row: UserRow): PublicUser {
@@ -36,7 +40,17 @@ export function toPublicUser(row: UserRow): PublicUser {
 		displayName: row.display_name,
 		spriteId: row.sprite_id,
 		lastSeenAt: row.last_seen_at,
+		appearance: appearanceOf(row),
 	}
+}
+
+/** The stored look, or the one generated from the id if never customised. */
+export function appearanceOf(row: UserRow): Appearance {
+	return row.appearance ? parseAppearance(row.appearance) : appearanceForId(row.id)
+}
+
+export function saveAppearance(userId: string, appearance: Appearance): void {
+	db.prepare('UPDATE users SET appearance = ? WHERE id = ?').run(JSON.stringify(appearance), userId)
 }
 
 /** Emails are compared lowercased, so `A@b.c` and `a@b.c` are one account. */
@@ -76,6 +90,22 @@ export function createUser(email: string, password: string, displayName: string)
 	).run(id, normalizeEmail(email), hashPassword(password), displayName, spriteForId(id), now, now, 1, now)
 
 	return findById(id)!
+}
+
+export function updateDisplayName(userId: string, displayName: string): void {
+	db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(displayName, userId)
+}
+
+export function updatePassword(userId: string, password: string): void {
+	db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), userId)
+}
+
+/**
+ * Erase the account. Sessions and cards go with it through the ON DELETE
+ * CASCADE foreign keys, which is why `PRAGMA foreign_keys` is on.
+ */
+export function deleteUser(userId: string): void {
+	db.prepare('DELETE FROM users WHERE id = ?').run(userId)
 }
 
 export function touchLastSeen(userId: string): void {
