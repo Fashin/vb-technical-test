@@ -13,6 +13,7 @@ import { HudBar, type HudAction } from '../hud'
 import { useWorld } from '../world'
 import { CameraFollow, GROUND_Z_STRETCH, type MapBounds } from './CameraFollow'
 import { type TileMapData } from './mapData'
+import { Minimap } from './Minimap'
 import { Player } from './Player'
 import { RemotePlayer } from './RemotePlayer'
 import { TileMapMesh } from './TileMapMesh'
@@ -143,6 +144,8 @@ export function MapScene({ className }: MapSceneProps) {
 					Déconnexion
 				</button>
 			</div>
+
+			{ready && map && <Minimap map={map} me={me} others={others} />}
 
 			<p className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-xs text-white">
 				Clique sur la carte, puis déplace-toi avec les flèches ou ZQSD / WASD

@@ -1,4 +1,6 @@
 export { MapScene } from './MapScene'
+export { Minimap } from './Minimap'
+export { minimapColor } from './minimapColors'
 export { RemotePlayer } from './RemotePlayer'
 export { spriteUrlFor } from './sprites'
 export { CameraFollow, type CameraFollowProps, type MapBounds } from './CameraFollow'
