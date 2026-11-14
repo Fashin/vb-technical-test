@@ -4,33 +4,18 @@ import { GiScissors } from 'react-icons/gi'
 import { useEscapeToClose } from '../ui'
 import { useAuth } from '../auth'
 import {
+	BOTTOMS,
+	BUILDS,
 	CLOTH_COLORS,
+	FACIAL_HAIR,
 	HAIR_COLORS,
 	HAIR_STYLES,
 	HAT_STYLES,
 	SKIN_TONES,
+	TrainerPortrait,
 	appearanceKey,
-	drawTrainerPreview,
 	type Appearance,
 } from '../trainer'
-
-/** Live preview of the look being edited, drawn at 8x so the pixels show. */
-function Preview({ appearance }: { appearance: Appearance }) {
-	const canvas = useRef<HTMLCanvasElement>(null)
-
-	useEffect(() => {
-		if (canvas.current) drawTrainerPreview(canvas.current, appearance, 8)
-	}, [appearance])
-
-	return (
-		<canvas
-			ref={canvas}
-			role="img"
-			aria-label="Aperçu du dresseur"
-			className="[image-rendering:pixelated]"
-		/>
-	)
-}
 
 interface SwatchesProps {
 	label: string
@@ -167,18 +152,30 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 				<div className="mt-4 flex flex-1 gap-5 overflow-y-auto">
 					<div className="flex shrink-0 flex-col items-center gap-2">
 						<div className="rounded-lg border border-white/10 bg-gradient-to-b from-emerald-900/40 to-black/40 p-3">
-							<Preview appearance={draft} />
+							<TrainerPortrait appearance={draft} scale={8} label="Aperçu du dresseur" />
 						</div>
 						<span className="text-xs text-slate-500">{user?.displayName}</span>
 					</div>
 
 					<div className="flex flex-1 flex-col gap-3">
+						<Choices
+							label="Silhouette"
+							options={BUILDS}
+							value={draft.build}
+							onChange={(build) => set({ build })}
+						/>
 						<Choices label="Coupe" options={HAIR_STYLES} value={draft.hair} onChange={(hair) => set({ hair })} />
 						<Swatches
 							label="Couleur de cheveux"
 							colors={HAIR_COLORS}
 							value={draft.hairColor}
 							onChange={(hairColor) => set({ hairColor })}
+						/>
+						<Choices
+							label="Pilosité faciale"
+							options={FACIAL_HAIR}
+							value={draft.facialHair}
+							onChange={(facialHair) => set({ facialHair })}
 						/>
 						<Choices
 							label="Couvre-chef"
@@ -188,8 +185,14 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 						/>
 						<Swatches label="Carnation" colors={SKIN_TONES} value={draft.skin} onChange={(skin) => set({ skin })} />
 						<Swatches label="Haut" colors={CLOTH_COLORS} value={draft.shirt} onChange={(shirt) => set({ shirt })} />
+						<Choices
+							label="Tenue du bas"
+							options={BOTTOMS}
+							value={draft.bottom}
+							onChange={(bottom) => set({ bottom })}
+						/>
 						<Swatches
-							label="Bas"
+							label={draft.bottom === 1 ? 'Couleur de la jupe' : 'Couleur du pantalon'}
 							colors={CLOTH_COLORS}
 							value={draft.trousers}
 							onChange={(trousers) => set({ trousers })}

@@ -3,7 +3,22 @@ import { MathUtils, PerspectiveCamera, Vector3 } from 'three'
 import type { MutableRefObject } from 'react'
 
 /** Camera tilt above the ground, in degrees. 45° keeps the billboards readable. */
-const TILT = 45
+export const TILT = 45
+
+/**
+ * How much the world is stretched along Z so the ground reads as square.
+ *
+ * Looking at the ground from `TILT` degrees compresses depth on screen by
+ * `sin(TILT)`: a 1x1 tile would be drawn 1 wide and only 0.707 tall, i.e. 1.4
+ * times wider than high. Billboards escape it — they face the camera and are
+ * never laid flat — which is exactly what makes the squashed ground obvious
+ * next to an upright character.
+ *
+ * Pre-stretching the ground by the inverse cancels the projection out. The
+ * scene is scaled rather than the geometry rebuilt, so tile space stays
+ * 1 unit per tile everywhere in the game logic.
+ */
+export const GROUND_Z_STRETCH = 1 / Math.sin(MathUtils.degToRad(TILT))
 /** Preferred height above the ground; lowered automatically when the map is small. */
 const PREFERRED_HEIGHT = 11
 

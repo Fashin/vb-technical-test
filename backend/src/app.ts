@@ -4,7 +4,9 @@ import express from 'express'
 
 import { createServer } from 'http'
 import { AuthController } from './controllers/AuthController'
+import { ArenaController } from './controllers/ArenaController'
 import { BoosterController } from './controllers/BoosterController'
+import { TeamController } from './controllers/TeamController'
 import { PokemonController } from './controllers/PokemonController'
 import { ContentController } from './controllers/ContentsController'
 import { attachRealtime, listRooms } from './realtime'
@@ -35,6 +37,8 @@ app.use(express.urlencoded({ extended: true }))
  */
 app.use('/auth', AuthController)
 app.use('/boosters', BoosterController)
+app.use('/arena', ArenaController)
+app.use('/teams', TeamController)
 app.use('/pokemons', PokemonController)
 app.use('/contents', ContentController)
 app.get('/ping', (_req, res) => res.status(200).send('pong'))

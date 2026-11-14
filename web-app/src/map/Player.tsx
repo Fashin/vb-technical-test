@@ -97,8 +97,15 @@ export function Player({
 	/** Tiles covered by the step in progress — √2 on a diagonal, so it is not faster. */
 	const stepLength = useRef(1)
 	const [facingLeft, setFacingLeft] = useState(false)
-	// Legs alternate while a step is in progress and settle when it lands.
+	/**
+	 * Which leg leads the step in progress. Flipping it on every step is what
+	 * turns two stride poses into a walk — holding one pose for the whole walk
+	 * reads as a limp.
+	 */
+	const steps = useRef(0)
 	const [walkFrame, setWalkFrame] = useState(0)
+	/** True once the last move was northwards: we see the character's back. */
+	const [facingBack, setFacingBack] = useState(false)
 
 	// The server refused a step: drop whatever we predicted and stand where it
 	// says we are. Applied in an effect so the frame loop stays free of props.
@@ -145,6 +152,10 @@ export function Player({
 			if (dx || dy) {
 				if (dx < 0) setFacingLeft(true)
 				if (dx > 0) setFacingLeft(false)
+				// A purely sideways step keeps whichever view we had, as the 2D
+				// games do — only a vertical move turns the character around.
+				if (dy < 0) setFacingBack(true)
+				if (dy > 0) setFacingBack(false)
 
 				const next = resolveStep(to.current, dx, dy)
 				if (next) {
@@ -152,6 +163,7 @@ export function Player({
 					to.current = next
 					stepLength.current = Math.hypot(next.x - from.current.x, next.y - from.current.y) || 1
 					progress.current = 0
+					steps.current += 1
 					// Optimistic: we walk now and let the server confirm. It replies
 					// with `world:rejected` if it disagrees.
 					onStep?.(dx, dy)
@@ -165,16 +177,15 @@ export function Player({
 		const t = progress.current
 		const x = from.current.x + (to.current.x - from.current.x) * t
 		const y = from.current.y + (to.current.y - from.current.y) * t
-		// Little hop, so a step reads as a step.
-		const bob = t < 1 ? Math.sin(t * Math.PI) * 0.12 : 0
+		// A touch of rise and fall mid-step. Kept small: at this sprite size a
+		// bigger one turns a walk into a hop.
+		const bob = t < 1 ? Math.sin(t * Math.PI) * 0.06 : 0
 
 		node.position.set(x + 0.5, bob, y + Z_OFFSET)
 
-		const striding = t < 1
-		setWalkFrame((current) => {
-			const next = striding ? 1 : 0
-			return current === next ? current : next
-		})
+		// Frame 0 is standing; 1 and 2 are the two stride poses.
+		const next = t < 1 ? (steps.current % 2 === 0 ? 1 : 2) : 0
+		setWalkFrame((current) => (current === next ? current : next))
 
 		// The map mesh is centred on the origin by its parent group, so the camera
 		// needs the world position, not the tile position.
@@ -183,7 +194,12 @@ export function Player({
 
 	return (
 		<group ref={group}>
-			<TrainerSprite appearance={appearance} facingLeft={facingLeft} frame={walkFrame} />
+			<TrainerSprite
+				appearance={appearance}
+				facingLeft={facingLeft}
+				frame={walkFrame}
+				back={facingBack}
+			/>
 		</group>
 	)
 }

@@ -20,6 +20,12 @@ export interface CollectionValue {
 	error: string | null
 	/** Grouped, deduplicated, and sorted. */
 	entries: CollectionEntry[]
+	/**
+	 * The raw cards, newest first — one entry per physical copy. The team
+	 * builder needs these: a team holds specific cards, so two Rattata have to
+	 * stay tellable apart.
+	 */
+	cards: Card[]
 	/** Totals across the whole collection, never the filtered view. */
 	total: number
 	unique: number
@@ -108,6 +114,7 @@ export function useCollection(): CollectionValue {
 		loading: cards === null,
 		error,
 		entries,
+		cards: cards ?? [],
 		total: cards?.length ?? 0,
 		unique: grouped.length,
 		byRarity,

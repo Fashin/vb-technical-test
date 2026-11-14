@@ -17,6 +17,12 @@ export interface Appearance {
 	shirt: number
 	trousers: number
 	hat: number
+	/** Beard or moustache: index into `FACIAL_HAIR`. It takes the hair colour. */
+	facialHair: number
+	/** Silhouette: index into `BUILDS`. */
+	build: number
+	/** What the trainer wears below the waist: index into `BOTTOMS`. */
+	bottom: number
 }
 
 export const SKIN_TONES = ['#f2c9a0', '#e0a878', '#c68642', '#8d5524', '#5c3317', '#ffd9b8']
@@ -39,6 +45,20 @@ export const CLOTH_COLORS = [
 export const HAIR_STYLES = ['Court', 'Long', 'Couettes', 'Hérissé', 'Crâne rasé'] as const
 export const HAT_STYLES = ['Aucun', 'Casquette', 'Bandana'] as const
 
+/**
+ * Facial hair. It has no colour of its own: it follows the hair, which is
+ * both what happens on a real head and one fewer control to fiddle with.
+ */
+export const FACIAL_HAIR = ['Aucune', 'Moustache', 'Bouc', 'Barbe courte', 'Barbe pleine'] as const
+
+/**
+ * Silhouette and outfit are two independent choices rather than one "gender"
+ * switch: every combination is valid, and the roster gains more variety than
+ * a single toggle would give it.
+ */
+export const BUILDS = ['Carrée', 'Fine'] as const
+export const BOTTOMS = ['Pantalon', 'Jupe'] as const
+
 export const DEFAULT_APPEARANCE: Appearance = {
 	skin: 0,
 	hair: 0,
@@ -46,6 +66,9 @@ export const DEFAULT_APPEARANCE: Appearance = {
 	shirt: 0,
 	trousers: 1,
 	hat: 1,
+	facialHair: 0,
+	build: 0,
+	bottom: 0,
 }
 
 const SIZES: Record<keyof Appearance, number> = {
@@ -55,6 +78,9 @@ const SIZES: Record<keyof Appearance, number> = {
 	shirt: CLOTH_COLORS.length,
 	trousers: CLOTH_COLORS.length,
 	hat: HAT_STYLES.length,
+	facialHair: FACIAL_HAIR.length,
+	build: BUILDS.length,
+	bottom: BOTTOMS.length,
 }
 
 /** Clamp anything that arrives from the network into a drawable appearance. */
@@ -72,5 +98,15 @@ export function sanitizeAppearance(value: unknown): Appearance {
 
 /** Stable key for memoising a drawn sprite. */
 export function appearanceKey(appearance: Appearance): string {
-	return `${appearance.skin}-${appearance.hair}-${appearance.hairColor}-${appearance.shirt}-${appearance.trousers}-${appearance.hat}`
+	return [
+		appearance.skin,
+		appearance.hair,
+		appearance.hairColor,
+		appearance.shirt,
+		appearance.trousers,
+		appearance.hat,
+		appearance.facialHair,
+		appearance.build,
+		appearance.bottom,
+	].join('-')
 }

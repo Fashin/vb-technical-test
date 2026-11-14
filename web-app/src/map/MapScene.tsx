@@ -1,32 +1,29 @@
 import { Suspense, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { useTexture } from '@react-three/drei'
 import { Vector3 } from 'three'
 
 import { useAuth } from '../auth'
 import { BoosterPanel, useBoosters } from '../boosters'
+import { ArenaPanel } from '../arena'
 import { BarberPanel } from '../barber'
 import { CollectionPanel } from '../collection'
 import { OptionsPanel } from '../options'
+import { TeamPanel } from '../teams'
 import { HudBar, type HudAction } from '../hud'
 import { useWorld } from '../world'
-import { CameraFollow, type MapBounds } from './CameraFollow'
+import { CameraFollow, GROUND_Z_STRETCH, type MapBounds } from './CameraFollow'
 import { type TileMapData } from './mapData'
 import { Player } from './Player'
 import { RemotePlayer } from './RemotePlayer'
 import { TileMapMesh } from './TileMapMesh'
-import { ATLAS_URL, configureAtlas } from './tileset'
+import { useAtlasTexture } from './useAtlasTexture'
 import { usePlayerControls } from './usePlayerControls'
 
 /** Forward nudge applied to the character by `Player`; mirrored here for the camera's first frame. */
 const PLAYER_Z_OFFSET = 0.9
 
 function Route({ map }: { map: TileMapData }) {
-	const texture = useTexture(ATLAS_URL, (loaded) => {
-		const list = Array.isArray(loaded) ? loaded : [loaded]
-		list.forEach(configureAtlas)
-	})
-	return <TileMapMesh map={map} texture={texture} />
+	return <TileMapMesh map={map} texture={useAtlasTexture()} />
 }
 
 interface MapSceneProps {
@@ -61,14 +58,21 @@ export function MapScene({ className }: MapSceneProps) {
 	const playerPosition = useRef(new Vector3())
 	const cameraSeeded = useRef(false)
 
-	const centre: [number, number, number] = map ? [-map.width / 2, 0, -map.height / 2] : [0, 0, 0]
+	// The map is built in tile space and centred on the origin here. Z is also
+	// stretched so the camera's tilt does not squash the ground — see
+	// GROUND_Z_STRETCH. The offset uses the *stretched* depth, otherwise the
+	// scale would push the map off-centre instead of growing it in place.
+	const depth = (map?.height ?? 0) * GROUND_Z_STRETCH
+	const centre: [number, number, number] = map ? [-map.width / 2, 0, -depth / 2] : [0, 0, 0]
 
 	const bounds: MapBounds = useMemo(
 		() => ({
 			minX: -(map?.width ?? 0) / 2,
 			maxX: (map?.width ?? 0) / 2,
-			minZ: -(map?.height ?? 0) / 2,
-			maxZ: (map?.height ?? 0) / 2,
+			// World units, so the stretch counts: a bound in tile units would let
+			// the camera stop short and show the void past the edge.
+			minZ: -((map?.height ?? 0) * GROUND_Z_STRETCH) / 2,
+			maxZ: ((map?.height ?? 0) * GROUND_Z_STRETCH) / 2,
 		}),
 		[map?.width, map?.height],
 	)
@@ -79,7 +83,7 @@ export function MapScene({ className }: MapSceneProps) {
 		playerPosition.current.set(
 			spawn.current.x + 0.5 + centre[0],
 			0,
-			spawn.current.y + PLAYER_Z_OFFSET + centre[2],
+			(spawn.current.y + PLAYER_Z_OFFSET) * GROUND_Z_STRETCH + centre[2],
 		)
 	}
 
@@ -98,7 +102,7 @@ export function MapScene({ className }: MapSceneProps) {
 				<Canvas dpr={[1, 2]} camera={{ position: [0, 11, 11], fov: 35 }} gl={{ antialias: false }}>
 					<color attach="background" args={['#121a12']} />
 					<Suspense fallback={null}>
-						<group position={centre}>
+						<group position={centre} scale={[1, 1, GROUND_Z_STRETCH]}>
 							<Route map={map} />
 							<Player
 								map={map}
@@ -153,6 +157,8 @@ export function MapScene({ className }: MapSceneProps) {
 			{panel === 'booster' && <BoosterPanel boosters={boosters} onClose={() => setPanel(null)} />}
 			{panel === 'collection' && <CollectionPanel onClose={() => setPanel(null)} />}
 			{panel === 'barber' && <BarberPanel onClose={() => setPanel(null)} onSaved={(appearance) => announceProfile({ appearance })} />}
+			{panel === 'team' && <TeamPanel onClose={() => setPanel(null)} />}
+			{panel === 'arena' && <ArenaPanel onClose={() => setPanel(null)} />}
 			{panel === 'options' && (
 				<OptionsPanel onClose={() => setPanel(null)} onRenamed={(name) => announceProfile({ name })} />
 			)}

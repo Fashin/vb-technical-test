@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { CanvasTexture, NearestFilter, SRGBColorSpace } from 'three'
 
 import { appearanceKey, type Appearance } from './appearance'
-import { FRAMES, FRAME_H, FRAME_W, drawTrainer } from './drawTrainer'
+import { FRAMES, FRAME_H, FRAME_W, VIEWS, drawTrainer } from './drawTrainer'
 
 /** World height of a trainer, in tiles. Roughly a head and a half above the grid. */
 export const TRAINER_HEIGHT = 1.5
@@ -19,11 +19,14 @@ export function TrainerSprite({
 	appearance,
 	facingLeft,
 	frame,
+	back = false,
 }: {
 	appearance: Appearance
 	facingLeft: boolean
-	/** 0 = standing, 1 = mid-stride. */
+	/** 0 = standing, 1 and 2 are the two stride poses. */
 	frame: number
+	/** True when walking away from the camera. */
+	back?: boolean
 }) {
 	const key = appearanceKey(appearance)
 
@@ -34,7 +37,7 @@ export function TrainerSprite({
 		next.minFilter = NearestFilter
 		next.generateMipmaps = false
 		next.colorSpace = SRGBColorSpace
-		next.repeat.set(1 / FRAMES, 1)
+		next.repeat.set(1 / (FRAMES * VIEWS), 1)
 		return next
 		// `key` is the appearance's identity; the object itself is recreated on
 		// every snapshot and would thrash the texture.
@@ -43,9 +46,10 @@ export function TrainerSprite({
 
 	useEffect(() => () => texture.dispose(), [texture])
 
-	// Offset picks the frame; flipping is done by the mesh scale, not the UVs,
+	// Offset picks the cell; flipping is done by the mesh scale, not the UVs,
 	// so the two never fight over the same value.
-	texture.offset.x = (frame % FRAMES) / FRAMES
+	const cell = (back ? FRAMES : 0) + (frame % FRAMES)
+	texture.offset.x = cell / (FRAMES * VIEWS)
 
 	return (
 		<mesh

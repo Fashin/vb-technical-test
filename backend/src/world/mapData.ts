@@ -1,4 +1,4 @@
-import { Tile } from './tiles'
+import { Tile, isSolid } from './tiles'
 
 /**
  * The world's one and only map generator.
@@ -54,11 +54,26 @@ function rng(seed: number): () => number {
 	}
 }
 
-export const DEFAULT_WIDTH = 80
-export const DEFAULT_HEIGHT = 56
+export const DEFAULT_WIDTH = 120
+export const DEFAULT_HEIGHT = 84
 
 /** Width of every road, in tiles. */
 const ROAD = 3
+
+/** The four elemental corners. */
+type Element = 'air' | 'fire' | 'water' | 'earth'
+
+/**
+ * How far a corner biome reaches, as a fraction of the map.
+ *
+ * Tuned down from a half: at that size the four of them met in the middle and
+ * swallowed the roads and the crossroads. At 0.34 they read as corners and the
+ * meadow keeps the centre.
+ */
+const CORNER_REACH = 0.34
+
+/** How ragged a biome's edge is, as a fraction of its reach. */
+const CORNER_FRAY = 0.14
 
 interface Rect {
 	x: number
@@ -101,18 +116,20 @@ export function createRouteMap(seed = 1337, width = DEFAULT_WIDTH, height = DEFA
 
 	// Ponds, each with a sand shore one tile wide. Placed before the roads so a
 	// road always wins if the two ever overlap.
+	// Both sit in the central meadow, clear of the elemental corners: a pond
+	// half-swallowed by a lava field reads as a mistake, not as a feature.
 	const ponds: Rect[] = [
 		{
-			x: Math.round(width * 0.74),
-			y: Math.round(height * 0.12),
-			w: Math.round(width * 0.18),
-			h: Math.round(height * 0.2),
+			x: Math.round(width * 0.56),
+			y: Math.round(height * 0.2),
+			w: Math.round(width * 0.14),
+			h: Math.round(height * 0.16),
 		},
 		{
-			x: Math.round(width * 0.08),
-			y: Math.round(height * 0.78),
-			w: Math.round(width * 0.16),
-			h: Math.round(height * 0.14),
+			x: Math.round(width * 0.12),
+			y: Math.round(height * 0.4),
+			w: Math.round(width * 0.11),
+			h: Math.round(height * 0.12),
 		},
 	]
 	for (const pond of ponds) {
@@ -143,6 +160,61 @@ export function createRouteMap(seed = 1337, width = DEFAULT_WIDTH, height = DEFA
 		}
 	}
 
+	/** Which scenery a biome fences itself in with at the map edge. */
+	const borderObject = (groundTile: Tile): Tile => {
+		if (groundTile === Tile.Cinder) return Tile.DeadTree
+		if (groundTile === Tile.Stone || groundTile === Tile.Sand) return Tile.Boulder
+		if (groundTile === Tile.Cloud) return Tile.Boulder
+		return Tile.Tree
+	}
+
+	/**
+	 * Paint one tile of an elemental corner.
+	 *
+	 * `depth` runs from 0 at the biome's edge to 1 at the corner itself, so the
+	 * lava, the open water and the void sit at the heart of each corner while
+	 * the approach stays walkable.
+	 */
+	const paintBiome = (element: Element, index: number, depth: number) => {
+		overlay[index] = Tile.Empty
+		objects[index] = Tile.Empty
+
+		switch (element) {
+			case 'fire':
+				if (depth > 0.55) ground[index] = random() < 0.5 ? Tile.Lava : Tile.LavaAlt
+				else {
+					ground[index] = random() < 0.75 ? Tile.Cinder : Tile.Stone
+					if (random() < 0.06) objects[index] = Tile.DeadTree
+					else if (random() < 0.08) objects[index] = Tile.Boulder
+				}
+				break
+
+			case 'water':
+				if (depth > 0.62) ground[index] = random() < 0.5 ? Tile.Water : Tile.WaterAlt
+				else if (depth > 0.42) {
+					ground[index] = Tile.Ice
+					if (random() < 0.05) overlay[index] = Tile.LilyPad
+				} else {
+					ground[index] = random() < 0.7 ? Tile.Sand : Tile.GrassPebbles
+					if (random() < 0.1) objects[index] = Tile.Reed
+				}
+				break
+
+			case 'earth':
+				ground[index] = random() < 0.55 ? Tile.Stone : random() < 0.6 ? Tile.Cobble : Tile.Sand
+				if (depth > 0.5 && random() < 0.16) objects[index] = Tile.Boulder
+				else if (random() < 0.07) objects[index] = Tile.SandRock
+				else if (random() < 0.04) objects[index] = Tile.Cactus
+				break
+
+			default:
+				// Air: a cloud plateau, torn open by the void at its heart.
+				if (depth > 0.6 && random() < 0.35) ground[index] = Tile.CloudDeep
+				else ground[index] = random() < 0.8 ? Tile.Cloud : Tile.Stone
+				break
+		}
+	}
+
 	const walkableGrass = (x: number, y: number) => {
 		const t = ground[at(x, y)]
 		return t === Tile.Grass || t === Tile.GrassAlt || t === Tile.GrassPebbles
@@ -166,14 +238,57 @@ export function createRouteMap(seed = 1337, width = DEFAULT_WIDTH, height = DEFA
 		}
 	}
 
-	// Tree border, with a gap wherever a road leaves the map.
+	/* ----------------------------- elemental corners ----------------------------- */
+
+	// Each corner is a blob rather than a rectangle: the radius is modulated by
+	// noise so the biome bleeds into the meadow instead of ending on a seam.
+	const CORNERS: { element: Element; cx: number; cy: number }[] = [
+		{ element: 'air', cx: 0, cy: 0 },
+		{ element: 'fire', cx: 1, cy: 0 },
+		{ element: 'water', cx: 0, cy: 1 },
+		{ element: 'earth', cx: 1, cy: 1 },
+	]
+
+	for (const { element, cx, cy } of CORNERS) {
+		const originX = cx * (width - 1)
+		const originY = cy * (height - 1)
+		const reachX = width * CORNER_REACH
+		const reachY = height * CORNER_REACH
+
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				// Elliptical distance, so a wide map gets wide corners.
+				const dx = (x - originX) / reachX
+				const dy = (y - originY) / reachY
+				const distance = Math.hypot(dx, dy)
+				// The noise is sampled per tile, which frays the edge one tile at
+				// a time — enough to look natural at this scale.
+				if (distance > 1 - CORNER_FRAY + random() * CORNER_FRAY * 2) continue
+
+				// `depth` is 1 at the very corner and 0 at the biome's edge; the
+				// harsher features are reserved for the heart of it.
+				paintBiome(element, at(x, y), 1 - distance)
+			}
+		}
+	}
+
+	// Border, with a gap wherever a road leaves the map. Each biome walls itself
+	// in with its own scenery; where the ground is already impassable — lava, a
+	// lake, the void between clouds — nothing needs to be added on top.
+	const border = (x: number, y: number) => {
+		if (isSolid(ground[at(x, y)])) {
+			objects[at(x, y)] = Tile.Empty
+			return
+		}
+		objects[at(x, y)] = borderObject(ground[at(x, y)])
+	}
 	for (let x = 0; x < width; x++) {
-		objects[at(x, 0)] = Tile.Tree
-		objects[at(x, height - 1)] = Tile.Tree
+		border(x, 0)
+		border(x, height - 1)
 	}
 	for (let y = 0; y < height; y++) {
-		objects[at(0, y)] = Tile.Tree
-		objects[at(width - 1, y)] = Tile.Tree
+		border(0, y)
+		border(width - 1, y)
 	}
 	for (let d = 0; d < ROAD; d++) {
 		objects[at(0, trunkY + d)] = Tile.Empty
@@ -212,9 +327,19 @@ export function createRouteMap(seed = 1337, width = DEFAULT_WIDTH, height = DEFA
 		if (inside(x, fenceY) && walkableGrass(x, fenceY)) objects[at(x, fenceY)] = Tile.Fence
 	}
 
-	// The spawn sits on the first plaza; make sure nothing was dropped on it.
+	/*
+	 * The spawn sits on the first plaza. Clear a small landing around it by
+	 * hand: the corner biomes are noisy blobs, and one unlucky roll spilling
+	 * lava or open water onto the spawn would strand every new player.
+	 */
 	const spawn = { x: northX + 1, y: trunkY + 1 }
-	objects[at(spawn.x, spawn.y)] = Tile.Empty
+	for (let y = spawn.y - 1; y <= spawn.y + 1; y++) {
+		for (let x = spawn.x - 1; x <= spawn.x + 1; x++) {
+			if (!inside(x, y)) continue
+			ground[at(x, y)] = Tile.Stone
+			objects[at(x, y)] = Tile.Empty
+		}
+	}
 
 	return {
 		width,

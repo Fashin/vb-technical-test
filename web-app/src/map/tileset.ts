@@ -34,11 +34,25 @@ export enum Tile {
 	Water,
 	WaterAlt,
 
+	// Ground, elemental corners.
+	Lava = 10,
+	LavaAlt,
+	/** Frozen lake surface: crossable, unlike open water. */
+	Ice,
+	/** Cloud floor of the sky plateau. */
+	Cloud,
+	/** The gaps between clouds — nothing to stand on. */
+	CloudDeep,
+	/** Burnt ground around the lava. */
+	Cinder,
+	Cobble,
+
 	// Overlay — drawn flat, just above the ground.
 	FlowerBlue = 20,
 	FlowerOrange,
 	FlowerPurple,
 	FlowerWhite,
+	LilyPad,
 
 	// Objects — drawn as upright billboards.
 	Tree = 40,
@@ -48,6 +62,10 @@ export enum Tile {
 	BushFlower,
 	Cactus,
 	Fence,
+	Boulder,
+	SandRock,
+	DeadTree,
+	Reed,
 }
 
 interface Sprite {
@@ -70,10 +88,21 @@ const SPRITES: Record<Exclude<Tile, Tile.Empty>, Sprite> = {
 	[Tile.Water]: { col: 1, row: 1 },
 	[Tile.WaterAlt]: { col: 0, row: 1 },
 
+	[Tile.Lava]: { col: 0, row: 18 },
+	[Tile.LavaAlt]: { col: 1, row: 18 },
+	[Tile.Ice]: { col: 3, row: 4 },
+	[Tile.Cobble]: { col: 9, row: 0 },
+	// Painted into spare cells of the sheet at load time — the pack has no
+	// clouds, and nothing in it passes for sky. See `extraTiles.ts`.
+	[Tile.Cloud]: { col: 5, row: 6 },
+	[Tile.CloudDeep]: { col: 6, row: 6 },
+	[Tile.Cinder]: { col: 7, row: 6 },
+
 	[Tile.FlowerBlue]: { col: 28, row: 9 },
 	[Tile.FlowerOrange]: { col: 29, row: 9 },
 	[Tile.FlowerPurple]: { col: 30, row: 9 },
 	[Tile.FlowerWhite]: { col: 31, row: 9 },
+	[Tile.LilyPad]: { col: 28, row: 10 },
 
 	[Tile.Tree]: { col: 13, row: 10, rows: 2 },
 	[Tile.TreePine]: { col: 16, row: 10, rows: 2 },
@@ -82,16 +111,26 @@ const SPRITES: Record<Exclude<Tile, Tile.Empty>, Sprite> = {
 	[Tile.BushFlower]: { col: 24, row: 9 },
 	[Tile.Cactus]: { col: 22, row: 9 },
 	[Tile.Fence]: { col: 47, row: 23 },
+	[Tile.Boulder]: { col: 5, row: 17 },
+	[Tile.SandRock]: { col: 5, row: 19 },
+	[Tile.DeadTree]: { col: 27, row: 10, rows: 2 },
+	[Tile.Reed]: { col: 22, row: 10 },
 }
 
 const SOLID = new Set<Tile>([
 	Tile.Water,
 	Tile.WaterAlt,
+	Tile.Lava,
+	Tile.LavaAlt,
+	Tile.CloudDeep,
 	Tile.Tree,
 	Tile.TreePine,
 	Tile.TreeSmall,
 	Tile.Cactus,
 	Tile.Fence,
+	Tile.Boulder,
+	Tile.SandRock,
+	Tile.DeadTree,
 ])
 
 /** Tiles a walker cannot cross. Bushes are tall grass: you walk through them. */

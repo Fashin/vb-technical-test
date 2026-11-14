@@ -13,6 +13,12 @@ export interface Appearance {
 	shirt: number
 	trousers: number
 	hat: number
+	/** Beard or moustache; it takes the hair colour. */
+	facialHair: number
+	/** Silhouette. */
+	build: number
+	/** Trousers or skirt. */
+	bottom: number
 }
 
 /** Number of entries in each palette, mirrored from the web app. */
@@ -23,6 +29,9 @@ const SIZES: Record<keyof Appearance, number> = {
 	shirt: 10,
 	trousers: 10,
 	hat: 3,
+	facialHair: 5,
+	build: 2,
+	bottom: 2,
 }
 
 export const DEFAULT_APPEARANCE: Appearance = {
@@ -32,6 +41,9 @@ export const DEFAULT_APPEARANCE: Appearance = {
 	shirt: 0,
 	trousers: 1,
 	hat: 1,
+	facialHair: 0,
+	build: 0,
+	bottom: 0,
 }
 
 /** Clamp anything into a drawable appearance; unknown keys are dropped. */
@@ -73,5 +85,8 @@ export function appearanceForId(id: string): Appearance {
 		shirt: at(131, SIZES.shirt),
 		trousers: at(613, SIZES.trousers),
 		hat: at(2791, SIZES.hat),
+		facialHair: at(104729, SIZES.facialHair),
+		build: at(9907, SIZES.build),
+		bottom: at(37, SIZES.bottom),
 	}
 }

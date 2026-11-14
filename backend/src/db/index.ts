@@ -49,9 +49,32 @@ db.exec(`
 		obtained_at INTEGER NOT NULL
 	);
 
+	CREATE TABLE IF NOT EXISTS teams (
+		id         TEXT PRIMARY KEY,
+		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		name       TEXT NOT NULL,
+		created_at INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS team_members (
+		team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+		slot    INTEGER NOT NULL,
+		card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+		PRIMARY KEY (team_id, slot),
+		UNIQUE (team_id, card_id)
+	);
+
+	CREATE TABLE IF NOT EXISTS master_victories (
+		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		master_id  TEXT NOT NULL,
+		defeated_at INTEGER NOT NULL,
+		PRIMARY KEY (user_id, master_id)
+	);
+
 	CREATE INDEX IF NOT EXISTS sessions_by_user ON sessions(user_id);
 	CREATE INDEX IF NOT EXISTS sessions_by_expiry ON sessions(expires_at);
 	CREATE INDEX IF NOT EXISTS cards_by_user ON cards(user_id);
+	CREATE INDEX IF NOT EXISTS teams_by_user ON teams(user_id);
 `)
 
 /**
@@ -76,5 +99,9 @@ addColumn('users', 'booster_since', `INTEGER NOT NULL DEFAULT 0`)
 // need a migration. Empty means "never customised": the account's generated
 // starting look is used instead.
 addColumn('users', 'appearance', `TEXT NOT NULL DEFAULT ''`)
+
+// The team taken into the arena. Nullable: a fresh account has none, and
+// deleting the selected team puts it back to NULL rather than dangling.
+addColumn('users', 'active_team_id', 'TEXT')
 
 export { DB_PATH }
