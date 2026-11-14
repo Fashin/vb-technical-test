@@ -25,13 +25,17 @@ function formatCountdown(ms: number): string {
  * is where a HUD starts to feel like a settings menu.
  */
 export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; onClose: () => void }) {
-	const { state, remainingMs, cards, opening, error, open, dismiss } = boosters
+	const { state, remainingMs, cards, opening, error, open, dismiss, refresh } = boosters
 	const reveal = useReveal(cards)
 	const backdrop = useRef<HTMLDivElement>(null)
 
 	// Focus the panel so Escape reaches it rather than the map underneath.
 	useEffect(() => backdrop.current?.focus(), [])
 	useEscapeToClose(onClose)
+
+	// The stock may have grown since the app booted — an arena win credits
+	// boosters too. Always open on the truth.
+	useEffect(() => refresh(), [refresh])
 
 	return (
 		<div

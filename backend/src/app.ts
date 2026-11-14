@@ -1,3 +1,5 @@
+// First import on purpose: it loads `.env` before any module reads it.
+import { PORT, reportConfig } from './config'
 
 import cors from 'cors'
 import express from 'express'
@@ -68,8 +70,7 @@ app.get('/realtime/rooms', (_req, res) => res.status(200).json({ rooms: listRoom
 /**
  * Start server
  */
-const PORT = Number(process.env.PORT) || 3001
-
 httpServer.listen(PORT, () => {
+	reportConfig()
 	console.log('Server started on port:', PORT)
 })

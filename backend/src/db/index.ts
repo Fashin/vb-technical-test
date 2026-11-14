@@ -64,6 +64,18 @@ db.exec(`
 		UNIQUE (team_id, card_id)
 	);
 
+	CREATE TABLE IF NOT EXISTS battles (
+		id         TEXT PRIMARY KEY,
+		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		master_id  TEXT NOT NULL,
+		/** VirtualBrain session, so the chatbot remembers the earlier rounds. */
+		session_id TEXT,
+		state      TEXT NOT NULL,
+		status     TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		updated_at INTEGER NOT NULL
+	);
+
 	CREATE TABLE IF NOT EXISTS master_victories (
 		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 		master_id  TEXT NOT NULL,
@@ -75,6 +87,7 @@ db.exec(`
 	CREATE INDEX IF NOT EXISTS sessions_by_expiry ON sessions(expires_at);
 	CREATE INDEX IF NOT EXISTS cards_by_user ON cards(user_id);
 	CREATE INDEX IF NOT EXISTS teams_by_user ON teams(user_id);
+	CREATE INDEX IF NOT EXISTS battles_by_user ON battles(user_id, status);
 `)
 
 /**

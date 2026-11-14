@@ -13,6 +13,14 @@ export interface BoostersValue {
 	open: () => Promise<void>
 	/** Put the reveal away and go back to the stock. */
 	dismiss: () => void
+	/**
+	 * Re-read the stock from the server.
+	 *
+	 * Boosters are not only earned by waiting — winning in the arena credits
+	 * them too — so anything that might have changed the count calls this
+	 * rather than letting the panel show what it loaded at startup.
+	 */
+	refresh: () => void
 }
 
 /**
@@ -90,5 +98,5 @@ export function useBoosters(enabled: boolean): BoostersValue {
 
 	const dismiss = useCallback(() => setCards(null), [])
 
-	return { state, remainingMs, cards, opening, error, open, dismiss }
+	return { state, remainingMs, cards, opening, error, open, dismiss, refresh: () => void refresh() }
 }

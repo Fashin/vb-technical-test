@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { GiCrossedSwords, GiLaurelCrown } from 'react-icons/gi'
 
+import { BattleView } from '../battle'
 import { spriteUrlFor } from '../map'
 import { fetchTeams, type Team } from '../teams'
 import { TrainerPortrait } from '../trainer'
@@ -107,7 +108,14 @@ function MasterCard({
  * served by the backend, not hardcoded here: who you fight and what it pays
  * are game rules, and a client that owned them would own the reward table.
  */
-export function ArenaPanel({ onClose }: { onClose: () => void }) {
+export function ArenaPanel({
+	onClose,
+	onRewarded,
+}: {
+	onClose: () => void
+	/** Called when a battle paid out, so the booster stock can be re-read. */
+	onRewarded: () => void
+}) {
 	const [masters, setMasters] = useState<Master[] | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [challenged, setChallenged] = useState<Master | null>(null)
@@ -222,11 +230,6 @@ export function ArenaPanel({ onClose }: { onClose: () => void }) {
 					</p>
 				)}
 
-				{challenged && (
-					<p role="status" className="mt-3 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
-						{challenged.name} t’attend — les combats tour par tour arrivent au prochain lot.
-					</p>
-				)}
 
 				<ul className="mt-4 flex-1 space-y-2 overflow-y-auto pr-1">
 					{masters?.map((master) => (
@@ -239,6 +242,19 @@ export function ArenaPanel({ onClose }: { onClose: () => void }) {
 					))}
 				</ul>
 			</section>
+
+			{challenged && (
+				<BattleView
+					master={challenged}
+					onRewarded={onRewarded}
+					onClose={() => {
+						setChallenged(null)
+						// The roster's "vaincu" badges and the booster count may have
+						// just changed; re-read rather than guess.
+						void fetchMasters().then(({ masters: found }) => setMasters(found)).catch(() => undefined)
+					}}
+				/>
+			)}
 		</div>
 	)
 }

@@ -161,7 +161,7 @@ export function MapScene({ className }: MapSceneProps) {
 			{panel === 'collection' && <CollectionPanel onClose={() => setPanel(null)} />}
 			{panel === 'barber' && <BarberPanel onClose={() => setPanel(null)} onSaved={(appearance) => announceProfile({ appearance })} />}
 			{panel === 'team' && <TeamPanel onClose={() => setPanel(null)} />}
-			{panel === 'arena' && <ArenaPanel onClose={() => setPanel(null)} />}
+			{panel === 'arena' && <ArenaPanel onClose={() => setPanel(null)} onRewarded={boosters.refresh} />}
 			{panel === 'options' && (
 				<OptionsPanel onClose={() => setPanel(null)} onRenamed={(name) => announceProfile({ name })} />
 			)}

@@ -164,3 +164,44 @@ export async function fetchCardFace(pokedexId: number): Promise<string> {
 		return `#${String(pokedexId).padStart(3, '0')}`
 	}
 }
+
+
+/**
+ * The slice of a Pokemon a battle needs: name, types and base stats.
+ *
+ * One HTTP call, cached for the process' lifetime. `fetchPokemon` above costs
+ * five round trips because it resolves type matchups and evolution chains; a
+ * fighter needs none of that, and a battle turn cannot wait for it.
+ */
+export interface Fighter {
+	pokedexId: number
+	name: string
+	types: string[]
+	stats: { hp: number; attack: number; defense: number; specialAttack: number; specialDefense: number; speed: number }
+}
+
+const fighterCache = new Map<number, Fighter>()
+
+export async function fetchFighter(pokedexId: number): Promise<Fighter> {
+	const cached = fighterCache.get(pokedexId)
+	if (cached) return cached
+
+	const { data } = await axios.get<ApiPokemon>(`${POKEAPI_URL}/pokemon/${pokedexId}`, { timeout: 6000 })
+	const stat = (name: string) => data.stats.find((s) => s.stat.name === name)?.base_stat ?? 50
+
+	const fighter: Fighter = {
+		pokedexId: data.id,
+		name: data.name,
+		types: [...data.types].sort((a, b) => a.slot - b.slot).map((t) => t.type.name),
+		stats: {
+			hp: stat('hp'),
+			attack: stat('attack'),
+			defense: stat('defense'),
+			specialAttack: stat('special-attack'),
+			specialDefense: stat('special-defense'),
+			speed: stat('speed'),
+		},
+	}
+	fighterCache.set(pokedexId, fighter)
+	return fighter
+}
