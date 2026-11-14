@@ -1,0 +1,120 @@
+import { useEffect, useMemo, useState } from 'react'
+
+import { BoosterError, fetchCards, type Card, type Rarity } from '../boosters/api'
+import { RARITY } from '../boosters/rarity'
+
+/** One pokemon the player owns, with however many copies they have of it. */
+export interface CollectionEntry {
+	pokedexId: number
+	name: string
+	rarity: Rarity
+	count: number
+	/** Most recent pull of that pokemon, used to sort by "newest". */
+	lastObtainedAt: number
+}
+
+export type SortMode = 'pokedex' | 'recent' | 'rarity'
+
+export interface CollectionValue {
+	loading: boolean
+	error: string | null
+	/** Grouped, deduplicated, and sorted. */
+	entries: CollectionEntry[]
+	/** Totals across the whole collection, never the filtered view. */
+	total: number
+	unique: number
+	byRarity: Record<Rarity, number>
+	sort: SortMode
+	setSort: (mode: SortMode) => void
+	rarityFilter: Rarity | null
+	setRarityFilter: (rarity: Rarity | null) => void
+	reload: () => void
+}
+
+/**
+ * The player's cards, grouped by pokemon.
+ *
+ * Duplicates are the normal case in a pack-opening game, so the raw list is
+ * folded into one tile per pokemon with a count — a hundred identical Rattata
+ * tiles would tell the player nothing.
+ */
+export function useCollection(): CollectionValue {
+	const [cards, setCards] = useState<Card[] | null>(null)
+	const [error, setError] = useState<string | null>(null)
+	const [reloads, setReloads] = useState(0)
+	const [sort, setSort] = useState<SortMode>('recent')
+	const [rarityFilter, setRarityFilter] = useState<Rarity | null>(null)
+
+	useEffect(() => {
+		let cancelled = false
+		setError(null)
+
+		fetchCards()
+			.then(({ cards: found }) => {
+				if (!cancelled) setCards(found)
+			})
+			.catch((cause) => {
+				if (cancelled) return
+				setError(cause instanceof BoosterError ? cause.message : 'Serveur injoignable')
+				setCards([])
+			})
+
+		return () => {
+			cancelled = true
+		}
+	}, [reloads])
+
+	const grouped = useMemo<CollectionEntry[]>(() => {
+		if (!cards) return []
+		const byPokemon = new Map<number, CollectionEntry>()
+
+		for (const card of cards) {
+			const entry = byPokemon.get(card.pokedexId)
+			if (entry) {
+				entry.count += 1
+				entry.lastObtainedAt = Math.max(entry.lastObtainedAt, card.obtainedAt)
+			} else {
+				byPokemon.set(card.pokedexId, {
+					pokedexId: card.pokedexId,
+					name: card.name,
+					rarity: card.rarity,
+					count: 1,
+					lastObtainedAt: card.obtainedAt,
+				})
+			}
+		}
+
+		return [...byPokemon.values()]
+	}, [cards])
+
+	const entries = useMemo(() => {
+		const visible = rarityFilter ? grouped.filter((e) => e.rarity === rarityFilter) : grouped
+		const sorted = [...visible]
+
+		if (sort === 'pokedex') sorted.sort((a, b) => a.pokedexId - b.pokedexId)
+		else if (sort === 'recent') sorted.sort((a, b) => b.lastObtainedAt - a.lastObtainedAt)
+		else sorted.sort((a, b) => RARITY[b.rarity].order - RARITY[a.rarity].order || a.pokedexId - b.pokedexId)
+
+		return sorted
+	}, [grouped, rarityFilter, sort])
+
+	const byRarity = useMemo(() => {
+		const counts: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, legendary: 0 }
+		for (const entry of grouped) counts[entry.rarity] += entry.count
+		return counts
+	}, [grouped])
+
+	return {
+		loading: cards === null,
+		error,
+		entries,
+		total: cards?.length ?? 0,
+		unique: grouped.length,
+		byRarity,
+		sort,
+		setSort,
+		rarityFilter,
+		setRarityFilter,
+		reload: () => setReloads((n) => n + 1),
+	}
+}

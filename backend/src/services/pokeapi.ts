@@ -137,3 +137,30 @@ export async function fetchPokemon(id: string): Promise<Pokemon> {
 		apiResistancesWithAbilities: apiResistances
 	}
 }
+
+
+/**
+ * Just the display name of a pokemon, cached for the process' lifetime.
+ *
+ * `fetchPokemon` above costs five HTTP round trips (types, species, evolution
+ * chain); a booster only needs a name, and the artwork URL is derived from the
+ * id. If PokeAPI is unreachable the card still opens, labelled by its dex
+ * number — a third party being down must not cost a player their pack.
+ */
+const nameCache = new Map<number, string>()
+
+export async function fetchCardFace(pokedexId: number): Promise<string> {
+	const cached = nameCache.get(pokedexId)
+	if (cached) return cached
+
+	try {
+		const { data } = await axios.get<{ name: string }>(`${POKEAPI_URL}/pokemon/${pokedexId}`, {
+			timeout: 4000,
+		})
+		const name = data.name
+		nameCache.set(pokedexId, name)
+		return name
+	} catch {
+		return `#${String(pokedexId).padStart(3, '0')}`
+	}
+}

@@ -14,6 +14,10 @@ export interface UserRow {
 	last_y: number | null
 	created_at: number
 	last_seen_at: number
+	/** Packs waiting to be opened. */
+	boosters_pending: number
+	/** Start of the current accrual window; 0 until the first visit. */
+	booster_since: number
 }
 
 /** What the client is allowed to see. */
@@ -66,9 +70,10 @@ export function createUser(email: string, password: string, displayName: string)
 	const id = randomUUID()
 
 	db.prepare(
-		`INSERT INTO users (id, email, password_hash, display_name, sprite_id, created_at, last_seen_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-	).run(id, normalizeEmail(email), hashPassword(password), displayName, spriteForId(id), now, now)
+		`INSERT INTO users (id, email, password_hash, display_name, sprite_id, created_at, last_seen_at, boosters_pending, booster_since)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		// A new trainer starts with one pack to open, and the clock already running.
+	).run(id, normalizeEmail(email), hashPassword(password), displayName, spriteForId(id), now, now, 1, now)
 
 	return findById(id)!
 }

@@ -1,0 +1,158 @@
+import { randomUUID } from 'crypto'
+
+import { db } from '../db'
+import { findById, type UserRow } from '../auth/users'
+import { fetchCardFace } from '../services/pokeapi'
+import { pickFrom, rollRarity, type Rarity } from './rarity'
+
+/**
+ * Booster economy.
+ *
+ * Time is counted on the server and nowhere else: a client that lies about the
+ * clock gains nothing, and packs keep accruing while the player is logged out.
+ * The accrual is a pure function of `booster_since`, so there is no timer, no
+ * cron, and nothing to replay after a restart.
+ */
+
+/** One pack every quarter hour, overridable for demos. */
+export const BOOSTER_INTERVAL_MS = Number(process.env.BOOSTER_INTERVAL_MS) || 15 * 60 * 1000
+
+/** Accrual stops here, so a month offline does not hand out a hundred packs. */
+export const MAX_PENDING = 5
+
+export const CARDS_PER_BOOSTER = 5
+
+export interface BoosterState {
+	pending: number
+	max: number
+	intervalMs: number
+	cardsPerBooster: number
+	/** When the next pack lands, or null when the stock is already full. */
+	nextAt: number | null
+}
+
+export interface DrawnCard {
+	id: string
+	pokedexId: number
+	name: string
+	rarity: Rarity
+	obtainedAt: number
+}
+
+/**
+ * Hand out whatever the passage of time owes this user, then report the state.
+ *
+ * The leftover time is kept: claiming at 14'59" does not reset the clock, so
+ * nobody is punished for checking in often.
+ */
+export function accrue(user: UserRow): BoosterState {
+	const now = Date.now()
+	let pending = user.boosters_pending
+	// `0` means the clock has never started (a row from before this feature):
+	// start it now rather than crediting decades of elapsed time.
+	const since = user.booster_since || now
+
+	let earned = Math.floor((now - since) / BOOSTER_INTERVAL_MS)
+	let nextSince = since + earned * BOOSTER_INTERVAL_MS
+
+	if (earned > 0 || since !== user.booster_since) {
+		if (pending + earned > MAX_PENDING) {
+			earned = MAX_PENDING - pending
+			// Full: the clock restarts from now, it does not bank the overflow.
+			nextSince = now
+		}
+		pending += earned
+		db.prepare('UPDATE users SET boosters_pending = ?, booster_since = ? WHERE id = ?').run(
+			pending,
+			nextSince,
+			user.id,
+		)
+	}
+
+	if (pending >= MAX_PENDING) {
+		return { pending, max: MAX_PENDING, intervalMs: BOOSTER_INTERVAL_MS, cardsPerBooster: CARDS_PER_BOOSTER, nextAt: null }
+	}
+
+	return {
+		pending,
+		max: MAX_PENDING,
+		intervalMs: BOOSTER_INTERVAL_MS,
+		cardsPerBooster: CARDS_PER_BOOSTER,
+		nextAt: nextSince + BOOSTER_INTERVAL_MS,
+	}
+}
+
+export function getState(userId: string): BoosterState | null {
+	const user = findById(userId)
+	return user ? accrue(user) : null
+}
+
+/**
+ * Open one pack. Returns null when there is nothing to open — the check and
+ * the decrement happen in one transaction, so two clicks cannot spend one pack
+ * twice.
+ */
+export async function openBooster(userId: string): Promise<{ cards: DrawnCard[]; state: BoosterState } | null> {
+	const user = findById(userId)
+	if (!user) return null
+
+	accrue(user)
+
+	const spend = db.transaction((id: string) => {
+		const row = db.prepare('SELECT boosters_pending AS pending FROM users WHERE id = ?').get(id) as
+			| { pending: number }
+			| undefined
+		if (!row || row.pending <= 0) return false
+
+		const wasFull = row.pending >= MAX_PENDING
+		db.prepare('UPDATE users SET boosters_pending = boosters_pending - 1 WHERE id = ?').run(id)
+		// Coming down from a full stock restarts the clock, which was parked.
+		if (wasFull) db.prepare('UPDATE users SET booster_since = ? WHERE id = ?').run(Date.now(), id)
+		return true
+	})
+
+	if (!spend(userId)) return null
+
+	const draws = Array.from({ length: CARDS_PER_BOOSTER }, (_, index) => {
+		// The last slot is the guaranteed one, so a pack is never five commons.
+		const rarity = rollRarity(index === CARDS_PER_BOOSTER - 1)
+		return { rarity, pokedexId: pickFrom(rarity) }
+	})
+
+	const named = await Promise.all(
+		draws.map(async (draw) => ({ ...draw, name: await fetchCardFace(draw.pokedexId) })),
+	)
+
+	const now = Date.now()
+	const cards: DrawnCard[] = named.map((draw) => ({
+		id: randomUUID(),
+		pokedexId: draw.pokedexId,
+		name: draw.name,
+		rarity: draw.rarity,
+		obtainedAt: now,
+	}))
+
+	const insert = db.prepare(
+		'INSERT INTO cards (id, user_id, pokedex_id, name, rarity, obtained_at) VALUES (?, ?, ?, ?, ?, ?)',
+	)
+	db.transaction(() => {
+		for (const card of cards) insert.run(card.id, userId, card.pokedexId, card.name, card.rarity, card.obtainedAt)
+	})()
+
+	return { cards, state: getState(userId)! }
+}
+
+/** Everything this user owns, newest first. */
+export function listCards(userId: string): DrawnCard[] {
+	const rows = db
+		.prepare('SELECT id, pokedex_id, name, rarity, obtained_at FROM cards WHERE user_id = ? ORDER BY obtained_at DESC')
+		.all(userId) as { id: string; pokedex_id: number; name: string; rarity: Rarity; obtained_at: number }[]
+
+	return rows.map((row) => ({
+		id: row.id,
+		pokedexId: row.pokedex_id,
+		name: row.name,
+		rarity: row.rarity,
+		obtainedAt: row.obtained_at,
+	}))
+}

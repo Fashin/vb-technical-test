@@ -4,6 +4,7 @@ import express from 'express'
 
 import { createServer } from 'http'
 import { AuthController } from './controllers/AuthController'
+import { BoosterController } from './controllers/BoosterController'
 import { PokemonController } from './controllers/PokemonController'
 import { ContentController } from './controllers/ContentsController'
 import { attachRealtime, listRooms } from './realtime'
@@ -33,6 +34,7 @@ app.use(express.urlencoded({ extended: true }))
  * Routes
  */
 app.use('/auth', AuthController)
+app.use('/boosters', BoosterController)
 app.use('/pokemons', PokemonController)
 app.use('/contents', ContentController)
 app.get('/ping', (_req, res) => res.status(200).send('pong'))

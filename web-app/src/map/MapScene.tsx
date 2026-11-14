@@ -1,9 +1,12 @@
-import { Suspense, useMemo, useRef } from 'react'
+import { Suspense, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
 import { Vector3 } from 'three'
 
 import { useAuth } from '../auth'
+import { BoosterPanel, useBoosters } from '../boosters'
+import { CollectionPanel } from '../collection'
+import { HudBar, type HudAction } from '../hud'
 import { useWorld } from '../world'
 import { CameraFollow, type MapBounds } from './CameraFollow'
 import { type TileMapData } from './mapData'
@@ -44,6 +47,10 @@ export function MapScene({ className }: MapSceneProps) {
 	const { user, logout } = useAuth()
 	const { status, error, map, speed, me, others, move, correction } = useWorld(Boolean(user))
 	const { held, tapped, onKeyDown, onKeyUp, onBlur } = usePlayerControls()
+	// Which HUD entry is selected. The panels themselves do not exist yet, so
+	// clicking one only lights it up — and clicking it again puts it away.
+	const [panel, setPanel] = useState<HudAction | null>(null)
+	const boosters = useBoosters(Boolean(user))
 
 	// Captured once: `Player` owns its position from here on, and the server
 	// corrects it through `correction` rather than by re-mounting the component.
@@ -135,6 +142,15 @@ export function MapScene({ className }: MapSceneProps) {
 			<p className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-xs text-white">
 				Clique sur la carte, puis déplace-toi avec les flèches ou ZQSD / WASD
 			</p>
+
+			<HudBar
+				active={panel}
+				badges={{ booster: boosters.state?.pending ?? 0 }}
+				onSelect={(action) => setPanel(panel === action ? null : action)}
+			/>
+
+			{panel === 'booster' && <BoosterPanel boosters={boosters} onClose={() => setPanel(null)} />}
+			{panel === 'collection' && <CollectionPanel onClose={() => setPanel(null)} />}
 		</div>
 	)
 }
