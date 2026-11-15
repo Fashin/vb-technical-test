@@ -44,19 +44,25 @@ export const POOLS: Record<Rarity, number[]> = {
  */
 export const DEX_TOTAL = new Set(Object.values(POOLS).flat()).size
 
-/** Draw odds for an ordinary slot, in percent. They must add up to 100. */
+/**
+ * Draw odds for an ordinary slot, in percent. They must add up to 100.
+ *
+ * The weight taken off `legendary` goes to `rare` rather than to `common`:
+ * making legendaries scarcer should raise the value of the tier just below,
+ * not flood packs with filler.
+ */
 const ODDS: [Rarity, number][] = [
 	['common', 60],
 	['uncommon', 27],
-	['rare', 11],
-	['legendary', 2],
+	['rare', 12.5],
+	['legendary', 0.5],
 ]
 
 /** Odds for the one guaranteed "good" slot every pack contains. */
 const BONUS_ODDS: [Rarity, number][] = [
 	['uncommon', 70],
-	['rare', 26],
-	['legendary', 4],
+	['rare', 29],
+	['legendary', 1],
 ]
 
 function pick(odds: [Rarity, number][]): Rarity {

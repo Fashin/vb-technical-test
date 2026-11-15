@@ -35,8 +35,23 @@ jeton court et le combat est relayé par le backend précisément pour ça.
 | Commande | Effet |
 |---|---|
 | `npm run dev` | Démarre en rechargement à chaud (nodemon + ts-node). |
+| `npm run build` | Compile `src` vers `dist`. |
+| `npm start` | Lance le serveur compilé (`dist/app.js`). |
+| `npm run typecheck` | Vérification de types seule, sans émission. |
 | `npm run lint` | ESLint sur `src`. |
-| `npx tsc -p tsconfig.app.json --noEmit` | Vérification de types seule. |
+
+### En production
+
+```bash
+npm ci                 # outils de compilation compris : le build en a besoin
+npm run build          # src → dist
+npm prune --omit=dev   # ne restent que les dépendances d'exécution
+npm start              # node dist/app.js
+```
+
+TypeScript n'est utilisé qu'à la compilation : l'image finale n'exécute que du
+JavaScript, et les seules dépendances d'exécution sont `express`, `socket.io`,
+`better-sqlite3`, `axios`, `cors` et `dotenv`.
 
 ## Routes
 
