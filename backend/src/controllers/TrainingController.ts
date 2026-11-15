@@ -41,7 +41,6 @@ TrainingController.post('/:campId/session', async (req, res) => {
 		NO_HEALTHY_TEAM: 'Tes Pokémon de ce palier sont blessés ou en soins — passe par le centre de soins',
 		TOO_FAR: 'Tu dois être sur le camp pour y entrer',
 		TOO_WEAK: `Ce camp n’accepte qu’à partir du niveau ${result.detail?.minLevel}`,
-		NOTHING_TO_LEARN: `Ton équipe a tout appris ici (plafond ${result.detail?.maxLevel}) — va au camp suivant`,
 	}
 
 	const status =

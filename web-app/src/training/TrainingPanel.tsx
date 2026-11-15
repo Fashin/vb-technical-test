@@ -333,8 +333,9 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 						{camp.unlocked && camp.exhausted && (
 							<p className="mt-3 flex items-center gap-2 rounded-md bg-emerald-500/15 px-3 py-2 text-sm text-emerald-200">
 								<GiArrowDunk className="h-5 w-5 shrink-0" />
-								Plus personne de ton équipe n’est dans la tranche {camp.minLevel}–{camp.maxLevel} : ce
-								camp n’a plus rien à t’apprendre. Le palier suivant est ailleurs sur la carte.
+								Plus personne de cette équipe n’est dans la tranche {camp.minLevel}–{camp.maxLevel} : tu
+								peux encore y sparrer, mais ce camp n’a plus rien à t’apprendre. Le palier suivant est
+								ailleurs sur la carte.
 							</p>
 						)}
 
@@ -378,7 +379,7 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 							<Toggle
 								checked={chaining}
 								onChange={setChaining}
-								disabled={!camp.unlocked || camp.exhausted}
+								disabled={!camp.unlocked || camp.exhausted || camp.roster === 0}
 								label="Enchaîner les sessions"
 								hint="La suivante part toute seule à la fin du combat."
 							/>
@@ -392,7 +393,9 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 								<button
 									type="button"
 									onClick={() => void train()}
-									disabled={busy || !camp.unlocked || camp.exhausted}
+									/* A camp that has nothing left to teach can still be sparred
+									   in — it simply pays nothing. Only the floor turns you away. */
+									disabled={busy || !camp.unlocked || camp.roster === 0}
 									className="mt-2 w-full rounded-md bg-sky-500 px-4 py-3 font-semibold text-sky-950 transition hover:bg-sky-400 disabled:opacity-40"
 								>
 									{busy

@@ -215,7 +215,6 @@ export type SessionResult =
 				| 'TEAM_NOT_FOUND'
 				| 'TOO_FAR'
 				| 'TOO_WEAK'
-				| 'NOTHING_TO_LEARN'
 				| 'NO_HEALTHY_TEAM'
 			detail?: { minLevel: number; maxLevel: number; teamLevel: number }
 	  }
@@ -226,9 +225,11 @@ export type SessionResult =
  * `teamId` is the team the player picked; without one the active team walks
  * in. Four checks before anything is rolled, in the order a player would meet
  * them: does the team exist and hold anyone, is the player standing at the
- * camp, and does this camp have anything to teach. The position is read from
- * the world the server itself simulates, so entering a camp means actually
- * having walked there.
+ * camp, has anyone reached the camp's floor, and is anyone fit to fight. The
+ * position is read from the world the server itself simulates, so entering a
+ * camp means actually having walked there.
+ *
+ * Note what is *not* a check: having outgrown the camp. See below.
  */
 export async function runSession(userId: string, campId: string, teamId?: string): Promise<SessionResult> {
 	const camp = findCamp(campId)
@@ -253,29 +254,32 @@ export async function runSession(userId: string, campId: string, teamId?: string
 	// Nobody is strong enough to spar here at all.
 	if (best < camp.minLevel) return { ok: false, reason: 'TOO_WEAK', detail }
 
+	/*
+	 * Having outgrown the camp is not a reason to be turned away.
+	 *
+	 * It used to be: with nobody left inside the band the whole session was
+	 * refused, so one Pokemon crossing the ceiling could shut the camp for the
+	 * five team mates still learning there. Outgrowing a camp now costs exactly
+	 * what it should — `grantXp`'s ceiling pays that Pokemon nothing — and it
+	 * still takes its bout and hands over like everyone else.
+	 *
+	 * Only being unable to field anyone at all stops a session, and that is a
+	 * trip to the healing centre rather than a trip to another camp.
+	 */
+	const roster = rosterOf(team.members, camp)
+	if (roster.length === 0) return { ok: false, reason: 'NO_HEALTHY_TEAM', detail }
+
 	const trainees = traineesOf(team.members, camp)
-	if (trainees.length === 0) {
-		// Told apart on purpose: one of these is solved by walking to another
-		// camp, the other by waiting at the healing centre.
-		const sidelined = team.members.some(
-			(member) =>
-				(member.inCare || member.fainted) &&
-				member.level >= camp.minLevel &&
-				member.level < ceilingOf(camp),
-		)
-		return { ok: false, reason: sidelined ? 'NO_HEALTHY_TEAM' : 'NOTHING_TO_LEARN', detail }
-	}
 
 	/* ------------------------------- the fight ------------------------------- */
 
-	// Everyone fit walks in, the camp's own trainee leading.
-	const roster = rosterOf(team.members, camp)
 	const wilds = wildCount(roster.length)
 
-	// "At the current level": the sparring partners follow the trainee the camp
-	// opens with, kept inside the band so a camp never fields opponents above
-	// its own tier.
-	const target = clamp(trainees[0].level, camp.minLevel, camp.maxLevel)
+	// "At the current level": the sparring partners follow the Pokemon that
+	// opens — the camp's own trainee when it has one, the roster's lead when
+	// everyone has outgrown the place — kept inside the band so a camp never
+	// fields opponents above its own tier.
+	const target = clamp((trainees[0] ?? roster[0]).level, camp.minLevel, camp.maxLevel)
 	const wildLevel = () =>
 		clamp(target + Math.round((Math.random() - 0.5) * 2 * LEVEL_SPREAD), camp.minLevel, camp.maxLevel)
 
@@ -328,7 +332,11 @@ export async function runSession(userId: string, campId: string, teamId?: string
 		amount: share,
 	}))
 	const gains = grantXp(payout, ceilingOf(camp))
-	const xpEarned = share * participants.player.length
+	// Summed from what was actually credited, not from what was offered: a
+	// Pokemon past the camp's ceiling is paid nothing, and a session where
+	// everyone has outgrown the place must report zero rather than a figure
+	// nobody received.
+	const xpEarned = gains.reduce((total, gain) => total + gain.gained, 0)
 
 	// Sparring is not free either: what the session costs stays lost until the
 	// healing centre gives it back.
@@ -362,7 +370,7 @@ export async function runSession(userId: string, campId: string, teamId?: string
 			battle,
 			xpEarned,
 			gains,
-			trainee: trainees[0].name,
+			trainee: roster[0].name,
 			teamId: team.id,
 			teamName: team.name,
 			band: { min: camp.minLevel, max: camp.maxLevel },

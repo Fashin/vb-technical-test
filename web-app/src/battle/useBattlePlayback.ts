@@ -200,12 +200,20 @@ export function useBattlePlayback(battle: Battle | null) {
 			for (const round of resolved.log) {
 				for (const event of round.events) {
 					const target = event.side === 'player' ? ('master' as const) : ('player' as const)
-					const struck = active[target]
+					// The server says who struck and who was hit. The replay used to
+					// work it out from its own idea of the field, which held only as
+					// long as a faint was the sole way to leave it.
+					const struck = event.targetIndex
+					const striker = event.sourceIndex
+					active[event.side] = striker
+					active[target] = struck
 
 					// Wind up and dash, with the line that goes with it.
-					say(event.line || `${team[event.side][active[event.side]].name} attaque !`, {
+					say(event.line || `${team[event.side][striker].name} attaque !`, {
 						attacking: event.side,
 						round: round.round,
+						playerActive: active.player,
+						masterActive: active.master,
 					})
 
 					// Contact: damage lands, the bar drains, the number flies off.
@@ -245,14 +253,25 @@ export function useBattlePlayback(battle: Battle | null) {
 					say(`${team[target][struck].name} est K.O. !`, { fainting: target })
 					at += FAINT
 
-					// Deliberately the server's own rule — the first team member still
-					// standing — so the replay lands on the Pokémon it already chose.
-					const next = hp[target].findIndex((left) => left > 0)
-					if (event.replacedBy && next !== -1) {
-						active[target] = next
+					// Both replacements come from the server's own indices: the one
+					// sent out to answer the knockout, and — in a training session —
+					// the winner stepping aside for the next of its own team.
+					if (event.replacedBy) {
+						active[target] = event.activeAfter[target]
+						const entered = active[target]
 						say(`${event.replacedBy} entre en jeu !`, {
 							entering: target,
-							...(target === 'player' ? { playerActive: next } : { masterActive: next }),
+							...(target === 'player' ? { playerActive: entered } : { masterActive: entered }),
+						})
+						at += ENTER + 500
+					}
+
+					if (event.handedOverTo) {
+						active[event.side] = event.activeAfter[event.side]
+						const relieved = active[event.side]
+						say(`${team[event.side][striker].name} passe la main à ${event.handedOverTo} !`, {
+							entering: event.side,
+							...(event.side === 'player' ? { playerActive: relieved } : { masterActive: relieved }),
 						})
 						at += ENTER + 500
 					}

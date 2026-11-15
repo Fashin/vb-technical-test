@@ -26,7 +26,21 @@ export interface TurnEvent {
 	critical: boolean
 	effectiveness: string | null
 	fainted: boolean
+	/**
+	 * Who struck and who was hit, as indices into each side's team.
+	 *
+	 * The server states them, so the replay never has to work out who is on the
+	 * field: in a training session a Pokémon also leaves it by winning, not only
+	 * by fainting.
+	 */
+	sourceIndex: number
+	targetIndex: number
+	/** Sent out after a faint. */
 	replacedBy: string | null
+	/** Taken over from the attacker once it had put its own partner down. */
+	handedOverTo: string | null
+	/** Who is out on each side once this attack is resolved. */
+	activeAfter: { player: number; master: number }
 	/** The model's sentence for this attack, told while it plays out. */
 	line: string
 }

@@ -52,8 +52,23 @@ export interface TurnEvent {
 	/** "C'est super efficace !" and friends, or null when neutral. */
 	effectiveness: string | null
 	fainted: boolean
+	/**
+	 * Who struck and who was hit, as indices into each side's team.
+	 *
+	 * Spelled out rather than left for the client to infer. The replay used to
+	 * track the field itself, assuming only a faint could change who is out —
+	 * which stopped being true the moment a camp session made its winner hand
+	 * over, and every number after the first hand-over landed on the wrong
+	 * Pokemon's health bar.
+	 */
+	sourceIndex: number
+	targetIndex: number
 	/** Name of the Pokemon sent out after a faint. */
 	replacedBy: string | null
+	/** Name of the Pokemon the attacker handed over to, under `relay`. */
+	handedOverTo: string | null
+	/** Who is out on each side once this attack is fully resolved. */
+	activeAfter: { player: number; master: number }
 	/** The sentence shown while this exact attack plays out. */
 	line: string
 }
@@ -265,14 +280,18 @@ function strike(
 	side: 'player' | 'master',
 	relay: boolean,
 ): TurnEvent {
-	const source = attacker.team[attacker.active]
-	const target = defender.team[defender.active]
+	// Read before anything moves: these two are what the replay needs.
+	const sourceIndex = attacker.active
+	const targetIndex = defender.active
+	const source = attacker.team[sourceIndex]
+	const target = defender.team[targetIndex]
 	const { damage, multiplier, critical } = computeDamage(action.move, source, target, Math.random())
 
 	target.hp = Math.max(0, target.hp - damage)
 	const fainted = target.hp === 0
 
 	let replacedBy: string | null = null
+	let handedOverTo: string | null = null
 	if (fainted) {
 		const next = nextAlive(defender)
 		if (defender.team[next].hp > 0) {
@@ -280,7 +299,13 @@ function strike(
 			replacedBy = defender.team[next].name
 		}
 		// Its turn is over, whether or not anyone is left to answer.
-		if (relay) attacker.active = nextAlive(attacker)
+		if (relay) {
+			const relieved = nextAlive(attacker)
+			if (relieved !== sourceIndex) {
+				attacker.active = relieved
+				handedOverTo = attacker.team[relieved].name
+			}
+		}
 	}
 
 	return {
@@ -290,7 +315,11 @@ function strike(
 		critical,
 		effectiveness: effectivenessLabel(multiplier),
 		fainted,
+		sourceIndex,
+		targetIndex,
 		replacedBy,
+		handedOverTo,
+		activeAfter: { player: 0, master: 0 },
 		line: action.line,
 	}
 }
@@ -391,11 +420,14 @@ export function resolveRounds(
 			// with a line written for its predecessor.
 			if (actors[side].hp === 0) continue
 
-			events.push(
+			const event =
 				side === 'player'
 					? strike(player, master, actions.player, 'player', relay)
-					: strike(master, player, actions.master, 'master', relay),
-			)
+					: strike(master, player, actions.master, 'master', relay)
+			// Stamped here rather than inside `strike`, which only ever sees one
+			// side as the attacker and the other as the defender.
+			event.activeAfter = { player: player.active, master: master.active }
+			events.push(event)
 		}
 
 		rounds.push({ round: rounds.length + 1, events })
