@@ -73,6 +73,8 @@ export type RealtimeErrorCode =
 	| 'NO_SESSION'
 	| 'BUSY'
 	| 'TOO_MANY'
+	/** A duel that was accepted but could not be resolved at all. */
+	| 'DUEL_FAILED'
 
 export interface RealtimeError {
 	code: RealtimeErrorCode
@@ -125,6 +127,16 @@ export interface ServerToClientEvents {
 	/** An invitation you sent or received is no longer standing. */
 	'pvp:cancelled': (payload: { invitationId: string; reason: string }) => void
 	'pvp:error': (error: RealtimeError) => void
+	/**
+	 * The duel is on, and is being written.
+	 *
+	 * Sent to both players the moment the invitation is accepted, because the
+	 * fight itself takes a few seconds: the chatbot writes the whole script
+	 * before the first blow. Without this event the challenger's screen still
+	 * read "waiting for <name>" all the way through, which is indistinguishable
+	 * from an invitation nobody ever answered.
+	 */
+	'pvp:accepted': (payload: { opponentName: string }) => void
 	/**
 	 * A resolved duel, already written from *this* client's point of view: the
 	 * reader is always the `player` side, so the battle components need to know

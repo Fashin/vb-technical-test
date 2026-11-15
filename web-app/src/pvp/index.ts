@@ -1,4 +1,5 @@
 export { usePvp, type DuelResult } from './usePvp'
 export { DuelView } from './DuelView'
+export { DuelPending } from './DuelPending'
 export { TradePanel } from './TradePanel'
 export { NeighbourPrompt, InvitationPrompt } from './EncounterPrompt'

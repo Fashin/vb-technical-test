@@ -10,7 +10,7 @@ import { ArenaPanel } from '../arena'
 import { BarberPanel } from '../barber'
 import { CollectionPanel } from '../collection'
 import { OptionsPanel } from '../options'
-import { DuelView, InvitationPrompt, NeighbourPrompt, TradePanel, usePvp } from '../pvp'
+import { DuelPending, DuelView, InvitationPrompt, NeighbourPrompt, TradePanel, usePvp } from '../pvp'
 import type { WorldPlayerState } from '../realtime'
 import { RankingPanel } from '../ranking'
 import { TeamPanel } from '../teams'
@@ -276,6 +276,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 				ready &&
 				neighbour &&
 				!pvp.duel &&
+				!pvp.resolving &&
 				!pvp.trade && (
 					<NeighbourPrompt
 						neighbour={neighbour}
@@ -295,7 +296,13 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 				</button>
 			)}
 
-			{pvp.duel && <DuelView duel={pvp.duel} onClose={pvp.dismissDuel} />}
+			{/* The wait, then the fight, in the same frame — `duel` wins the moment
+			    it lands, so the panel fills in rather than reopening. */}
+			{pvp.duel ? (
+				<DuelView duel={pvp.duel} onClose={pvp.dismissDuel} />
+			) : (
+				pvp.resolving && <DuelPending opponentName={pvp.resolving.opponentName} />
+			)}
 
 			{pvp.trade && user && (
 				<TradePanel

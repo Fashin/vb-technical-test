@@ -194,6 +194,10 @@ export function mirror(battle: BattleState, opponentName: string): BattleState {
 	const flip = (event: TurnEvent): TurnEvent => ({
 		...event,
 		side: event.side === 'player' ? 'master' : 'player',
+		// `sourceIndex` and `targetIndex` need no flipping: each indexes the team
+		// of whoever the (now swapped) `side` points at, so they stay true. The
+		// two indices in `activeAfter` are keyed by side, so they do.
+		activeAfter: { player: event.activeAfter.master, master: event.activeAfter.player },
 	})
 
 	const log: RoundLog[] = battle.log.map((round) => ({ ...round, events: round.events.map(flip) }))

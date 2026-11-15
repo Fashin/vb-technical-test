@@ -24,8 +24,17 @@ export interface DuelResult {
 export interface PvpState {
 	/** An invitation waiting for an answer, if any. */
 	invitation: Invitation | null
-	/** Set while we are waiting for a duel we accepted or offered to resolve. */
+	/** Set while an invitation of ours is waiting for an answer. */
 	awaiting: EncounterKind | null
+	/**
+	 * Set once a duel has been accepted and is being written, with the other
+	 * player's name.
+	 *
+	 * Distinct from `awaiting` on purpose: "nobody has answered yet" and "it is
+	 * on, the chatbot is writing it" are two different waits, and showing one
+	 * for the other is what made an accepted duel look like a broken one.
+	 */
+	resolving: { opponentName: string } | null
 	duel: DuelResult | null
 	trade: TradeState | null
 	/** True once a trade has gone through; the panel shows the result. */
@@ -36,6 +45,7 @@ export interface PvpState {
 const EMPTY: PvpState = {
 	invitation: null,
 	awaiting: null,
+	resolving: null,
 	duel: null,
 	trade: null,
 	traded: false,
@@ -51,16 +61,27 @@ export function usePvp() {
 		const onInvited = (invitation: Invitation) => setState((s) => ({ ...s, invitation, error: null }))
 
 		const onCancelled = () =>
-			setState((s) => ({ ...s, invitation: null, awaiting: null }))
+			setState((s) => ({ ...s, invitation: null, awaiting: null, resolving: null }))
 
 		const onError = (error: RealtimeError) =>
-			setState((s) => ({ ...s, awaiting: null, error: error.message }))
+			setState((s) => ({ ...s, awaiting: null, resolving: null, error: error.message }))
+
+		const onAccepted = (payload: { opponentName: string }) =>
+			setState((s) => ({ ...s, resolving: payload, awaiting: null, invitation: null, error: null }))
 
 		const onDuel = (duel: DuelResult) =>
-			setState((s) => ({ ...s, duel, awaiting: null, invitation: null, error: null }))
+			setState((s) => ({ ...s, duel, awaiting: null, resolving: null, invitation: null, error: null }))
 
 		const onTrade = (trade: TradeState) =>
-			setState((s) => ({ ...s, trade, traded: false, awaiting: null, invitation: null, error: null }))
+			setState((s) => ({
+				...s,
+				trade,
+				traded: false,
+				awaiting: null,
+				resolving: null,
+				invitation: null,
+				error: null,
+			}))
 
 		const onTradeDone = (trade: TradeState) => setState((s) => ({ ...s, trade, traded: true }))
 
@@ -69,6 +90,7 @@ export function usePvp() {
 		socket.on('pvp:invited', onInvited)
 		socket.on('pvp:cancelled', onCancelled)
 		socket.on('pvp:error', onError)
+		socket.on('pvp:accepted', onAccepted)
 		socket.on('pvp:duel', onDuel)
 		socket.on('trade:state', onTrade)
 		socket.on('trade:done', onTradeDone)
@@ -78,6 +100,7 @@ export function usePvp() {
 			socket.off('pvp:invited', onInvited)
 			socket.off('pvp:cancelled', onCancelled)
 			socket.off('pvp:error', onError)
+			socket.off('pvp:accepted', onAccepted)
 			socket.off('pvp:duel', onDuel)
 			socket.off('trade:state', onTrade)
 			socket.off('trade:done', onTradeDone)

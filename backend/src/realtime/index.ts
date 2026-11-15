@@ -41,6 +41,7 @@ const ERROR_MESSAGES: Record<RealtimeErrorCode, string> = {
 	NO_SESSION: 'Cet échange n’existe plus',
 	BUSY: 'Une invitation est déjà en attente',
 	TOO_MANY: 'Trop de duels d’affilée — laisse souffler les dresseurs',
+	DUEL_FAILED: 'Le duel n’a pas pu être résolu — réessaie dans un instant',
 }
 
 function fail(code: RealtimeErrorCode): Ack<never> {
@@ -159,6 +160,13 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 			// A duel takes a few seconds to write, so the ack goes out first and
 			// the result is pushed to both players once it is ready.
 			ack?.(succeed(null))
+
+			// Said before the writing starts, and to both: the challenger has had
+			// nothing but "waiting for <name>" on screen since the invitation, and
+			// cannot otherwise tell an accepted duel from an ignored one.
+			void tell(host.userId, 'pvp:accepted', { opponentName: guest.name } as never)
+			void tell(guest.userId, 'pvp:accepted', { opponentName: host.name } as never)
+
 			void (async () => {
 				const result = await fight(host, guest)
 				if (!result.ok) {
@@ -183,7 +191,16 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 					gains: gains[guest.userId] ?? [],
 					degraded,
 				} as never)
-			})()
+			})().catch((cause) => {
+				// Both screens are sitting on "the duel is being written" until one
+				// of these two events arrives. An unexpected failure here — PokeAPI
+				// refusing a fighter, anything — must still end that wait rather
+				// than leave two players watching a panel forever.
+				console.error('[pvp] duel failed to resolve:', cause)
+				const error = { code: 'DUEL_FAILED', message: ERROR_MESSAGES.DUEL_FAILED }
+				void tell(host.userId, 'pvp:error', error as never)
+				void tell(guest.userId, 'pvp:error', error as never)
+			})
 		})
 
 		/* ---------------------------------- trades ---------------------------------- */
