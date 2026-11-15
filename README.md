@@ -59,7 +59,11 @@ seul tenant, avec le commentaire synchronisé sur les animations.
 **Progression** — chaque carte a un niveau et de l'expérience. Cinq camps
 d'entraînement, un par biome plus un central, chacun plafonné à une tranche de
 niveaux (1-25, 26-45, 46-65, 66-85, 86-100) : finir un palier oblige à
-traverser la carte pour trouver le suivant.
+traverser la carte pour trouver le suivant. On choisit l'équipe qui entre au
+camp, et elle y spare en entier : un partenaire sauvage par Pokémon, et celui
+qui met le sien K.O. passe la main — chacun a donc son combat. Le camp
+n'*enseigne* toujours qu'à sa tranche : un Pokémon qui l'a dépassée combat mais
+n'apprend plus rien.
 
 **Usure et soins** — les PV perdus en combat restent perdus. Il faut marcher
 jusqu'au centre de soins et y laisser ses blessés, pour une durée qui dépend du
@@ -74,7 +78,17 @@ lecture depuis les tables qui portent déjà les faits.
 
 **Export Markdown** — `GET /contents/:pokemonId` renvoie une fiche en pièce
 jointe, `GET /contents/all` exporte les 898 fiches dans un dossier local, prêt
-à être importé comme *brain* VirtualBrain.
+à être importé comme *brain* VirtualBrain. Chaque fiche porte les deux noms,
+français et anglais, pour qu'une question posée dans l'une ou l'autre langue
+retrouve le bon Pokémon.
+
+**Noms français** — les noms d'espèces viennent d'une table embarquée
+(`src/services/frenchNames.ts`, générations 1 à 8), régénérable par
+`npm run names:fr`. Embarquée plutôt qu'appelée : PokeAPI ne sert un nom
+localisé que par `/pokemon-species/{id}`, soit un aller-retour de plus par
+espèce et un repli silencieux sur l'anglais dès que l'API tousse — repli qui
+serait ensuite écrit en base. Les identifiants techniques (slug, nom de
+fichier, URL d'image) restent en anglais.
 
 ---
 

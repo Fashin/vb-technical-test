@@ -2,6 +2,8 @@ import Database from 'better-sqlite3'
 import { mkdirSync } from 'fs'
 import { dirname, join } from 'path'
 
+import { frenchNameEntries } from '../services/frenchNames'
+
 /**
  * SQLite, opened once for the whole process.
  *
@@ -147,5 +149,25 @@ addColumn('cards', 'healed_at', 'INTEGER')
 // The team taken into the arena. Nullable: a fresh account has none, and
 // deleting the selected team puts it back to NULL rather than dangling.
 addColumn('users', 'active_team_id', 'TEXT')
+
+/**
+ * Cards drawn before the names were localised still carry "gengar".
+ *
+ * A card's name is denormalised onto its row — the collection, the teams and
+ * the battle log all read it from there — so switching the display language
+ * means rewriting those rows once. `name <> ?` makes every later boot a pure
+ * read: the statement matches nothing and writes nothing.
+ *
+ * Deliberately not restricted to the booster pool: a card can also arrive by
+ * trade, and a widened pool would otherwise leave old rows behind.
+ */
+function localiseCardNames(): void {
+	const rename = db.prepare('UPDATE cards SET name = ? WHERE pokedex_id = ? AND name <> ?')
+	db.transaction(() => {
+		for (const [pokedexId, french] of frenchNameEntries()) rename.run(french, pokedexId, french)
+	})()
+}
+
+localiseCardNames()
 
 export { DB_PATH }

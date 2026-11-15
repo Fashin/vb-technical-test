@@ -20,10 +20,12 @@ export interface Camp {
 	unlocked: boolean
 	/** Nobody in the team falls inside the band: nothing left to learn here. */
 	exhausted: boolean
-	/** Who the camp would send out next: its least-trained eligible member. */
+	/** Who opens the session: the least-trained member the camp can teach. */
 	nextTrainee: { name: string; level: number } | null
 	/** The band is covered, but only by Pokémon that are hurt or being treated. */
 	allInCare: boolean
+	/** How many Pokémon of the selected team would take the field. */
+	roster: number
 }
 
 export interface TrainingSession {
@@ -34,8 +36,11 @@ export interface TrainingSession {
 	xpEarned: number
 	/** One entry per Pokémon that fought — the bench is simply not here. */
 	gains: XpGain[]
-	/** Who led the session. */
+	/** Who opened the session. */
 	trainee: string
+	/** The team that walked in. */
+	teamId: string
+	teamName: string
 	band: { min: number; max: number }
 }
 
@@ -68,11 +73,21 @@ async function send<T>(path: string, init: RequestInit = {}): Promise<T> {
 	return body as T
 }
 
-export function fetchCamps(): Promise<{ camps: Camp[] }> {
-	return send<{ camps: Camp[] }>('/training/camps')
+/**
+ * The camps, measured against one team.
+ *
+ * `teamId` is the team the player has selected in the panel; without one the
+ * server measures the active team.
+ */
+export function fetchCamps(teamId?: string): Promise<{ camps: Camp[] }> {
+	const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : ''
+	return send<{ camps: Camp[] }>(`/training/camps${query}`)
 }
 
-/** Train the active team once. The server decides what it meets and what it earns. */
-export function trainAt(campId: string): Promise<TrainingSession> {
-	return send<TrainingSession>(`/training/${campId}/session`, { method: 'POST' })
+/** Train one team once. The server decides what it meets and what it earns. */
+export function trainAt(campId: string, teamId?: string): Promise<TrainingSession> {
+	return send<TrainingSession>(`/training/${campId}/session`, {
+		method: 'POST',
+		body: JSON.stringify(teamId ? { teamId } : {}),
+	})
 }

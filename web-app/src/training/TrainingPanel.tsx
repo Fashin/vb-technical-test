@@ -4,6 +4,7 @@ import { GiArrowDunk, GiBarracksTent, GiLevelEndFlag } from 'react-icons/gi'
 import { BattleField, sideWithPlaybackHp, useBattlePlayback, type Battle } from '../battle'
 import { spriteUrlFor } from '../map'
 import { LevelBadge, XpBar } from '../progression'
+import { fetchTeams, type Team } from '../teams'
 import { Breadcrumb, Toggle, useEscapeToClose } from '../ui'
 import * as api from './api'
 import type { Camp, TrainingSession } from './api'
@@ -13,13 +14,78 @@ import type { Camp, TrainingSession } from './api'
  *
  * Walking onto a camp opens this; pressing the button runs one session. The
  * session is a real fight — resolved by the same engine as the arena, animated
- * by the same component — against three wild Pokémon kept at the trainee's own
- * level. What it pays is decided by the server, and capped by the camp's
+ * by the same component — where the whole team spars, one wild partner each,
+ * kept at the opening trainee's own level. Which team walks in is picked here;
+ * what the session pays is decided by the server, and capped by the camp's
  * ceiling, which is what pushes the player towards the next biome.
  */
 
 /** Breathing room between two chained sessions, so the payout can be read. */
 const CHAIN_PAUSE = 1400
+
+/**
+ * Which team walks into the camp.
+ *
+ * A row of buttons rather than a `<select>`: there are at most six teams, the
+ * healthy count matters as much as the name, and a team with nobody fit to
+ * fight should be visibly unpickable rather than silently chosen.
+ */
+function TeamPicker({
+	teams,
+	selected,
+	activeTeamId,
+	onSelect,
+	disabled,
+}: {
+	teams: Team[]
+	selected: string | null
+	activeTeamId: string | null
+	onSelect: (teamId: string) => void
+	disabled: boolean
+}) {
+	if (teams.length === 0) {
+		return (
+			<p className="mt-3 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
+				Tu n’as pas encore composé d’équipe. Passe par « Mon équipe » avant de t’entraîner.
+			</p>
+		)
+	}
+
+	return (
+		<div className="mt-3">
+			<p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+				Équipe envoyée au camp
+			</p>
+			<ul className="mt-1.5 flex flex-wrap gap-2" aria-label="Choix de l’équipe">
+				{teams.map((team) => {
+					const fit = team.members.filter((member) => !member.inCare && !member.fainted).length
+					const chosen = team.id === selected
+					return (
+						<li key={team.id}>
+							<button
+								type="button"
+								onClick={() => onSelect(team.id)}
+								disabled={disabled || fit === 0}
+								aria-pressed={chosen}
+								className={`rounded-md border px-3 py-1.5 text-left text-sm transition disabled:opacity-40 ${
+									chosen
+										? 'border-sky-400/60 bg-sky-500/20 text-sky-100'
+										: 'border-white/10 bg-black/25 text-slate-300 hover:bg-white/10'
+								}`}
+							>
+								<span className="font-medium">{team.name}</span>
+								{team.id === activeTeamId && <span className="ml-1.5 text-xs text-slate-500">active</span>}
+								<span className="ml-2 text-xs tabular-nums text-slate-400">
+									{fit === 0 ? 'personne de valide' : `${fit} au combat`}
+								</span>
+							</button>
+						</li>
+					)
+				})}
+			</ul>
+		</div>
+	)
+}
 
 function Band({ camp }: { camp: Camp }) {
 	return (
@@ -76,6 +142,10 @@ function Gains({ session }: { session: TrainingSession }) {
 
 export function TrainingPanel({ campId, onClose }: { campId: string; onClose: () => void }) {
 	const [camps, setCamps] = useState<Camp[] | null>(null)
+	const [teams, setTeams] = useState<Team[] | null>(null)
+	/** The team that walks in. Starts on the active one, then the player's pick. */
+	const [teamId, setTeamId] = useState<string | null>(null)
+	const [activeTeamId, setActiveTeamId] = useState<string | null>(null)
 	const [session, setSession] = useState<TrainingSession | null>(null)
 	const [busy, setBusy] = useState(false)
 	const [error, setError] = useState<string | null>(null)
@@ -90,16 +160,39 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 
 	useEscapeToClose(onClose)
 
+	// The teams first: the camp's verdicts depend on which one is selected, so
+	// the selection has to exist before the camps are asked for.
 	useEffect(() => {
 		let cancelled = false
+		fetchTeams()
+			.then((state) => {
+				if (cancelled) return
+				setTeams(state.teams)
+				setActiveTeamId(state.activeTeamId)
+				// The active team is the default; failing that, the first one that
+				// still has somebody able to fight.
+				const fit = (team: Team) =>
+					team.members.some((member) => !member.inCare && !member.fainted)
+				const active = state.teams.find((team) => team.id === state.activeTeamId)
+				setTeamId((active ?? state.teams.find(fit) ?? state.teams[0])?.id ?? null)
+			})
+			.catch(() => !cancelled && setTeams([]))
+		return () => {
+			cancelled = true
+		}
+	}, [])
+
+	useEffect(() => {
+		if (teams === null) return
+		let cancelled = false
 		api
-			.fetchCamps()
+			.fetchCamps(teamId ?? undefined)
 			.then(({ camps: found }) => !cancelled && setCamps(found))
 			.catch(() => !cancelled && setCamps([]))
 		return () => {
 			cancelled = true
 		}
-	}, [])
+	}, [teams, teamId])
 
 	const camp = camps?.find((entry) => entry.id === campId) ?? null
 
@@ -107,18 +200,29 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 		setBusy(true)
 		setError(null)
 		try {
-			const result = await api.trainAt(campId)
+			const result = await api.trainAt(campId, teamId ?? undefined)
 			setSession(result)
 			setBattle(result.battle)
 			play(result.battle, reducedMotion)
-			// The team levelled up, so the camp's own verdict has changed too.
-			api.fetchCamps().then(({ camps: found }) => setCamps(found)).catch(() => undefined)
+			// The team levelled up and took wounds, so both the camp's verdict and
+			// the roster the picker shows have changed.
+			api.fetchCamps(teamId ?? undefined).then(({ camps: found }) => setCamps(found)).catch(() => undefined)
+			fetchTeams().then((state) => setTeams(state.teams)).catch(() => undefined)
 		} catch (cause) {
 			setError(cause instanceof api.TrainingError ? cause.message : 'Serveur injoignable')
 		} finally {
 			setBusy(false)
 		}
-	}, [campId, play, reducedMotion])
+	}, [campId, teamId, play, reducedMotion])
+
+	/** Switching teams invalidates the session on screen: it was another team's. */
+	const selectTeam = useCallback((next: string) => {
+		setTeamId(next)
+		setSession(null)
+		setBattle(null)
+		setError(null)
+		setChaining(false)
+	}, [])
 
 	/**
 	 * Chaining: start the next session on its own once the last one has played.
@@ -161,7 +265,7 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 								{/* The camp picks its own trainee, so say who walks in next. */}
 								<span className="text-xs text-slate-500">
 									{camp.nextTrainee
-										? `au tour de ${camp.nextTrainee.name} (niveau ${camp.nextTrainee.level})`
+										? `${camp.nextTrainee.name} ouvre (niveau ${camp.nextTrainee.level})`
 										: `ton équipe : niveau ${camp.teamLevel}`}
 								</span>
 							</div>
@@ -183,6 +287,22 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 				) : (
 					<>
 						<p className="mt-3 text-base italic text-slate-400">« {camp.blurb} »</p>
+
+						<TeamPicker
+							teams={teams ?? []}
+							selected={teamId}
+							activeTeamId={activeTeamId}
+							onSelect={selectTeam}
+							disabled={busy || view.playing}
+						/>
+
+						{camp.roster > 0 && (
+							<p className="mt-2 text-sm text-slate-400">
+								{camp.roster === 1
+									? 'Un seul Pokémon valide : il affrontera un partenaire.'
+									: `Les ${camp.roster} Pokémon valides entrent sur le terrain, un partenaire chacun. Celui qui met son partenaire K.O. passe la main.`}
+							</p>
+						)}
 
 						{/* Who spars here, so the band is something you can see. */}
 						<ul className="mt-3 flex flex-wrap gap-1" aria-label="Pokémon sauvages du camp">
@@ -243,8 +363,9 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 										<span className="font-semibold text-sky-300">+{session.xpEarned} XP</span> distribués
 									</p>
 									<p className="text-sm text-slate-500">
-										Seuls les Pokémon qui sont entrés sur le terrain gagnent de l’expérience, à parts
-										égales. Le banc ne gagne rien.
+										L’expérience est partagée à parts égales entre les Pokémon entrés sur le terrain.
+										Ceux qui ont dépassé le plafond du camp ({session.band.max}) n’apprennent plus rien
+										ici.
 									</p>
 									<Gains session={session} />
 								</>

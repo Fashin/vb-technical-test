@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type { DamageRelation, Evolution, Pokemon, Resistance } from '../controllers/PokemonController'
+import { frenchName, frenchNameFromSlug } from './frenchNames'
 
 const POKEAPI_URL = 'https://pokeapi.co/api/v2'
 
@@ -111,7 +112,10 @@ export async function fetchPokemon(id: string): Promise<Pokemon> {
 	const { data: evolutionChain } = await axios.get<ApiEvolutionChain>(species.evolution_chain.url)
 
 	const apiEvolutions: Evolution[] = (findChainLink(evolutionChain.chain, species.name)?.evolves_to ?? [])
-		.map(({ species: evolution }) => ({ name: evolution.name, pokedexId: idFromUrl(evolution.url) }))
+		.map(({ species: evolution }) => {
+			const pokedexId = idFromUrl(evolution.url)
+			return { name: frenchName(pokedexId, evolution.name), pokedexId }
+		})
 
 	const apiResistances = computeResistances(types)
 	const firstAbility = pokemon.abilities[0]?.ability
@@ -119,7 +123,10 @@ export async function fetchPokemon(id: string): Promise<Pokemon> {
 	return {
 		id: pokemon.id,
 		pokedexId: pokemon.id,
-		name: pokemon.name,
+		// Display name in French, `slug` left as PokeAPI's English identifier:
+		// the slug is what builds filenames and what the API is queried with,
+		// so it must not become a translation.
+		name: frenchName(pokemon.id, pokemon.name),
 		image: pokemon.sprites.other['official-artwork'].front_default ?? '',
 		sprite: pokemon.sprites.front_default ?? '',
 		slug: pokemon.name,
@@ -140,7 +147,10 @@ export async function fetchPokemon(id: string): Promise<Pokemon> {
 		// PokeAPI has no equivalent: best effort with the first ability
 		resistanceModifyingAbilitiesForApi: { name: firstAbility?.name ?? '', slug: firstAbility?.name ?? '' },
 		apiEvolutions,
-		apiPreEvolution: species.evolves_from_species?.name ?? 'none',
+		// A chain link carries no id, only a slug — hence the slug lookup.
+		apiPreEvolution: species.evolves_from_species
+			? frenchNameFromSlug(species.evolves_from_species.name)
+			: 'none',
 		// PokeAPI does not compute ability effects on resistances
 		apiResistancesWithAbilities: apiResistances
 	}
@@ -158,6 +168,11 @@ export async function fetchPokemon(id: string): Promise<Pokemon> {
 const nameCache = new Map<number, string>()
 
 export async function fetchCardFace(pokedexId: number): Promise<string> {
+	// Generations 1 to 8 are in the table, so the common case costs nothing and
+	// cannot fail: a pack opened while PokeAPI is down still shows real names.
+	const local = frenchName(pokedexId)
+	if (local) return local
+
 	const cached = nameCache.get(pokedexId)
 	if (cached) return cached
 
@@ -199,7 +214,7 @@ export async function fetchFighter(pokedexId: number): Promise<Fighter> {
 
 	const fighter: Fighter = {
 		pokedexId: data.id,
-		name: data.name,
+		name: frenchName(data.id, data.name),
 		types: [...data.types].sort((a, b) => a.slot - b.slot).map((t) => t.type.name),
 		stats: {
 			hp: stat('hp'),

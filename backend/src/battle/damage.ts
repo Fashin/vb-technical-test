@@ -40,8 +40,12 @@ export interface DamageResult {
  *             randomness and the tests do not have to stub `Math.random`.
  */
 export function computeDamage(move: Move, attacker: Combatant, defender: Combatant, roll: number): DamageResult {
-	const moveType: PokemonType = isPokemonType(move.type) ? move.type : 'normal'
-	const multiplier = effectiveness(moveType, defender.types.filter(isPokemonType))
+	// A move with no type in the chart is resolved without the chart: no
+	// effectiveness, no same-type bonus. `improviseMove` reaches for one when
+	// every type the attacker actually has is walled, so that a matchup nobody
+	// can hurt still resolves instead of running the clock out at zero.
+	const moveType: PokemonType | null = isPokemonType(move.type) ? move.type : null
+	const multiplier = moveType === null ? 1 : effectiveness(moveType, defender.types.filter(isPokemonType))
 
 	if (multiplier === 0) return { damage: 0, multiplier, critical: false }
 
@@ -51,7 +55,7 @@ export function computeDamage(move: Move, attacker: Combatant, defender: Combata
 
 	// Crits are rolled off the same number, so one roll decides the whole hit.
 	const critical = roll > 0.94
-	const stab = attacker.types.includes(moveType) ? STAB : 1
+	const stab = moveType !== null && attacker.types.includes(moveType) ? STAB : 1
 	// 0.85..1.00, the games' damage spread.
 	const variance = 0.85 + roll * 0.15
 

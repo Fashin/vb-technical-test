@@ -21,8 +21,14 @@ function sentenceList(parts: string[]): string {
 	return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
 }
 
-/** "pikachu" → "Pikachu", "mr-mime" → "Mr Mime". */
-const prettyName = (slug: string): string => slug.split('-').map(capitalise).join(' ')
+/**
+ * The English name, for the brain to retrieve on either language.
+ *
+ * `slug` is PokeAPI's identifier, so it is what an English question matches:
+ * "mr-mime" → "Mr Mime". The French name comes from `pokemon.name`, which the
+ * service already localises.
+ */
+const englishName = (slug: string): string => slug.split('-').map(capitalise).join(' ')
 
 /** `025-pikachu.md` — zero-padded so a plain file listing is dex-ordered. */
 export function markdownFilename(pokemon: Pick<Pokemon, 'pokedexId' | 'slug'>): string {
@@ -50,7 +56,7 @@ function statLines(pokemon: Pokemon): string {
 /** A sentence a language model can actually reason with, not just numbers. */
 function profile(pokemon: Pokemon): string {
 	const { stats } = pokemon
-	const name = prettyName(pokemon.name)
+	const name = pokemon.name
 	const traits: string[] = []
 
 	if (stats.speed >= 100) traits.push('very fast')
@@ -98,14 +104,14 @@ function matchups(resistances: Resistance[]): string {
 }
 
 function evolutions(pokemon: Pokemon): string {
-	const name = prettyName(pokemon.name)
+	const name = pokemon.name
 	const parts: string[] = []
 
 	if (pokemon.apiPreEvolution && pokemon.apiPreEvolution !== 'none') {
-		parts.push(`${name} evolves from ${prettyName(pokemon.apiPreEvolution)}.`)
+		parts.push(`${name} evolves from ${pokemon.apiPreEvolution}.`)
 	}
 	if (pokemon.apiEvolutions.length > 0) {
-		const into = pokemon.apiEvolutions.map((e) => `${prettyName(e.name)} (#${e.pokedexId})`).join(' and ')
+		const into = pokemon.apiEvolutions.map((e) => `${e.name} (#${e.pokedexId})`).join(' and ')
 		parts.push(`${name} evolves into ${into}.`)
 	}
 	if (parts.length === 0) parts.push(`${name} does not evolve.`)
@@ -114,13 +120,14 @@ function evolutions(pokemon: Pokemon): string {
 }
 
 export function pokemonToMarkdown(pokemon: Pokemon): string {
-	const name = prettyName(pokemon.name)
+	const name = pokemon.name
+	const english = englishName(pokemon.slug)
 	const types = pokemon.apiTypes.map((t) => capitalise(t.name))
 	const typeLabel = types.length > 0 ? types.join('/') : 'Unknown'
 
-	return `# ${name} (#${pokemon.pokedexId})
+	return `# ${name} (${english}, #${pokemon.pokedexId})
 
-${name} is ${article(typeLabel)} ${typeLabel}-type Pokémon from generation ${pokemon.apiGeneration}.
+${name} — known in English as ${english} — is ${article(typeLabel)} ${typeLabel}-type Pokémon from generation ${pokemon.apiGeneration}.
 
 ![${name}](${pokemon.image})
 
@@ -148,6 +155,6 @@ ${evolutions(pokemon)}
 
 ---
 
-Pokedex number: ${pokemon.pokedexId}. Name: ${name}. Types: ${typeLabel}. Generation: ${pokemon.apiGeneration}.
+Pokedex number: ${pokemon.pokedexId}. Nom français : ${name}. English name: ${english}. Types: ${typeLabel}. Generation: ${pokemon.apiGeneration}.
 `
 }

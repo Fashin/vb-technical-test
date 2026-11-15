@@ -1,6 +1,6 @@
 import { fetchFighter } from '../services/pokeapi'
 import { computeDamage, maxHp, scaleStat, type Move } from './damage'
-import { effectivenessLabel, isPokemonType } from './types'
+import { effectiveness, effectivenessLabel, isPokemonType, type PokemonType } from './types'
 
 /**
  * The combat engine: two teams, a script, and what actually happens.
@@ -99,16 +99,58 @@ export interface Action {
 
 const capitalize = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
 
-/** A move the engine falls back on, built from the attacker itself. */
-function improviseMove(fighter: BattleFighter): Move {
-	const type = fighter.types.find(isPokemonType) ?? 'normal'
-	const physical = fighter.attack >= fighter.specialAttack
-	return { name: physical ? 'Charge' : 'Déflagration', type, category: physical ? 'physical' : 'special', power: 60 }
+/**
+ * The attacker's own type that actually lands on `defending`, or null when
+ * none of them does.
+ *
+ * Improvising off the attacker's primary type alone is what made a Gengar
+ * throw Ghost at a Rattata for twenty-four rounds: immune, zero damage, and
+ * zero the other way too, since Normal cannot touch a Ghost either. A
+ * Pokemon with two types picks the one that connects, and prefers the one
+ * that connects hardest.
+ */
+function bestOwnType(fighter: BattleFighter, defending: PokemonType[]): PokemonType | null {
+	const candidates = fighter.types.filter(isPokemonType)
+	// A fighter whose types PokeAPI did not give us still has to swing.
+	const pool: PokemonType[] = candidates.length > 0 ? candidates : ['normal']
+
+	let chosen: PokemonType | null = null
+	let best = 0
+	for (const type of pool) {
+		const multiplier = effectiveness(type, defending)
+		// Strictly greater, so a tie keeps the primary type — the one the sprite
+		// and the commentary are about.
+		if (multiplier > best) {
+			best = multiplier
+			chosen = type
+		}
+	}
+
+	return chosen
 }
 
-export function sanitizeMove(raw: unknown, fallback: BattleFighter): Move {
+/**
+ * The typeless last resort, when every type the attacker has is walled.
+ *
+ * Struggle, as the modern games have it: no type, so no immunity applies, and
+ * weak enough that it reads as scraping by rather than as a real attack.
+ */
+const STRUGGLE: Omit<Move, 'category'> = { name: 'Lutte', type: 'untyped', power: 40 }
+
+/** A move the engine falls back on, built from the attacker and its target. */
+function improviseMove(fighter: BattleFighter, target?: BattleFighter): Move {
+	const physical = fighter.attack >= fighter.specialAttack
+	const category = physical ? ('physical' as const) : ('special' as const)
+	const type = bestOwnType(fighter, target?.types.filter(isPokemonType) ?? [])
+
+	if (type === null) return { ...STRUGGLE, category }
+
+	return { name: physical ? 'Charge' : 'Déflagration', type, category, power: 60 }
+}
+
+export function sanitizeMove(raw: unknown, fallback: BattleFighter, target?: BattleFighter): Move {
 	const value = (raw ?? {}) as Partial<Record<keyof Move, unknown>>
-	const improvised = improviseMove(fallback)
+	const improvised = improviseMove(fallback, target)
 
 	const name = typeof value.name === 'string' && value.name.trim() ? value.name.trim().slice(0, 40) : improvised.name
 	const type = isPokemonType(value.type) ? value.type : improvised.type
@@ -171,24 +213,58 @@ function retarget(line: string, standIns: StandIn[]): string {
 }
 
 /** Read one scripted action, retargeted onto who is actually on the field. */
-function readAction(raw: unknown, fighter: BattleFighter, standIns: StandIn[]): Action {
+function readAction(
+	raw: unknown,
+	fighter: BattleFighter,
+	standIns: StandIn[],
+	target: BattleFighter,
+): Action {
 	const value = (raw ?? {}) as Record<string, unknown>
 	// A script may nest the move or inline its fields; both are read.
-	const move = sanitizeMove(value.move ?? value, fighter)
+	const move = sanitizeMove(value.move ?? value, fighter, target)
 	const line = sanitizeLine(value.line ?? value.narration, defaultLine(fighter, move))
 
 	return { move, line: retarget(line, standIns) }
 }
 
-function improvisedAction(fighter: BattleFighter): Action {
-	const move = improviseMove(fighter)
+function improvisedAction(fighter: BattleFighter, target: BattleFighter): Action {
+	const move = improviseMove(fighter, target)
 	return { move, line: defaultLine(fighter, move) }
 }
 
 /* -------------------------------- resolving ------------------------------- */
 
-/** Apply one attack. Returns the event, with the knockout already handled. */
-function strike(attacker: Side, defender: Side, action: Action, side: 'player' | 'master'): TurnEvent {
+/**
+ * The next member still standing, scanning forward from whoever is out.
+ *
+ * Forward and wrapping rather than "the first one alive", so a side that keeps
+ * handing over walks through its whole roster instead of coming back to the
+ * same Pokemon. Returns the current index when nobody else can stand.
+ */
+function nextAlive(side: Side): number {
+	const size = side.team.length
+	for (let step = 1; step <= size; step++) {
+		const index = (side.active + step) % size
+		if (side.team[index].hp > 0) return index
+	}
+	return side.active
+}
+
+/**
+ * Apply one attack. Returns the event, with the knockout already handled.
+ *
+ * `relay` is the training camps' rule: a Pokemon that scores a knockout has
+ * done its turn and hands over to the next one. Without it only a faint ever
+ * changes who is out, so a team whose lead never falls would field exactly one
+ * Pokemon however many it brought.
+ */
+function strike(
+	attacker: Side,
+	defender: Side,
+	action: Action,
+	side: 'player' | 'master',
+	relay: boolean,
+): TurnEvent {
 	const source = attacker.team[attacker.active]
 	const target = defender.team[defender.active]
 	const { damage, multiplier, critical } = computeDamage(action.move, source, target, Math.random())
@@ -198,11 +274,13 @@ function strike(attacker: Side, defender: Side, action: Action, side: 'player' |
 
 	let replacedBy: string | null = null
 	if (fainted) {
-		const next = defender.team.findIndex((f) => f.hp > 0)
-		if (next !== -1) {
+		const next = nextAlive(defender)
+		if (defender.team[next].hp > 0) {
 			defender.active = next
 			replacedBy = defender.team[next].name
 		}
+		// Its turn is over, whether or not anyone is left to answer.
+		if (relay) attacker.active = nextAlive(attacker)
 	}
 
 	return {
@@ -252,11 +330,38 @@ export interface Resolution {
  * missing, short or unparsable script costs the fight its commentary and
  * nothing else.
  */
-export function resolveRounds(player: Side, master: Side, script: unknown[] = []): Resolution {
+export interface BattleRules {
+	/**
+	 * Hand over to the next Pokemon after scoring a knockout, on both sides.
+	 *
+	 * What turns a 6-against-6 into one bout each instead of one Pokemon
+	 * clearing the field. The arena and player duels leave it off: there, who
+	 * stays out is part of what the chatbot's script is about.
+	 */
+	relay?: boolean
+	/**
+	 * Hard stop for this fight, defaulting to `MAX_ROUNDS`.
+	 *
+	 * A relayed 6-against-6 needs a longer leash than a single bout: at the
+	 * arena's cap the last Pokemon of a full team would never reach the field,
+	 * and the fight would be decided on remaining health instead of a wipe.
+	 */
+	maxRounds?: number
+}
+
+export function resolveRounds(
+	player: Side,
+	master: Side,
+	script: unknown[] = [],
+	rules: BattleRules = {},
+): Resolution {
+	const relay = rules.relay === true
+	const cap = Math.max(1, Math.round(rules.maxRounds ?? MAX_ROUNDS))
+
 	const rounds: RoundLog[] = []
 	const fought = { player: new Set<number>(), master: new Set<number>() }
 
-	while (rounds.length < MAX_ROUNDS && alive(player) && alive(master)) {
+	while (rounds.length < cap && alive(player) && alive(master)) {
 		const actors = { player: player.team[player.active], master: master.team[master.active] }
 		// Recorded at the top of the round: being out for a round is what counts
 		// as having fought, whether you swung or only took the hit.
@@ -266,10 +371,12 @@ export function resolveRounds(player: Side, master: Side, script: unknown[] = []
 		const benched = standInsFor(player, master)
 
 		const actions = {
-			player: scripted ? readAction(scripted.player, actors.player, benched) : improvisedAction(actors.player),
+			player: scripted
+				? readAction(scripted.player, actors.player, benched, actors.master)
+				: improvisedAction(actors.player, actors.master),
 			master: scripted
-				? readAction(scripted.master ?? scripted.opponent, actors.master, benched)
-				: improvisedAction(actors.master),
+				? readAction(scripted.master ?? scripted.opponent, actors.master, benched, actors.player)
+				: improvisedAction(actors.master, actors.player),
 		}
 
 		// Fastest first, as in the games.
@@ -286,8 +393,8 @@ export function resolveRounds(player: Side, master: Side, script: unknown[] = []
 
 			events.push(
 				side === 'player'
-					? strike(player, master, actions.player, 'player')
-					: strike(master, player, actions.master, 'master'),
+					? strike(player, master, actions.player, 'player', relay)
+					: strike(master, player, actions.master, 'master', relay),
 			)
 		}
 

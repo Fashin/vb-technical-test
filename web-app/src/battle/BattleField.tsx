@@ -31,6 +31,8 @@ const TYPE_GLOW: Record<string, string> = {
 	dark: '#6b5a4e',
 	steel: '#b8b8c8',
 	fairy: '#f2a5e0',
+	// "Lutte" : sans type, donc sans couleur de type.
+	untyped: '#8d8d8d',
 }
 
 /** One character every this many milliseconds. */
