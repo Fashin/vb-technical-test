@@ -4,13 +4,11 @@ import { effectiveness, isPokemonType, type PokemonType } from './types'
  * Damage, from the mainline games' formula with the parts a web demo does not
  * need stripped out.
  *
- * Every fighter is treated as level 50 so that teams built out of whatever the
- * boosters happened to give are still comparable: the difference between a
- * Caterpie and a Dragonite is then their base stats, not a level gap nobody
- * chose. No items, no abilities, no status — the brief's bonus asks for a
- * round-by-round loop, not a battle simulator.
+ * Each fighter brings its own level, earned in the training camps, and the
+ * level drives both the damage and the HP pool — so a trained Caterpie really
+ * does outlast an untrained Dragonite. No items, no abilities, no status: the
+ * point is a readable progression, not a battle simulator.
  */
-const LEVEL = 50
 
 /** Same-type attack bonus. */
 const STAB = 1.5
@@ -24,6 +22,7 @@ export interface Move {
 
 export interface Combatant {
 	types: string[]
+	level: number
 	attack: number
 	defense: number
 	specialAttack: number
@@ -56,14 +55,28 @@ export function computeDamage(move: Move, attacker: Combatant, defender: Combata
 	// 0.85..1.00, the games' damage spread.
 	const variance = 0.85 + roll * 0.15
 
-	const base = Math.floor(((2 * LEVEL) / 5 + 2) * move.power * (offence / Math.max(1, defence))) / 50 + 2
+	const level = Math.max(1, attacker.level)
+	const base = Math.floor(((2 * level) / 5 + 2) * move.power * (offence / Math.max(1, defence))) / 50 + 2
 	const damage = Math.floor(base * multiplier * stab * variance * (critical ? 1.5 : 1))
 
 	// A connecting move always does something, however resisted.
 	return { damage: Math.max(1, damage), multiplier, critical }
 }
 
-/** Battle HP from a base HP stat, at the fixed level. */
-export function maxHp(baseHp: number): number {
-	return Math.floor(((2 * baseHp + 31) * LEVEL) / 100) + LEVEL + 10
+/**
+ * A battle stat from its base value and a level, as the games compute it.
+ *
+ * This is what makes a level worth earning. Without it only the damage
+ * formula's own level term would scale, the HP pool would scale with it, and
+ * the two would very nearly cancel out: a level 5 team could trade blows with
+ * a level 12 one, and the training camps would be decoration.
+ */
+export function scaleStat(base: number, level: number): number {
+	return Math.floor(((2 * base + 31) * Math.max(1, level)) / 100) + 5
+}
+
+/** Battle HP from a base HP stat and a level. */
+export function maxHp(baseHp: number, level: number): number {
+	const capped = Math.max(1, level)
+	return Math.floor(((2 * baseHp + 31) * capped) / 100) + capped + 10
 }

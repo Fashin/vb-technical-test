@@ -6,7 +6,7 @@ function Game() {
 
 	if (status === 'checking') {
 		return (
-			<div className="flex h-screen w-screen items-center justify-center bg-[#121a12] text-sm text-slate-300">
+			<div className="flex h-screen w-screen items-center justify-center bg-[#121a12] text-base text-slate-300">
 				Reconnexion…
 			</div>
 		)

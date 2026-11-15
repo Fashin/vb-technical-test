@@ -5,6 +5,8 @@
  * in this repo, so any change here must be copied there (and vice versa).
  */
 
+import type { BattleState } from '../battle/battles'
+import type { XpGain } from '../progression/levels'
 import type { TileMapData } from '../world/mapData'
 import type { Appearance } from '../appearance/appearance'
 import type { Facing, WorldPlayerState } from '../world/world'
@@ -13,27 +15,39 @@ export type { TileMapData, TileLayer, LayerName } from '../world/mapData'
 export type { Facing, WorldPlayerState } from '../world/world'
 export type { Appearance } from '../appearance/appearance'
 
-export type RoomPhase = 'lobby' | 'picking' | 'battle' | 'finished'
+export type EncounterKind = 'duel' | 'trade'
 
-export interface PlayerState {
+/** An offer to duel or to trade, from the player standing next to you. */
+export interface Invitation {
 	id: string
+	kind: EncounterKind
+	fromUserId: string
+	fromName: string
+}
+
+/** One card on a trading table. */
+export interface TradeCard {
+	cardId: string
+	pokedexId: number
 	name: string
-	/** Pokedex id of the fighter this player picked, null until they choose. */
-	pokedexId: number | null
-	ready: boolean
-	connected: boolean
+	rarity: string
+	level: number
+	health: number
 }
 
-export interface RoomState {
+export interface TradeSide {
+	userId: string
+	name: string
+	offer: TradeCard[]
+	confirmed: boolean
+}
+
+/** A trade, as both players see it. */
+export interface TradeState {
 	id: string
-	phase: RoomPhase
-	players: PlayerState[]
-	/** Socket id of the player whose turn it is, null outside the battle phase. */
-	turnPlayerId: string | null
-	createdAt: number
+	sides: [TradeSide, TradeSide]
+	settled: boolean
 }
-
-export const MAX_PLAYERS_PER_ROOM = 2
 
 /**
  * Everything the web app needs to draw the world the moment it joins: the map
@@ -49,13 +63,15 @@ export interface WorldSnapshot {
 }
 
 export type RealtimeErrorCode =
-	| 'ROOM_NOT_FOUND'
-	| 'ROOM_FULL'
-	| 'ALREADY_IN_ROOM'
-	| 'NOT_IN_ROOM'
 	| 'INVALID_PAYLOAD'
 	| 'UNAUTHORIZED'
 	| 'NOT_IN_WORLD'
+	| 'TOO_FAR'
+	| 'NO_TEAM'
+	| 'NO_HEALTHY_TEAM'
+	| 'NOT_OWNED'
+	| 'NO_SESSION'
+	| 'BUSY'
 
 export interface RealtimeError {
 	code: RealtimeErrorCode
@@ -68,11 +84,20 @@ export type Ack<T> = { ok: true; data: T } | { ok: false; error: RealtimeError }
 /* ------------------------------- client → server ------------------------------- */
 
 export interface ClientToServerEvents {
-	'room:create': (payload: { playerName: string }, ack: (res: Ack<RoomState>) => void) => void
-	'room:join': (payload: { roomId: string; playerName: string }, ack: (res: Ack<RoomState>) => void) => void
-	'room:leave': (ack?: (res: Ack<null>) => void) => void
-	'room:pick': (payload: { pokedexId: number }, ack?: (res: Ack<RoomState>) => void) => void
-	'room:ready': (payload: { ready: boolean }, ack?: (res: Ack<RoomState>) => void) => void
+	/* -------------------------------- encounters -------------------------------- */
+
+	/** Offer a duel or a trade to a player standing within reach. */
+	'pvp:invite': (
+		payload: { toUserId: string; kind: EncounterKind },
+		ack: (res: Ack<{ invitationId: string }>) => void,
+	) => void
+	/** Answer an invitation. Declining simply drops it. */
+	'pvp:respond': (payload: { invitationId: string; accept: boolean }, ack?: (res: Ack<null>) => void) => void
+
+	/** Put cards on the trading table; any change clears both confirmations. */
+	'trade:offer': (payload: { cardIds: string[] }, ack?: (res: Ack<null>) => void) => void
+	'trade:confirm': (payload: { confirmed: boolean }, ack?: (res: Ack<null>) => void) => void
+	'trade:leave': (ack?: (res: Ack<null>) => void) => void
 
 	/* ------------------------------ shared overworld ------------------------------ */
 
@@ -92,12 +117,24 @@ export interface ClientToServerEvents {
 /* ------------------------------- server → client ------------------------------- */
 
 export interface ServerToClientEvents {
-	/** Authoritative room snapshot — the client renders this, it never guesses. */
-	'room:state': (room: RoomState) => void
-	'room:closed': (payload: { roomId: string; reason: string }) => void
-	'room:error': (error: RealtimeError) => void
-	/** Both players are ready: the arena takes over from here. */
-	'battle:start': (room: RoomState) => void
+	/* -------------------------------- encounters -------------------------------- */
+
+	/** Someone next to you wants something. */
+	'pvp:invited': (invitation: Invitation) => void
+	/** An invitation you sent or received is no longer standing. */
+	'pvp:cancelled': (payload: { invitationId: string; reason: string }) => void
+	'pvp:error': (error: RealtimeError) => void
+	/**
+	 * A resolved duel, already written from *this* client's point of view: the
+	 * reader is always the `player` side, so the battle components need to know
+	 * nothing about who challenged whom.
+	 */
+	'pvp:duel': (payload: { battle: BattleState; won: boolean; gains: XpGain[]; degraded: boolean }) => void
+
+	/** The trading table, after every change either side makes. */
+	'trade:state': (trade: TradeState) => void
+	'trade:done': (trade: TradeState) => void
+	'trade:closed': (payload: { reason: string }) => void
 
 	/* ------------------------------ shared overworld ------------------------------ */
 
@@ -112,7 +149,6 @@ export interface ServerToClientEvents {
 
 /** Per-socket server-side bookkeeping. */
 export interface SocketData {
-	roomId: string | null
 	playerName: string
 	/** Set by the handshake middleware; a socket without one is never connected. */
 	userId: string

@@ -1,6 +1,8 @@
 import { randomUUID } from 'crypto'
 
 import { db } from '../db'
+import { conditionOf, settleCare, type Condition } from '../care/healing'
+import { progressOf } from '../progression/levels'
 
 /**
  * Battle teams.
@@ -22,12 +24,19 @@ export const MAX_TEAMS = 6
 
 export const NAME_MAX = 24
 
-export interface TeamMember {
+export interface TeamMember extends Condition {
 	cardId: string
 	pokedexId: number
 	name: string
 	rarity: string
 	slot: number
+	/** Derived from the card's experience — see `progression/levels.ts`. */
+	level: number
+	xp: number
+	/** Experience owed before the next level, 0 at the cap. */
+	toNextLevel: number
+	/** 0..1 inside the current level, for the bar the panels draw. */
+	ratio: number
 }
 
 export interface Team {
@@ -50,6 +59,9 @@ interface MemberRow {
 	pokedex_id: number
 	name: string
 	rarity: string
+	xp: number
+	hp_lost: number
+	healed_at: number | null
 }
 
 function membersOf(teamIds: string[]): Map<string, TeamMember[]> {
@@ -59,7 +71,7 @@ function membersOf(teamIds: string[]): Map<string, TeamMember[]> {
 	const placeholders = teamIds.map(() => '?').join(', ')
 	const rows = db
 		.prepare(
-			`SELECT m.team_id, m.slot, m.card_id, c.pokedex_id, c.name, c.rarity
+			`SELECT m.team_id, m.slot, m.card_id, c.pokedex_id, c.name, c.rarity, c.xp, c.hp_lost, c.healed_at
 			 FROM team_members m
 			 JOIN cards c ON c.id = m.card_id
 			 WHERE m.team_id IN (${placeholders})
@@ -75,6 +87,8 @@ function membersOf(teamIds: string[]): Map<string, TeamMember[]> {
 			name: row.name,
 			rarity: row.rarity,
 			slot: row.slot,
+			...progressOf(row.xp),
+			...conditionOf(row.hp_lost, row.healed_at),
 		})
 		byTeam.set(row.team_id, list)
 	}
@@ -82,6 +96,10 @@ function membersOf(teamIds: string[]): Map<string, TeamMember[]> {
 }
 
 export function listTeams(userId: string): Team[] {
+	// Teams are read before every fight, so this is where cards whose care is
+	// over come back to the roster.
+	settleCare(userId)
+
 	const rows = db
 		.prepare('SELECT id, name, created_at FROM teams WHERE user_id = ? ORDER BY created_at')
 		.all(userId) as TeamRow[]
@@ -97,6 +115,8 @@ export function listTeams(userId: string): Team[] {
 }
 
 export function getTeam(userId: string, teamId: string): Team | null {
+	settleCare(userId)
+
 	const row = db
 		.prepare('SELECT id, name, created_at FROM teams WHERE id = ? AND user_id = ?')
 		.get(teamId, userId) as TeamRow | undefined

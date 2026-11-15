@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react'
+
 import { spriteUrlFor } from '../map'
+import { LevelBadge } from '../progression'
 import type { BattleFighter, Side } from './api'
-import type { FloatingHit, PlaybackView } from './useRoundPlayback'
+import type { FloatingHit, PlaybackView } from './useBattlePlayback'
 
 /**
  * The arena: two fighters, their health, and everything that happens between
@@ -30,6 +33,9 @@ const TYPE_GLOW: Record<string, string> = {
 	fairy: '#f2a5e0',
 }
 
+/** One character every this many milliseconds. */
+const TYPING_MS = 18
+
 function glow(type: string): string {
 	return TYPE_GLOW[type] ?? TYPE_GLOW.normal
 }
@@ -43,14 +49,15 @@ function barColor(ratio: number): string {
 function HealthBar({ fighter, align }: { fighter: BattleFighter; align: 'left' | 'right' }) {
 	const ratio = fighter.hp / fighter.maxHp
 	return (
-		<div className={`w-40 ${align === 'right' ? 'text-right' : ''}`}>
-			<div className="flex items-baseline justify-between gap-2">
-				<span className="truncate text-sm font-medium capitalize">{fighter.name}</span>
-				<span className="shrink-0 text-[11px] tabular-nums text-slate-400">
-					{fighter.hp}/{fighter.maxHp}
-				</span>
+		<div className={`w-48 ${align === 'right' ? 'text-right' : ''}`}>
+			<div className={`flex items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`}>
+				<span className="truncate text-base font-medium capitalize">{fighter.name}</span>
+				<LevelBadge level={fighter.level} />
 			</div>
-			<div className="mt-1 h-2 overflow-hidden rounded-full bg-black/50">
+			<p className={`text-xs tabular-nums text-slate-400 ${align === 'right' ? 'text-right' : ''}`}>
+				{fighter.hp}/{fighter.maxHp} PV
+			</p>
+			<div className="mt-1 h-3 overflow-hidden rounded-full bg-black/50">
 				<div
 					className={`h-full rounded-full transition-[width] duration-500 ease-out ${barColor(ratio)}`}
 					style={{ width: `${Math.max(0, ratio) * 100}%` }}
@@ -69,7 +76,7 @@ function TeamPips({ team, align }: { team: BattleFighter[]; align: 'left' | 'rig
 						src={spriteUrlFor(fighter.pokedexId)}
 						alt=""
 						title={fighter.name}
-						className={`h-6 w-6 [image-rendering:pixelated] ${fighter.hp === 0 ? 'opacity-25 grayscale' : ''}`}
+						className={`h-7 w-7 [image-rendering:pixelated] ${fighter.hp === 0 ? 'opacity-25 grayscale' : ''}`}
 					/>
 				</li>
 			))}
@@ -83,11 +90,11 @@ function Impact({ type }: { type: string }) {
 	return (
 		<span aria-hidden className="pointer-events-none absolute left-1/2 top-1/2">
 			<span
-				className="absolute left-0 top-0 block h-20 w-20 animate-impact rounded-full"
+				className="absolute left-0 top-0 block h-24 w-24 animate-impact rounded-full"
 				style={{ background: `radial-gradient(circle, ${color} 0%, ${color}66 40%, transparent 70%)` }}
 			/>
 			<span
-				className="absolute left-0 top-0 block h-16 w-16 animate-spark"
+				className="absolute left-0 top-0 block h-20 w-20 animate-spark"
 				style={{
 					background: `conic-gradient(from 0deg, transparent 0deg, ${color} 20deg, transparent 40deg, transparent 180deg, ${color} 200deg, transparent 220deg)`,
 					clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
@@ -102,12 +109,48 @@ function DamageNumber({ hit }: { hit: FloatingHit }) {
 		<span
 			aria-hidden
 			className={`pointer-events-none absolute left-1/2 top-2 animate-float-up whitespace-nowrap font-bold drop-shadow-[0_2px_0_rgba(0,0,0,0.6)] ${
-				hit.critical ? 'text-2xl text-amber-300' : 'text-xl text-white'
+				hit.critical ? 'text-3xl text-amber-300' : 'text-2xl text-white'
 			}`}
 		>
 			-{hit.damage}
-			{hit.critical && <span className="ml-1 text-xs align-top">CRIT</span>}
+			{hit.critical && <span className="ml-1 text-sm align-top">CRIT</span>}
 		</span>
+	)
+}
+
+/**
+ * The battle's text box, typed out rather than printed.
+ *
+ * The typing is not decoration: a line is handed over at the exact moment its
+ * attack starts and is given the length of that attack to appear, so the
+ * commentary and the sprites stay on the same beat. `textKey` changes with
+ * every line, which restarts the effect even when the same sentence repeats.
+ */
+function Caption({ text, textKey }: { text: string; textKey: number }) {
+	const [shown, setShown] = useState('')
+
+	useEffect(() => {
+		setShown('')
+		if (!text) return
+
+		let at = 0
+		const timer = setInterval(() => {
+			at += 1
+			setShown(text.slice(0, at))
+			if (at >= text.length) clearInterval(timer)
+		}, TYPING_MS)
+
+		return () => clearInterval(timer)
+	}, [text, textKey])
+
+	return (
+		<p
+			aria-live="polite"
+			className="mt-3 min-h-[2.75rem] rounded-md border border-white/10 bg-black/45 px-3 py-2 text-base leading-snug text-slate-100"
+		>
+			{shown}
+			{shown.length < text.length && <span className="ml-0.5 animate-pulse text-emerald-300">|</span>}
+		</p>
 	)
 }
 
@@ -145,7 +188,7 @@ function Fighter({
 				key={`${fighter.pokedexId}-${motion}-${view.attacking}-${view.impactOn}`}
 				src={spriteUrlFor(fighter.pokedexId)}
 				alt={fighter.name}
-				className={`h-24 w-24 [image-rendering:pixelated] ${motion} ${fighter.hp === 0 ? 'opacity-30' : ''}`}
+				className={`h-28 w-28 [image-rendering:pixelated] ${motion} ${fighter.hp === 0 ? 'opacity-30' : ''}`}
 			/>
 			{view.impactOn === side && impact && <Impact type={impact.type} />}
 			{hits
@@ -191,6 +234,8 @@ export function BattleField({
 					{playerActive && <HealthBar fighter={playerActive} align="right" />}
 				</div>
 			</div>
+
+			<Caption text={view.caption} textKey={view.captionKey} />
 		</div>
 	)
 }

@@ -6,7 +6,6 @@ import {
 	type ClientToServerEvents,
 	type InterServerEvents,
 	type RealtimeErrorCode,
-	type RoomState,
 	type ServerToClientEvents,
 	type SocketData,
 } from './events'
@@ -23,29 +22,23 @@ import {
 	toState,
 	tryStep,
 } from '../world/world'
-import {
-	addPlayer,
-	createRoom,
-	everyoneReady,
-	findPlayer,
-	getRoom,
-	isFull,
-	listRooms,
-	removePlayer,
-	startBattle,
-} from './rooms'
+import { fight, mirror } from '../pvp/duels'
+import { forget, invite, take } from '../pvp/encounters'
+import { close as closeTrade, confirm, open as openTrade, setOffer, type TradeSession } from '../pvp/trades'
 
 export type ArenaServer = Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
 type ArenaSocket = Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
 
 const ERROR_MESSAGES: Record<RealtimeErrorCode, string> = {
-	ROOM_NOT_FOUND: 'No room with that code',
-	ROOM_FULL: 'That room already has two players',
-	ALREADY_IN_ROOM: 'You are already in a room',
-	NOT_IN_ROOM: 'You are not in a room',
 	INVALID_PAYLOAD: 'Invalid payload',
 	UNAUTHORIZED: 'Sign in again',
 	NOT_IN_WORLD: 'You have not joined the world',
+	TOO_FAR: 'Trop loin de ce dresseur',
+	NO_TEAM: 'Compose une équipe avant de défier quelqu’un',
+	NO_HEALTHY_TEAM: 'Aucun Pokémon en état de combattre — passe par le centre de soins',
+	NOT_OWNED: 'Une de ces cartes ne t’appartient pas',
+	NO_SESSION: 'Cet échange n’existe plus',
+	BUSY: 'Une invitation est déjà en attente',
 }
 
 function fail(code: RealtimeErrorCode): Ack<never> {
@@ -79,12 +72,6 @@ export async function disconnectUser(userId: string): Promise<void> {
 		// from the world and tells everyone, exactly as for a closed tab.
 		socket.disconnect(true)
 	}
-}
-
-function sanitizeName(name: unknown): string | null {
-	if (typeof name !== 'string') return null
-	const trimmed = name.trim().slice(0, 24)
-	return trimmed.length > 0 ? trimmed : null
 }
 
 /**
@@ -122,98 +109,111 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 	}
 
 	io.on('connection', (socket: ArenaSocket) => {
-		socket.data.roomId = null
 		socket.data.inWorld = false
 
-		/** Push the authoritative snapshot to every player in the room. */
-		const broadcast = (room: RoomState) => {
-			io.to(room.id).emit('room:state', room)
+		/* -------------------------------- encounters -------------------------------- */
+
+		/** Every socket an account has open, so an encounter reaches both players. */
+		const socketsOf = async (userId: string) =>
+			(await io.fetchSockets()).filter((other) => other.data.userId === userId)
+
+		const tell = async (userId: string, event: keyof ServerToClientEvents, payload: never) => {
+			for (const other of await socketsOf(userId)) other.emit(event, payload)
 		}
 
-		socket.on('room:create', ({ playerName }, ack) => {
-			if (socket.data.roomId) return ack(fail('ALREADY_IN_ROOM'))
+		socket.on('pvp:invite', ({ toUserId, kind }, ack) => {
+			if (typeof toUserId !== 'string' || (kind !== 'duel' && kind !== 'trade')) {
+				return ack(fail('INVALID_PAYLOAD'))
+			}
 
-			const name = sanitizeName(playerName)
-			if (!name) return ack(fail('INVALID_PAYLOAD'))
+			const result = invite(socket.data.userId, socket.data.playerName, toUserId, kind)
+			if (!result.ok) return ack(fail(result.reason === 'TOO_FAR' ? 'TOO_FAR' : 'BUSY'))
 
-			const room = createRoom(socket.id, name)
-			socket.data.roomId = room.id
-			socket.data.playerName = name
-			void socket.join(room.id)
-
-			ack(succeed(room))
-			broadcast(room)
+			const { id, fromUserId, fromName } = result.invitation
+			void tell(toUserId, 'pvp:invited', { id, kind, fromUserId, fromName } as never)
+			return ack(succeed({ invitationId: id }))
 		})
 
-		socket.on('room:join', ({ roomId, playerName }, ack) => {
-			if (socket.data.roomId) return ack(fail('ALREADY_IN_ROOM'))
+		socket.on('pvp:respond', ({ invitationId, accept }, ack) => {
+			const invitation = take(invitationId, socket.data.userId)
+			if (!invitation) return ack?.(fail('NO_SESSION'))
 
-			const name = sanitizeName(playerName)
-			if (!name || typeof roomId !== 'string') return ack(fail('INVALID_PAYLOAD'))
+			if (!accept) {
+				void tell(invitation.fromUserId, 'pvp:cancelled', { invitationId, reason: 'DECLINED' } as never)
+				return ack?.(succeed(null))
+			}
 
-			const room = getRoom(roomId)
-			if (!room) return ack(fail('ROOM_NOT_FOUND'))
-			if (isFull(room)) return ack(fail('ROOM_FULL'))
+			const host = { userId: invitation.fromUserId, name: invitation.fromName }
+			const guest = { userId: socket.data.userId, name: socket.data.playerName }
 
-			addPlayer(room, socket.id, name)
-			socket.data.roomId = room.id
-			socket.data.playerName = name
-			void socket.join(room.id)
+			if (invitation.kind === 'trade') {
+				const session = openTrade(host, guest)
+				for (const side of session.sides) void tell(side.userId, 'trade:state', session as never)
+				return ack?.(succeed(null))
+			}
 
-			ack(succeed(room))
-			broadcast(room)
+			// A duel takes a few seconds to write, so the ack goes out first and
+			// the result is pushed to both players once it is ready.
+			ack?.(succeed(null))
+			void (async () => {
+				const result = await fight(host, guest)
+				if (!result.ok) {
+					const error = { code: result.reason, message: 'Le duel n’a pas pu avoir lieu' }
+					void tell(host.userId, 'pvp:error', error as never)
+					void tell(guest.userId, 'pvp:error', error as never)
+					return
+				}
+
+				const { battle, winnerUserId, gains, degraded } = result.duel
+				void tell(host.userId, 'pvp:duel', {
+					battle,
+					won: winnerUserId === host.userId,
+					gains: gains[host.userId] ?? [],
+					degraded,
+				} as never)
+				void tell(guest.userId, 'pvp:duel', {
+					battle: mirror(battle, host.name),
+					won: winnerUserId === guest.userId,
+					gains: gains[guest.userId] ?? [],
+					degraded,
+				} as never)
+			})()
 		})
 
-		socket.on('room:pick', ({ pokedexId }, ack) => {
-			const room = socket.data.roomId ? getRoom(socket.data.roomId) : undefined
-			if (!room) return ack?.(fail('NOT_IN_ROOM'))
+		/* ---------------------------------- trades ---------------------------------- */
 
-			const player = findPlayer(room, socket.id)
-			if (!player) return ack?.(fail('NOT_IN_ROOM'))
-			if (!Number.isInteger(pokedexId) || pokedexId < 1 || pokedexId > 898) {
+		const pushTrade = (session: TradeSession, event: 'trade:state' | 'trade:done') => {
+			for (const side of session.sides) void tell(side.userId, event, session as never)
+		}
+
+		socket.on('trade:offer', ({ cardIds }, ack) => {
+			if (!Array.isArray(cardIds) || cardIds.some((id) => typeof id !== 'string')) {
 				return ack?.(fail('INVALID_PAYLOAD'))
 			}
 
-			player.pokedexId = pokedexId
-			ack?.(succeed(room))
-			broadcast(room)
+			const result = setOffer(socket.data.userId, cardIds)
+			if (!result.ok) return ack?.(fail(result.reason))
+
+			pushTrade(result.session, 'trade:state')
+			return ack?.(succeed(null))
 		})
 
-		socket.on('room:ready', ({ ready }, ack) => {
-			const room = socket.data.roomId ? getRoom(socket.data.roomId) : undefined
-			if (!room) return ack?.(fail('NOT_IN_ROOM'))
+		socket.on('trade:confirm', ({ confirmed }, ack) => {
+			const result = confirm(socket.data.userId, Boolean(confirmed))
+			if (!result.ok) return ack?.(fail(result.reason === 'EMPTY' ? 'INVALID_PAYLOAD' : result.reason))
 
-			const player = findPlayer(room, socket.id)
-			if (!player) return ack?.(fail('NOT_IN_ROOM'))
-			if (typeof ready !== 'boolean') return ack?.(fail('INVALID_PAYLOAD'))
-			if (player.pokedexId === null) return ack?.(fail('INVALID_PAYLOAD'))
+			pushTrade(result.session, result.done ? 'trade:done' : 'trade:state')
+			return ack?.(succeed(null))
+		})
 
-			player.ready = ready
-			ack?.(succeed(room))
-
-			if (everyoneReady(room)) {
-				startBattle(room)
-				broadcast(room)
-				io.to(room.id).emit('battle:start', room)
-				return
+		socket.on('trade:leave', (ack) => {
+			const session = closeTrade(socket.data.userId)
+			for (const side of session?.sides ?? []) {
+				if (side.userId === socket.data.userId) continue
+				void tell(side.userId, 'trade:closed', { reason: 'LEFT' } as never)
 			}
-			broadcast(room)
+			return ack?.(succeed(null))
 		})
-
-		socket.on('room:leave', (ack) => {
-			const roomId = socket.data.roomId
-			if (!roomId) return ack?.(fail('NOT_IN_ROOM'))
-
-			const room = removePlayer(socket.id)
-			void socket.leave(roomId)
-			socket.data.roomId = null
-
-			ack?.(succeed(null))
-			if (room) broadcast(room)
-			else io.to(roomId).emit('room:closed', { roomId, reason: 'empty' })
-		})
-
-		/* ------------------------------ shared overworld ------------------------------ */
 
 		socket.on('world:join', (ack) => {
 			if (socket.data.inWorld) {
@@ -283,13 +283,17 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 		socket.on('disconnect', () => {
 			leaveWorld(socket)
 
-			const roomId = socket.data.roomId
-			if (!roomId) return
+			// Walking out ends whatever was pending: an invitation nobody can
+			// answer, and a trading table with one chair left.
+			for (const dropped of forget(socket.data.userId)) {
+				const other = dropped.fromUserId === socket.data.userId ? dropped.toUserId : dropped.fromUserId
+				void tell(other, 'pvp:cancelled', { invitationId: dropped.id, reason: 'LEFT' } as never)
+			}
 
-			const room = removePlayer(socket.id)
-			if (room) {
-				broadcast(room)
-				io.to(room.id).emit('room:closed', { roomId, reason: 'opponent-left' })
+			const session = closeTrade(socket.data.userId)
+			for (const side of session?.sides ?? []) {
+				if (side.userId === socket.data.userId) continue
+				void tell(side.userId, 'trade:closed', { reason: 'LEFT' } as never)
 			}
 		})
 	})
@@ -297,4 +301,3 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 	return io
 }
 
-export { listRooms }

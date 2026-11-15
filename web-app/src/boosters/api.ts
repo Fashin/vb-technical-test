@@ -8,6 +8,18 @@ export interface Card {
 	name: string
 	rarity: Rarity
 	obtainedAt: number
+	/** Derived server-side from the card's experience; see `progression/`. */
+	level: number
+	xp: number
+	toNextLevel: number
+	ratio: number
+	/** 0..1 of its maximum still standing — damage carried between fights. */
+	health: number
+	fainted: boolean
+	/** True while it is at the healing centre, and so out of the roster. */
+	inCare: boolean
+	/** When its treatment finishes, or null when it is not at the centre. */
+	healedAt: number | null
 }
 
 export interface BoosterState {

@@ -52,6 +52,13 @@ export enum Tile {
 	SandRock,
 	DeadTree,
 	Reed,
+	/**
+	 * A training camp's hut. Deliberately NOT solid: walking onto it is how you
+	 * enter, so the tile has to be stepped on rather than bumped into.
+	 */
+	TrainingCamp = 51,
+	/** The healing centre, entered the same way. */
+	HealCenter,
 }
 
 const SOLID = new Set<Tile>([

@@ -23,6 +23,15 @@ export interface TileLayer {
 	data: Tile[]
 }
 
+/** A building the player can walk into, as the server placed it. */
+export interface MapSite {
+	id: string
+	x: number
+	y: number
+}
+
+export type CampSite = MapSite
+
 export interface TileMapData {
 	width: number
 	height: number
@@ -30,6 +39,20 @@ export interface TileMapData {
 	layers: TileLayer[]
 	/** Walkable tile a fresh player starts on — the main crossroads. */
 	spawn: { x: number; y: number }
+	/** The five training camps, placed by the server's generator. */
+	camps: CampSite[]
+	/** The healing centres, placed and entered the same way. */
+	centers: MapSite[]
+}
+
+/** The camp standing on a tile, if any. */
+export function campAt(map: TileMapData, x: number, y: number): CampSite | null {
+	return map.camps?.find((camp) => camp.x === x && camp.y === y) ?? null
+}
+
+/** The healing centre standing on a tile, if any. */
+export function centerAt(map: TileMapData, x: number, y: number): MapSite | null {
+	return map.centers?.find((site) => site.x === x && site.y === y) ?? null
 }
 
 export function layerOf(map: TileMapData, name: LayerName): Tile[] {

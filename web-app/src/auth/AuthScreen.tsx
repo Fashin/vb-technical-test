@@ -32,18 +32,18 @@ export function AuthScreen() {
 		<div className="flex h-screen w-screen items-center justify-center bg-[#121a12] p-4 text-slate-100">
 			<form
 				onSubmit={submit}
-				className="w-full max-w-sm rounded-xl border border-white/10 bg-black/30 p-6 shadow-2xl"
+				className="w-full max-w-md rounded-xl border border-white/10 bg-black/30 p-6 shadow-2xl"
 			>
-				<h1 className="text-xl font-semibold">
+				<h1 className="text-2xl font-semibold">
 					{mode === 'login' ? 'Reprendre la partie' : 'Créer un dresseur'}
 				</h1>
-				<p className="mt-1 text-sm text-slate-400">
+				<p className="mt-1 text-base text-slate-400">
 					{mode === 'login'
 						? 'Ton personnage réapparaît là où tu t’es arrêté.'
 						: 'Un compte, un Pokémon, et tu rejoins les autres sur la carte.'}
 				</p>
 
-				<label className="mt-5 block text-sm">
+				<label className="mt-5 block text-base">
 					<span className="text-slate-300">Email</span>
 					<input
 						type="email"
@@ -56,7 +56,7 @@ export function AuthScreen() {
 				</label>
 
 				{mode === 'register' && (
-					<label className="mt-3 block text-sm">
+					<label className="mt-3 block text-base">
 						<span className="text-slate-300">Pseudo</span>
 						<input
 							value={displayName}
@@ -68,7 +68,7 @@ export function AuthScreen() {
 					</label>
 				)}
 
-				<label className="mt-3 block text-sm">
+				<label className="mt-3 block text-base">
 					<span className="text-slate-300">Mot de passe</span>
 					<input
 						type="password"
@@ -79,11 +79,11 @@ export function AuthScreen() {
 						required
 						className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 outline-none focus:border-emerald-400"
 					/>
-					{mode === 'register' && <span className="mt-1 block text-xs text-slate-500">8 caractères minimum</span>}
+					{mode === 'register' && <span className="mt-1 block text-sm text-slate-500">8 caractères minimum</span>}
 				</label>
 
 				{error && (
-					<p role="alert" className="mt-4 rounded-md bg-red-500/15 px-3 py-2 text-sm text-red-300">
+					<p role="alert" className="mt-4 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 						{error}
 					</p>
 				)}
@@ -102,7 +102,7 @@ export function AuthScreen() {
 						setMode(mode === 'login' ? 'register' : 'login')
 						setError(null)
 					}}
-					className="mt-3 w-full text-sm text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline"
+					className="mt-3 w-full text-base text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline"
 				>
 					{mode === 'login' ? 'Pas encore de compte ? En créer un' : 'J’ai déjà un compte'}
 				</button>

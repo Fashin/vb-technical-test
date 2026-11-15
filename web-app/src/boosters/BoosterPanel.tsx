@@ -55,24 +55,24 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 			<section
 				role="dialog"
 				aria-label="Boosters"
-				className="w-full max-w-md rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="w-full max-w-2xl rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-center justify-between">
-					<h2 className="flex items-center gap-2 text-lg font-semibold">
-						<GiCardPickup className="h-5 w-5 text-emerald-300" />
+					<h2 className="flex items-center gap-2 text-xl font-semibold">
+						<GiCardPickup className="h-6 w-6 text-emerald-300" />
 						Boosters
 					</h2>
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded px-2 py-1 text-sm text-slate-400 hover:bg-white/10 hover:text-white"
+						className="rounded px-2 py-1 text-base text-slate-400 hover:bg-white/10 hover:text-white"
 					>
 						Fermer
 					</button>
 				</header>
 
 				{error && (
-					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-sm text-red-300">
+					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 						{error}
 					</p>
 				)}
@@ -89,7 +89,7 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 							/>
 						)}
 
-						<p className="text-sm text-slate-300">
+						<p className="text-base text-slate-300">
 							{reveal.done ? 'Tu as obtenu :' : 'Ouverture du booster…'}
 						</p>
 
@@ -111,7 +111,7 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 							<button
 								type="button"
 								onClick={reveal.skip}
-								className="mt-5 w-full rounded-md border border-white/15 px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+								className="mt-5 w-full rounded-md border border-white/15 px-4 py-2 text-base text-slate-300 hover:bg-white/10 hover:text-white"
 							>
 								Tout révéler
 							</button>
@@ -120,8 +120,8 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 				) : (
 					<div className="mt-4">
 						<div className="rounded-lg border border-white/10 bg-black/30 p-3">
-							<p className="text-sm text-slate-400">Prochain booster</p>
-							<p className="mt-0.5 text-2xl font-semibold tabular-nums">
+							<p className="text-base text-slate-400">Prochain booster</p>
+							<p className="mt-0.5 text-3xl font-semibold tabular-nums">
 								{state === null
 									? '—'
 									: state.nextAt === null
@@ -131,19 +131,19 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 											: formatCountdown(remainingMs)}
 							</p>
 							{state && state.nextAt !== null && (
-								<p className="mt-1 text-xs text-slate-500">
+								<p className="mt-1 text-sm text-slate-500">
 									Un booster toutes les {Math.round(state.intervalMs / 60000)} min, {state.max} en réserve au
 									maximum.
 								</p>
 							)}
 							{state && state.nextAt === null && (
-								<p className="mt-1 text-xs text-slate-500">
+								<p className="mt-1 text-sm text-slate-500">
 									La réserve est pleine : ouvre un booster pour relancer le compteur.
 								</p>
 							)}
 						</div>
 
-						<p className="mt-4 text-sm text-slate-300">
+						<p className="mt-4 text-base text-slate-300">
 							{state ? `${state.pending} booster${state.pending > 1 ? 's' : ''} à ouvrir` : 'Chargement…'}
 						</p>
 
@@ -152,13 +152,13 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 								Array.from({ length: state.pending }, (_, index) => (
 									<li
 										key={index}
-										className="flex h-16 w-12 items-center justify-center rounded-md border border-amber-300/40 bg-gradient-to-b from-amber-400/30 to-amber-700/30"
+										className="flex h-20 w-14 items-center justify-center rounded-md border border-amber-300/40 bg-gradient-to-b from-amber-400/30 to-amber-700/30"
 									>
-										<GiCardPickup className="h-6 w-6 text-amber-200" />
+										<GiCardPickup className="h-7 w-7 text-amber-200" />
 									</li>
 								))
 							) : (
-								<li className="text-sm text-slate-500">Rien à ouvrir pour l’instant.</li>
+								<li className="text-base text-slate-500">Rien à ouvrir pour l’instant.</li>
 							)}
 						</ul>
 

@@ -15,6 +15,8 @@ export interface Master {
 	team: number[]
 	/** Boosters awarded the first time this master is beaten. */
 	reward: number
+	/** The level its whole team fights at, from its tier. */
+	level: number
 	appearance: Appearance
 	defeated: boolean
 	defeatedAt: number | null

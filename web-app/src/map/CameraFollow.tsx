@@ -20,7 +20,7 @@ export const TILT = 45
  */
 export const GROUND_Z_STRETCH = 1 / Math.sin(MathUtils.degToRad(TILT))
 /** Preferred height above the ground; lowered automatically when the map is small. */
-const PREFERRED_HEIGHT = 11
+const PREFERRED_HEIGHT = 9
 
 export interface MapBounds {
 	minX: number

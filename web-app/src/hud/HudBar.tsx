@@ -1,8 +1,16 @@
 import type { ComponentType } from 'react'
-import { GiCardPickup, GiCardRandom, GiCog, GiCrossedSwords, GiPokecog, GiScissors } from 'react-icons/gi'
+import {
+	GiCardPickup,
+	GiCardRandom,
+	GiCog,
+	GiCrossedSwords,
+	GiPodium,
+	GiPokecog,
+	GiScissors,
+} from 'react-icons/gi'
 
 /** The panels the HUD can open. Nothing is wired to them yet. */
-export type HudAction = 'booster' | 'collection' | 'team' | 'arena' | 'barber' | 'options'
+export type HudAction = 'booster' | 'collection' | 'team' | 'arena' | 'ranking' | 'barber' | 'options'
 
 interface HudEntry {
 	action: HudAction
@@ -15,6 +23,7 @@ const ENTRIES: HudEntry[] = [
 	{ action: 'collection', label: 'Ma collection', Icon: GiCardRandom },
 	{ action: 'team', label: 'Mon équipe', Icon: GiPokecog },
 	{ action: 'arena', label: 'Arène', Icon: GiCrossedSwords },
+	{ action: 'ranking', label: 'Classement', Icon: GiPodium },
 	{ action: 'barber', label: 'Coiffeur', Icon: GiScissors },
 	{ action: 'options', label: 'Options', Icon: GiCog },
 ]
@@ -53,20 +62,20 @@ export function HudBar({ onSelect, active = null, badges }: HudBarProps) {
 					onClick={() => onSelect?.(action)}
 					aria-label={badge > 0 ? `${label} (${badge})` : label}
 					aria-pressed={active === action}
-					className={`group relative flex h-12 w-12 items-center justify-center rounded-lg border backdrop-blur transition
+					className={`group relative flex h-14 w-14 items-center justify-center rounded-lg border backdrop-blur transition
 						${
 							active === action
 								? 'border-emerald-400 bg-emerald-500/25 text-emerald-200'
 								: 'border-white/15 bg-black/55 text-slate-200 hover:border-white/40 hover:bg-black/75 hover:text-white'
 						}`}
 				>
-					<Icon className="h-6 w-6" />
+					<Icon className="h-7 w-7" />
 					{badge > 0 && (
-						<span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[11px] font-bold text-amber-950">
+						<span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-400 px-1 text-xs font-bold text-amber-950">
 							{badge}
 						</span>
 					)}
-					<span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+					<span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-sm text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
 						{label}
 					</span>
 				</button>

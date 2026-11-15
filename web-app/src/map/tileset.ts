@@ -66,6 +66,13 @@ export enum Tile {
 	SandRock,
 	DeadTree,
 	Reed,
+	/**
+	 * A training camp's hut. Deliberately NOT solid: walking onto it is how you
+	 * enter, so the tile has to be stepped on rather than bumped into.
+	 */
+	TrainingCamp = 51,
+	/** The healing centre, entered the same way. */
+	HealCenter,
 }
 
 interface Sprite {
@@ -115,6 +122,10 @@ const SPRITES: Record<Exclude<Tile, Tile.Empty>, Sprite> = {
 	[Tile.SandRock]: { col: 5, row: 19 },
 	[Tile.DeadTree]: { col: 27, row: 10, rows: 2 },
 	[Tile.Reed]: { col: 22, row: 10 },
+	// Painted too: the pack has tents and ruins, nothing that reads as a
+	// training camp at 16px. Two cells tall, like the trees.
+	[Tile.TrainingCamp]: { col: 8, row: 6, rows: 2 },
+	[Tile.HealCenter]: { col: 9, row: 6, rows: 2 },
 }
 
 const SOLID = new Set<Tile>([

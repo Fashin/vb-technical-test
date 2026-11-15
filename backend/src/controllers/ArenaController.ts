@@ -1,8 +1,8 @@
 import { Router } from 'express'
 
 import { requireAuth } from '../auth/middleware'
-import { MASTERS } from '../arena/masters'
-import { forfeit, getActiveBattle, playTurn, startBattle } from '../battle/battles'
+import { MASTERS, masterLevel } from '../arena/masters'
+import { forfeit, getActiveBattle, runBattle, startBattle } from '../battle/battles'
 import { db } from '../db'
 import { hasVirtualBrain } from '../config'
 import { getTeam, getActiveTeamId } from '../teams/teams'
@@ -28,6 +28,9 @@ ArenaController.get('/masters', (req, res) => {
 		.sort((a, b) => a.tier - b.tier)
 		.map((master) => ({
 			...master,
+			// Announced up front: walking into a level 90 team unprepared should
+			// be a choice, not a surprise.
+			level: masterLevel(master.tier),
 			defeated: victories.has(master.id),
 			defeatedAt: victories.get(master.id) ?? null,
 		}))
@@ -61,7 +64,13 @@ ArenaController.post('/battle', async (req, res) => {
 		req.user!.id,
 		req.user!.display_name,
 		masterId,
-		team.members.map((member) => member.pokedexId),
+		team.members.map((member) => ({
+			cardId: member.cardId,
+			pokedexId: member.pokedexId,
+			level: member.level,
+			health: member.health,
+			inCare: member.inCare,
+		})),
 	)
 
 	if (result.ok) return res.status(201).json({ battle: result.battle, narrated: hasVirtualBrain() })
@@ -70,17 +79,24 @@ ArenaController.post('/battle', async (req, res) => {
 		MASTER_NOT_FOUND: 'Ce maître n’existe pas',
 		EMPTY_TEAM: 'Ton équipe est vide',
 		ALREADY_FIGHTING: 'Un combat est déjà en cours',
+		NO_HEALTHY_TEAM: 'Aucun Pokémon en état de combattre — passe par le centre de soins',
 	}
 	return res.status(result.reason === 'ALREADY_FIGHTING' ? 409 : 400).json({
 		error: { code: result.reason, message: messages[result.reason] },
 	})
 })
 
-/** Play one round. The server decides everything that happens in it. */
-ArenaController.post('/battle/turn', async (req, res) => {
-	const result = await playTurn(req.user!.id)
+/**
+ * Resolve the battle, all of it.
+ *
+ * The chatbot is asked once for the whole script and the server plays it out,
+ * so the browser gets a complete fight to animate in one piece rather than a
+ * round per click. Everything that happens in it is decided here.
+ */
+ArenaController.post('/battle/run', async (req, res) => {
+	const result = await runBattle(req.user!.id)
 	if (result.ok) {
-		return res.status(200).json({ battle: result.battle, round: result.round, degraded: result.degraded })
+		return res.status(200).json({ battle: result.battle, degraded: result.degraded })
 	}
 	return res.status(409).json({ error: { code: result.reason, message: 'Aucun combat en cours' } })
 })

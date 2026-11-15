@@ -18,7 +18,7 @@ function Field({
 	autoComplete: string
 }) {
 	return (
-		<label className="block text-sm">
+		<label className="block text-base">
 			<span className="text-slate-300">{label}</span>
 			<input
 				type="password"
@@ -63,12 +63,12 @@ function NameSection({ onRenamed }: { onRenamed: (name: string) => void }) {
 
 	return (
 		<form onSubmit={submit} className="rounded-lg border border-white/10 bg-black/25 p-4">
-			<h3 className="text-sm font-semibold">Changer de pseudo</h3>
-			<p className="mt-1 text-xs text-slate-500">
+			<h3 className="text-base font-semibold">Changer de pseudo</h3>
+			<p className="mt-1 text-sm text-slate-500">
 				C’est le nom affiché au-dessus de ton dresseur, pour les autres joueurs.
 			</p>
 
-			<label className="mt-3 block text-sm">
+			<label className="mt-3 block text-base">
 				<span className="text-slate-300">Pseudo</span>
 				<input
 					value={name}
@@ -80,16 +80,16 @@ function NameSection({ onRenamed }: { onRenamed: (name: string) => void }) {
 					required
 					className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 outline-none focus:border-emerald-400"
 				/>
-				<span className="mt-1 block text-xs text-slate-500">{NAME_MAX} caractères maximum</span>
+				<span className="mt-1 block text-sm text-slate-500">{NAME_MAX} caractères maximum</span>
 			</label>
 
 			{error && (
-				<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-sm text-red-300">
+				<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 					{error}
 				</p>
 			)}
 			{done && (
-				<p role="status" className="mt-3 rounded-md bg-emerald-500/15 px-3 py-2 text-sm text-emerald-300">
+				<p role="status" className="mt-3 rounded-md bg-emerald-500/15 px-3 py-2 text-base text-emerald-300">
 					Pseudo mis à jour.
 				</p>
 			)}
@@ -142,8 +142,8 @@ function PasswordSection() {
 
 	return (
 		<form onSubmit={submit} className="rounded-lg border border-white/10 bg-black/25 p-4">
-			<h3 className="text-sm font-semibold">Changer de mot de passe</h3>
-			<p className="mt-1 text-xs text-slate-500">
+			<h3 className="text-base font-semibold">Changer de mot de passe</h3>
+			<p className="mt-1 text-sm text-slate-500">
 				Tes autres sessions seront déconnectées. Celle-ci reste ouverte.
 			</p>
 
@@ -159,12 +159,12 @@ function PasswordSection() {
 			</div>
 
 			{error && (
-				<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-sm text-red-300">
+				<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 					{error}
 				</p>
 			)}
 			{done && (
-				<p role="status" className="mt-3 rounded-md bg-emerald-500/15 px-3 py-2 text-sm text-emerald-300">
+				<p role="status" className="mt-3 rounded-md bg-emerald-500/15 px-3 py-2 text-base text-emerald-300">
 					Mot de passe mis à jour.
 				</p>
 			)}
@@ -203,8 +203,8 @@ function DangerSection() {
 
 	return (
 		<section className="rounded-lg border border-red-500/30 bg-red-950/20 p-4">
-			<h3 className="text-sm font-semibold text-red-200">Supprimer mon compte</h3>
-			<p className="mt-1 text-xs text-red-300/80">
+			<h3 className="text-base font-semibold text-red-200">Supprimer mon compte</h3>
+			<p className="mt-1 text-sm text-red-300/80">
 				Ton dresseur, tes cartes et tes boosters sont effacés définitivement. Cette action est
 				irréversible.
 			</p>
@@ -213,7 +213,7 @@ function DangerSection() {
 				<button
 					type="button"
 					onClick={() => setArmed(true)}
-					className="mt-3 w-full rounded-md border border-red-500/50 px-4 py-2 text-sm text-red-200 transition hover:bg-red-500/15"
+					className="mt-3 w-full rounded-md border border-red-500/50 px-4 py-2 text-base text-red-200 transition hover:bg-red-500/15"
 				>
 					Supprimer mon compte…
 				</button>
@@ -227,7 +227,7 @@ function DangerSection() {
 					/>
 
 					{error && (
-						<p role="alert" className="mt-3 rounded-md bg-red-500/20 px-3 py-2 text-sm text-red-200">
+						<p role="alert" className="mt-3 rounded-md bg-red-500/20 px-3 py-2 text-base text-red-200">
 							{error}
 						</p>
 					)}
@@ -241,14 +241,14 @@ function DangerSection() {
 								setError(null)
 							}}
 							disabled={deleting}
-							className="flex-1 rounded-md border border-white/15 px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+							className="flex-1 rounded-md border border-white/15 px-3 py-2 text-base text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
 						>
 							Annuler
 						</button>
 						<button
 							type="submit"
 							disabled={deleting || password.length === 0}
-							className="flex-1 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-500 disabled:opacity-40"
+							className="flex-1 rounded-md bg-red-600 px-3 py-2 text-base font-medium text-white transition hover:bg-red-500 disabled:opacity-40"
 						>
 							{deleting ? 'Suppression…' : 'Supprimer définitivement'}
 						</button>
@@ -295,23 +295,23 @@ export function OptionsPanel({
 			<section
 				role="dialog"
 				aria-label="Options"
-				className="flex max-h-[85vh] w-full max-w-md flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-center justify-between">
-					<h2 className="flex items-center gap-2 text-lg font-semibold">
-						<GiCog className="h-5 w-5 text-emerald-300" />
+					<h2 className="flex items-center gap-2 text-xl font-semibold">
+						<GiCog className="h-6 w-6 text-emerald-300" />
 						Options
 					</h2>
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded px-2 py-1 text-sm text-slate-400 hover:bg-white/10 hover:text-white"
+						className="rounded px-2 py-1 text-base text-slate-400 hover:bg-white/10 hover:text-white"
 					>
 						Fermer
 					</button>
 				</header>
 
-				<p className="mt-1 text-sm text-slate-400">
+				<p className="mt-1 text-base text-slate-400">
 					{user?.displayName} · {user?.email}
 				</p>
 

@@ -17,8 +17,12 @@ const BASE_URL = 'https://chatbot-api.getvirtualbrain.com'
 /** Refresh this long before the token actually expires. */
 const REFRESH_MARGIN_MS = 60_000
 
-/** The API answers in well under this; past it a battle turn should fail loudly. */
-const REQUEST_TIMEOUT_MS = 30_000
+/**
+ * Generous, deliberately: one call now writes a whole battle script rather
+ * than a single round, which takes the model noticeably longer. Past this a
+ * battle falls back to improvised moves rather than hanging.
+ */
+const REQUEST_TIMEOUT_MS = 90_000
 
 interface Credentials {
 	accessToken: string

@@ -76,6 +76,22 @@ db.exec(`
 		updated_at INTEGER NOT NULL
 	);
 
+	CREATE TABLE IF NOT EXISTS duels (
+		id        TEXT PRIMARY KEY,
+		winner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		loser_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		fought_at INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS trades (
+		id        TEXT PRIMARY KEY,
+		trade_id  TEXT NOT NULL,
+		giver_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		taker_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		card_id   TEXT NOT NULL,
+		traded_at INTEGER NOT NULL
+	);
+
 	CREATE TABLE IF NOT EXISTS master_victories (
 		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 		master_id  TEXT NOT NULL,
@@ -88,6 +104,9 @@ db.exec(`
 	CREATE INDEX IF NOT EXISTS cards_by_user ON cards(user_id);
 	CREATE INDEX IF NOT EXISTS teams_by_user ON teams(user_id);
 	CREATE INDEX IF NOT EXISTS battles_by_user ON battles(user_id, status);
+	CREATE INDEX IF NOT EXISTS duels_by_winner ON duels(winner_id);
+	CREATE INDEX IF NOT EXISTS trades_by_giver ON trades(giver_id);
+	CREATE INDEX IF NOT EXISTS trades_by_taker ON trades(taker_id);
 `)
 
 /**
@@ -112,6 +131,18 @@ addColumn('users', 'booster_since', `INTEGER NOT NULL DEFAULT 0`)
 // need a migration. Empty means "never customised": the account's generated
 // starting look is used instead.
 addColumn('users', 'appearance', `TEXT NOT NULL DEFAULT ''`)
+
+// Experience, and so the level, of one card. The default is the experience of
+// the starting level rather than 0: cards drawn before this feature would read
+// as level 1 and be worthless against masters that now have levels of their own.
+addColumn('cards', 'xp', 'INTEGER NOT NULL DEFAULT 300')
+
+// Damage carried between fights, as a share of the card's maximum (0 is
+// untouched, 1 is fainted), and the moment its treatment at the healing centre
+// finishes — NULL when the card is not there. A share rather than a number of
+// hit points: the maximum moves with the level, an absolute would not.
+addColumn('cards', 'hp_lost', 'REAL NOT NULL DEFAULT 0')
+addColumn('cards', 'healed_at', 'INTEGER')
 
 // The team taken into the arena. Nullable: a fresh account has none, and
 // deleting the selected team puts it back to NULL rather than dangling.

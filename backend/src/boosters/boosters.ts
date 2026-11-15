@@ -3,6 +3,8 @@ import { randomUUID } from 'crypto'
 import { db } from '../db'
 import { findById, type UserRow } from '../auth/users'
 import { fetchCardFace } from '../services/pokeapi'
+import { conditionOf, settleCare, type Condition } from '../care/healing'
+import { progressOf, STARTING_LEVEL, xpForLevel } from '../progression/levels'
 import { pickFrom, rollRarity, type Rarity } from './rarity'
 
 /**
@@ -31,12 +33,17 @@ export interface BoosterState {
 	nextAt: number | null
 }
 
-export interface DrawnCard {
+export interface DrawnCard extends Condition {
 	id: string
 	pokedexId: number
 	name: string
 	rarity: Rarity
 	obtainedAt: number
+	/** Derived from the card's experience — see `progression/levels.ts`. */
+	level: number
+	xp: number
+	toNextLevel: number
+	ratio: number
 }
 
 /**
@@ -124,19 +131,28 @@ export async function openBooster(userId: string): Promise<{ cards: DrawnCard[];
 	)
 
 	const now = Date.now()
+	// A card is drawn trained enough to be worth fielding: at level 1 a fresh
+	// booster could not survive the first camp, let alone the first master.
+	const startingXp = xpForLevel(STARTING_LEVEL)
+
 	const cards: DrawnCard[] = named.map((draw) => ({
 		id: randomUUID(),
 		pokedexId: draw.pokedexId,
 		name: draw.name,
 		rarity: draw.rarity,
 		obtainedAt: now,
+		...progressOf(startingXp),
+		// A card comes out of its wrapper in perfect health.
+		...conditionOf(0, null),
 	}))
 
 	const insert = db.prepare(
-		'INSERT INTO cards (id, user_id, pokedex_id, name, rarity, obtained_at) VALUES (?, ?, ?, ?, ?, ?)',
+		'INSERT INTO cards (id, user_id, pokedex_id, name, rarity, obtained_at, xp) VALUES (?, ?, ?, ?, ?, ?, ?)',
 	)
 	db.transaction(() => {
-		for (const card of cards) insert.run(card.id, userId, card.pokedexId, card.name, card.rarity, card.obtainedAt)
+		for (const card of cards) {
+			insert.run(card.id, userId, card.pokedexId, card.name, card.rarity, card.obtainedAt, startingXp)
+		}
 	})()
 
 	return { cards, state: getState(userId)! }
@@ -144,9 +160,24 @@ export async function openBooster(userId: string): Promise<{ cards: DrawnCard[];
 
 /** Everything this user owns, newest first. */
 export function listCards(userId: string): DrawnCard[] {
+	// Anything whose treatment is over walks out before the list is read.
+	settleCare(userId)
+
 	const rows = db
-		.prepare('SELECT id, pokedex_id, name, rarity, obtained_at FROM cards WHERE user_id = ? ORDER BY obtained_at DESC')
-		.all(userId) as { id: string; pokedex_id: number; name: string; rarity: Rarity; obtained_at: number }[]
+		.prepare(
+			`SELECT id, pokedex_id, name, rarity, obtained_at, xp, hp_lost, healed_at
+			 FROM cards WHERE user_id = ? ORDER BY obtained_at DESC`,
+		)
+		.all(userId) as {
+		id: string
+		pokedex_id: number
+		name: string
+		rarity: Rarity
+		obtained_at: number
+		xp: number
+		hp_lost: number
+		healed_at: number | null
+	}[]
 
 	return rows.map((row) => ({
 		id: row.id,
@@ -154,5 +185,7 @@ export function listCards(userId: string): DrawnCard[] {
 		name: row.name,
 		rarity: row.rarity,
 		obtainedAt: row.obtained_at,
+		...progressOf(row.xp),
+		...conditionOf(row.hp_lost, row.healed_at),
 	}))
 }

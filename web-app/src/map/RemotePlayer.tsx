@@ -88,7 +88,7 @@ export function RemotePlayer({ player, speed }: { player: WorldPlayerState; spee
 				back={facingBack}
 			/>
 			<Html position={[0, 1.9, 0]} center zIndexRange={[10, 0]} className="pointer-events-none select-none">
-				<span className="whitespace-nowrap rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">
+				<span className="whitespace-nowrap rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
 					{player.name}
 				</span>
 			</Html>

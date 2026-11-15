@@ -32,6 +32,18 @@ export interface Master {
 	appearance: Appearance
 }
 
+/**
+ * The level a master's team fights at, from its rank.
+ *
+ * Tier 1 lands just above a freshly drawn card and tier 10 at the ceiling, so
+ * the ladder reads as a progression check: each master is roughly the training
+ * camp you have just finished. `arena/masters.ts` owns this rather than the
+ * battle code because it is the difficulty curve, not a combat rule.
+ */
+export function masterLevel(tier: number): number {
+	return 12 + Math.round((Math.max(1, tier) - 1) * 9.8)
+}
+
 export const MASTERS: Master[] = [
 	{
 		id: 'garance',

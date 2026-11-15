@@ -4,10 +4,12 @@ import type { WorldPlayerState } from '../realtime'
 import { layerOf, type TileMapData } from './mapData'
 import { minimapColor } from './minimapColors'
 
-/** Pixels per tile. Two keeps a 120x84 world readable without taking the screen. */
-const SCALE = 2
+/** Pixels per tile. Three keeps a 120x84 world legible without taking the screen. */
+const SCALE = 3
 /** Side of a player marker, in pixels. */
-const DOT = 4
+const DOT = 6
+/** Side of a camp marker. Bigger than a player: it is a place, not a person. */
+const CAMP = 9
 
 /**
  * Overview of the whole world, bottom right.
@@ -31,7 +33,8 @@ export function Minimap({
 }) {
 	const canvas = useRef<HTMLCanvasElement>(null)
 
-	// Terrain, painted once per map.
+	// Terrain and camps, painted once per map: neither ever moves during a
+	// session, and the camps are the whole reason to read this thing.
 	const terrain = useMemo(() => {
 		const surface = document.createElement('canvas')
 		surface.width = map.width * SCALE
@@ -55,6 +58,33 @@ export function Minimap({
 				ctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE)
 			}
 		}
+		// The healing centre, in its own colour: it is the one place the player
+		// is sent back to, so it must never be mistaken for a camp.
+		for (const site of map.centers ?? []) {
+			const x = site.x * SCALE + SCALE / 2
+			const y = site.y * SCALE + SCALE / 2
+			ctx.fillStyle = '#1c1917'
+			ctx.fillRect(x - CAMP / 2 - 1, y - CAMP / 2 - 1, CAMP + 2, CAMP + 2)
+			ctx.fillStyle = '#ffffff'
+			ctx.fillRect(x - CAMP / 2, y - CAMP / 2, CAMP, CAMP)
+			ctx.fillStyle = '#c4423c'
+			ctx.fillRect(x - 1, y - CAMP / 2, 2, CAMP)
+			ctx.fillRect(x - CAMP / 2, y - 1, CAMP, 2)
+		}
+
+		// Camp markers: a pale square with a dark ring, drawn into the terrain so
+		// they cost nothing per frame.
+		for (const camp of map.camps ?? []) {
+			const x = camp.x * SCALE + SCALE / 2
+			const y = camp.y * SCALE + SCALE / 2
+			ctx.fillStyle = '#1c1917'
+			ctx.fillRect(x - CAMP / 2 - 1, y - CAMP / 2 - 1, CAMP + 2, CAMP + 2)
+			ctx.fillStyle = '#f2d06b'
+			ctx.fillRect(x - CAMP / 2, y - CAMP / 2, CAMP, CAMP)
+			ctx.fillStyle = '#8c4a32'
+			ctx.fillRect(x - 1, y - CAMP / 2, 2, CAMP)
+		}
+
 		return surface
 	}, [map])
 
@@ -88,7 +118,9 @@ export function Minimap({
 				width={map.width * SCALE}
 				height={map.height * SCALE}
 				role="img"
-				aria-label={`Carte du monde${me ? `, tu es en ${me.x}, ${me.y}` : ''}`}
+				aria-label={`Carte du monde, ${map.camps?.length ?? 0} camps d'entraînement${
+					me ? `, tu es en ${me.x}, ${me.y}` : ''
+				}`}
 				className="block [image-rendering:pixelated]"
 			/>
 		</div>

@@ -11,9 +11,21 @@ export interface CollectionEntry {
 	count: number
 	/** Most recent pull of that pokemon, used to sort by "newest". */
 	lastObtainedAt: number
+	/**
+	 * The best-trained copy. Duplicates are folded into one tile, so the tile
+	 * shows the one the player would actually field rather than an arbitrary
+	 * copy — two Rattata of level 4 and 40 are not the same asset.
+	 */
+	level: number
+	ratio: number
+	toNextLevel: number
+	/** Condition of that same best-trained copy — the one you would field. */
+	health: number
+	fainted: boolean
+	inCare: boolean
 }
 
-export type SortMode = 'pokedex' | 'recent' | 'rarity'
+export type SortMode = 'pokedex' | 'recent' | 'rarity' | 'level'
 
 export interface CollectionValue {
 	loading: boolean
@@ -79,6 +91,14 @@ export function useCollection(): CollectionValue {
 			if (entry) {
 				entry.count += 1
 				entry.lastObtainedAt = Math.max(entry.lastObtainedAt, card.obtainedAt)
+				if (card.level > entry.level) {
+					entry.level = card.level
+					entry.ratio = card.ratio
+					entry.toNextLevel = card.toNextLevel
+					entry.health = card.health
+					entry.fainted = card.fainted
+					entry.inCare = card.inCare
+				}
 			} else {
 				byPokemon.set(card.pokedexId, {
 					pokedexId: card.pokedexId,
@@ -86,6 +106,12 @@ export function useCollection(): CollectionValue {
 					rarity: card.rarity,
 					count: 1,
 					lastObtainedAt: card.obtainedAt,
+					level: card.level,
+					ratio: card.ratio,
+					toNextLevel: card.toNextLevel,
+					health: card.health,
+					fainted: card.fainted,
+					inCare: card.inCare,
 				})
 			}
 		}
@@ -97,7 +123,8 @@ export function useCollection(): CollectionValue {
 		const visible = rarityFilter ? grouped.filter((e) => e.rarity === rarityFilter) : grouped
 		const sorted = [...visible]
 
-		if (sort === 'pokedex') sorted.sort((a, b) => a.pokedexId - b.pokedexId)
+		if (sort === 'level') sorted.sort((a, b) => b.level - a.level || a.pokedexId - b.pokedexId)
+		else if (sort === 'pokedex') sorted.sort((a, b) => a.pokedexId - b.pokedexId)
 		else if (sort === 'recent') sorted.sort((a, b) => b.lastObtainedAt - a.lastObtainedAt)
 		else sorted.sort((a, b) => RARITY[b.rarity].order - RARITY[a.rarity].order || a.pokedexId - b.pokedexId)
 

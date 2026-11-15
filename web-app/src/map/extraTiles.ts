@@ -10,9 +10,10 @@ import { SPACING, TILE_PX } from './tileset'
  * the whole map still renders from one atlas and `cellUv` keeps working
  * unchanged.
  *
- * The three cells used here (5,6 / 6,6 / 7,6) were picked from the 63 empty
- * ones in the sheet. Their coordinates are declared in `tileset.ts`; the two
- * lists must agree.
+ * The cells used here (5,6 / 6,6 / 7,6 for the ground tiles, 8,6 and 8,7 for
+ * the training camp, 9,6 and 9,7 for the healing centre) were picked from the
+ * 63 empty ones in the sheet. Their coordinates are declared in `tileset.ts`; the two lists
+ * must agree.
  */
 
 const STEP = TILE_PX + SPACING
@@ -67,11 +68,120 @@ const cinder: Painter = (ctx) => {
 	speckles(ctx, 0xb3e7, 2, '#d8722c', 1)
 }
 
+/**
+ * Training camp, upper half: a tiled roof with a banner on its ridge.
+ *
+ * Drawn as a billboard two cells tall, so this one sits above `campBase` and
+ * must line up with it column by column.
+ */
+const campRoof: Painter = (ctx) => {
+	// Banner on a pole, left of the ridge.
+	ctx.fillStyle = '#6b5336'
+	ctx.fillRect(3, 2, 1, 6)
+	ctx.fillStyle = '#d8613c'
+	ctx.fillRect(4, 2, 5, 3)
+	ctx.fillStyle = '#f2d06b'
+	ctx.fillRect(4, 3, 2, 1)
+
+	// Roof: two slopes, darker on the right so it reads as lit from the left.
+	for (let row = 0; row < 7; row++) {
+		const y = 9 + row
+		const inset = Math.max(0, 3 - Math.floor(row / 2))
+		ctx.fillStyle = '#8c4a32'
+		ctx.fillRect(inset, y, TILE_PX - inset * 2, 1)
+		ctx.fillStyle = '#6f3826'
+		ctx.fillRect(TILE_PX - inset - 3, y, 3, 1)
+	}
+	ctx.fillStyle = '#c96a44'
+	ctx.fillRect(3, 9, TILE_PX - 6, 1)
+}
+
+/** Training camp, lower half: timber walls, an open doorway, a bench. */
+const campBase: Painter = (ctx) => {
+	// Eaves, overhanging the walls.
+	ctx.fillStyle = '#6f3826'
+	ctx.fillRect(0, 0, TILE_PX, 2)
+
+	ctx.fillStyle = '#c4a173'
+	ctx.fillRect(1, 2, TILE_PX - 2, 12)
+	ctx.fillStyle = '#a8865c'
+	speckles(ctx, 0x3f71, 14, '#a8865c', 2)
+
+	// Posts at the corners.
+	ctx.fillStyle = '#7d5f3c'
+	ctx.fillRect(1, 2, 1, 12)
+	ctx.fillRect(TILE_PX - 2, 2, 1, 12)
+
+	// Doorway, dark and open: this tile is walked into, not knocked on.
+	ctx.fillStyle = '#2b2119'
+	ctx.fillRect(6, 6, 5, 8)
+	ctx.fillStyle = '#3d2f22'
+	ctx.fillRect(6, 6, 5, 1)
+
+	// Training dummy beside the door.
+	ctx.fillStyle = '#6b5336'
+	ctx.fillRect(3, 9, 1, 5)
+	ctx.fillStyle = '#9c8257'
+	ctx.fillRect(2, 7, 3, 2)
+
+	// Ground shadow, so the hut sits on its yard instead of floating.
+	ctx.fillStyle = 'rgba(0,0,0,0.25)'
+	ctx.fillRect(1, 14, TILE_PX - 2, 2)
+}
+
+/** Healing centre, upper half: a red roof carrying a white cross. */
+const centerRoof: Painter = (ctx) => {
+	for (let row = 0; row < 8; row++) {
+		const y = 8 + row
+		const inset = Math.max(0, 3 - Math.floor(row / 2))
+		ctx.fillStyle = '#c4423c'
+		ctx.fillRect(inset, y, TILE_PX - inset * 2, 1)
+		ctx.fillStyle = '#9c2f2c'
+		ctx.fillRect(TILE_PX - inset - 3, y, 3, 1)
+	}
+	ctx.fillStyle = '#e4645c'
+	ctx.fillRect(3, 8, TILE_PX - 6, 1)
+
+	// The cross: what the building is, readable at 16 pixels.
+	ctx.fillStyle = '#ffffff'
+	ctx.fillRect(7, 10, 2, 5)
+	ctx.fillRect(5, 11, 6, 2)
+}
+
+/** Healing centre, lower half: pale walls, wide doors, a lit window. */
+const centerBase: Painter = (ctx) => {
+	ctx.fillStyle = '#9c2f2c'
+	ctx.fillRect(0, 0, TILE_PX, 2)
+
+	ctx.fillStyle = '#e8e4dc'
+	ctx.fillRect(1, 2, TILE_PX - 2, 12)
+	ctx.fillStyle = '#cfc9bf'
+	speckles(ctx, 0x6a21, 10, '#cfc9bf', 2)
+
+	// Double doors, open onto a dark hall.
+	ctx.fillStyle = '#3a4450'
+	ctx.fillRect(5, 6, 6, 8)
+	ctx.fillStyle = '#566374'
+	ctx.fillRect(7, 6, 1, 8)
+
+	// A window, lit: the centre is open.
+	ctx.fillStyle = '#f2d06b'
+	ctx.fillRect(2, 5, 2, 2)
+	ctx.fillRect(12, 5, 2, 2)
+
+	ctx.fillStyle = 'rgba(0,0,0,0.25)'
+	ctx.fillRect(1, 14, TILE_PX - 2, 2)
+}
+
 /** Cell coordinates must match the entries declared in `tileset.ts`. */
 const EXTRA: { col: number; row: number; paint: Painter }[] = [
 	{ col: 5, row: 6, paint: cloud },
 	{ col: 6, row: 6, paint: cloudDeep },
 	{ col: 7, row: 6, paint: cinder },
+	{ col: 8, row: 6, paint: campRoof },
+	{ col: 8, row: 7, paint: campBase },
+	{ col: 9, row: 6, paint: centerRoof },
+	{ col: 9, row: 7, paint: centerBase },
 ]
 
 /**

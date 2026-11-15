@@ -5,6 +5,8 @@ export interface BattleFighter {
 	pokedexId: number
 	name: string
 	types: string[]
+	/** Earned in the training camps; drives both damage and the HP pool. */
+	level: number
 	speed: number
 	hp: number
 	maxHp: number
@@ -25,11 +27,12 @@ export interface TurnEvent {
 	effectiveness: string | null
 	fainted: boolean
 	replacedBy: string | null
+	/** The model's sentence for this attack, told while it plays out. */
+	line: string
 }
 
 export interface RoundLog {
 	round: number
-	narration: string
 	events: TurnEvent[]
 }
 
@@ -43,6 +46,8 @@ export interface Battle {
 	player: Side
 	master: Side
 	status: BattleStatus
+	/** Opening line, filled in once the battle has been resolved. */
+	intro: string
 	log: RoundLog[]
 	/** Boosters won, null while the battle is still running. */
 	reward: number | null
@@ -91,8 +96,14 @@ export function startBattle(masterId: string, teamId: string): Promise<{ battle:
 	})
 }
 
-export function playTurn(): Promise<{ battle: Battle; round: RoundLog; degraded: boolean }> {
-	return send<{ battle: Battle; round: RoundLog; degraded: boolean }>('/arena/battle/turn', { method: 'POST' })
+/**
+ * Resolve the whole battle in one request.
+ *
+ * The server asks the chatbot for the entire script, plays it out and answers
+ * with the finished fight; the browser's job is to animate it, not to pace it.
+ */
+export function runBattle(): Promise<{ battle: Battle; degraded: boolean }> {
+	return send<{ battle: Battle; degraded: boolean }>('/arena/battle/run', { method: 'POST' })
 }
 
 export function forfeitBattle(): Promise<void> {

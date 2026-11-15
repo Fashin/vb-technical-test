@@ -35,6 +35,15 @@ export const POOLS: Record<Rarity, number[]> = {
 	legendary: LEGENDARY,
 }
 
+/**
+ * Everything a booster can ever hand out: the Pokedex worth completing.
+ *
+ * The denominator for every completion figure in the app. Counting against
+ * the 898 species the browser can show would give a percentage nobody can
+ * ever move.
+ */
+export const DEX_TOTAL = new Set(Object.values(POOLS).flat()).size
+
 /** Draw odds for an ordinary slot, in percent. They must add up to 100. */
 const ODDS: [Rarity, number][] = [
 	['common', 60],

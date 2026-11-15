@@ -1,6 +1,6 @@
 import { createRouteMap, layerOf, type TileMapData } from './mapData'
 import { isSolid } from './tiles'
-import { appearanceOf, savePosition, type UserRow } from '../auth/users'
+import { appearanceOf, findById, savePosition, type UserRow } from '../auth/users'
 import type { Appearance } from '../appearance/appearance'
 
 /**
@@ -81,6 +81,24 @@ export function listPlayers(): WorldPlayerState[] {
 
 export function getPlayer(socketId: string): WorldPlayer | undefined {
 	return players.get(socketId)
+}
+
+/**
+ * Where an account currently stands.
+ *
+ * Reads the live world first and the last saved position second, so a feature
+ * that must check "are you actually there" — entering a training camp — works
+ * whether or not the socket happens to be connected. Returns null for an
+ * account that has never walked anywhere.
+ */
+export function positionOf(userId: string): { x: number; y: number } | null {
+	for (const player of players.values()) {
+		if (player.userId === userId) return { x: player.x, y: player.y }
+	}
+
+	const user = findById(userId)
+	if (!user || user.last_x === null || user.last_y === null) return null
+	return { x: user.last_x, y: user.last_y }
 }
 
 /** Resume where the player left off, unless that tile is no longer walkable. */

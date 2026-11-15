@@ -9,9 +9,13 @@ import { AuthController } from './controllers/AuthController'
 import { ArenaController } from './controllers/ArenaController'
 import { BoosterController } from './controllers/BoosterController'
 import { TeamController } from './controllers/TeamController'
+import { TrainingController } from './controllers/TrainingController'
+import { CareController } from './controllers/CareController'
+import { RankingController } from './controllers/RankingController'
+import { AchievementController } from './controllers/AchievementController'
 import { PokemonController } from './controllers/PokemonController'
 import { ContentController } from './controllers/ContentsController'
-import { attachRealtime, listRooms } from './realtime'
+import { attachRealtime } from './realtime'
 import { startSessionReaper } from './auth/sessions'
 import { saveAllPositions } from './world/world'
 
@@ -41,6 +45,10 @@ app.use('/auth', AuthController)
 app.use('/boosters', BoosterController)
 app.use('/arena', ArenaController)
 app.use('/teams', TeamController)
+app.use('/training', TrainingController)
+app.use('/care', CareController)
+app.use('/ranking', RankingController)
+app.use('/achievements', AchievementController)
 app.use('/pokemons', PokemonController)
 app.use('/contents', ContentController)
 app.get('/ping', (_req, res) => res.status(200).send('pong'))
@@ -60,10 +68,6 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 		process.exit(0)
 	})
 }
-
-/** Debug helper: current rooms held in memory. */
-app.get('/realtime/rooms', (_req, res) => res.status(200).json({ rooms: listRooms() }))
-
 
 /* -------------------------- Start the application ------------------------- */
 

@@ -1,4 +1,5 @@
 import { Tile, isSolid } from './tiles'
+import { CAMPS, type CampAnchor } from '../training/camps'
 
 /**
  * The world's one and only map generator.
@@ -25,6 +26,15 @@ export interface TileLayer {
 	data: Tile[]
 }
 
+/** A building the player can walk into, once the generator has placed it. */
+export interface MapSite {
+	id: string
+	x: number
+	y: number
+}
+
+export type CampSite = MapSite
+
 export interface TileMapData {
 	width: number
 	height: number
@@ -32,6 +42,14 @@ export interface TileMapData {
 	layers: TileLayer[]
 	/** Walkable tile the character starts on — the main crossroads. */
 	spawn: { x: number; y: number }
+	/**
+	 * The training camps, placed by the generator and sent to the client as
+	 * part of the map. One source of truth: the tiles the player sees and the
+	 * positions the server validates entry against cannot drift apart.
+	 */
+	camps: CampSite[]
+	/** The healing centres, placed and used the same way. */
+	centers: MapSite[]
 }
 
 export function layerOf(map: TileMapData, name: LayerName): Tile[] {
@@ -327,6 +345,109 @@ export function createRouteMap(seed = 1337, width = DEFAULT_WIDTH, height = DEFA
 		if (inside(x, fenceY) && walkableGrass(x, fenceY)) objects[at(x, fenceY)] = Tile.Fence
 	}
 
+	/* ------------------------------ training camps ------------------------------ */
+
+	/**
+	 * Where a camp should go, before looking for solid ground.
+	 *
+	 * The corner camps aim at the *approach ring* of their biome rather than
+	 * its heart: at 0.6 of the reach the ground is still cinder, sand or cloud,
+	 * while the heart is lava, open water or the void between clouds.
+	 */
+	const campTarget = (anchor: CampAnchor): { x: number; y: number } => {
+		const inset = CORNER_REACH * 0.6
+		const near = { x: Math.round(width * inset), y: Math.round(height * inset) }
+		const far = { x: Math.round(width * (1 - inset)), y: Math.round(height * (1 - inset)) }
+
+		switch (anchor) {
+			case 'top-left':
+				return { x: near.x, y: near.y }
+			case 'top-right':
+				return { x: far.x, y: near.y }
+			case 'bottom-left':
+				return { x: near.x, y: far.y }
+			case 'bottom-right':
+				return { x: far.x, y: far.y }
+			default:
+				// The central camp stands a few steps off the spawn plaza, south of
+				// the trunk road and clear of the fenced plot: the first band must
+				// be reachable before the player knows the map at all.
+				return { x: northX + 8, y: trunkY + 5 }
+		}
+	}
+
+	/** Walkable, and with enough walkable neighbours that the camp is reachable. */
+	const roomFor = (x: number, y: number) => {
+		if (x < 3 || y < 3 || x >= width - 3 || y >= height - 3) return false
+		if (isSolid(ground[at(x, y)])) return false
+
+		let open = 0
+		for (let dy = -1; dy <= 1; dy++) {
+			for (let dx = -1; dx <= 1; dx++) {
+				if (!dx && !dy) continue
+				if (!isSolid(ground[at(x + dx, y + dy)])) open++
+			}
+		}
+		return open >= 5
+	}
+
+	/** Nearest acceptable tile to the target, searched outwards ring by ring. */
+	const campTile = (target: { x: number; y: number }) => {
+		for (let radius = 0; radius < 24; radius++) {
+			for (let dy = -radius; dy <= radius; dy++) {
+				for (let dx = -radius; dx <= radius; dx++) {
+					// Only the ring itself: the inside was covered by smaller radii.
+					if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue
+					const x = target.x + dx
+					const y = target.y + dy
+					if (roomFor(x, y)) return { x, y }
+				}
+			}
+		}
+		// Nothing suitable: fall back to the target, clamped inside the border.
+		return {
+			x: Math.min(width - 4, Math.max(3, target.x)),
+			y: Math.min(height - 4, Math.max(3, target.y)),
+		}
+	}
+
+	const camps: CampSite[] = CAMPS.map((camp) => {
+		const { x, y } = campTile(campTarget(camp.anchor))
+
+		// A cleared yard, so the hut is never buried in trees or lapped by lava.
+		for (let dy = -2; dy <= 2; dy++) {
+			for (let dx = -2; dx <= 2; dx++) {
+				if (!inside(x + dx, y + dy)) continue
+				ground[at(x + dx, y + dy)] = random() < 0.7 ? Tile.Cobble : Tile.Stone
+				objects[at(x + dx, y + dy)] = Tile.Empty
+				overlay[at(x + dx, y + dy)] = Tile.Empty
+			}
+		}
+		objects[at(x, y)] = Tile.TrainingCamp
+
+		return { id: camp.id, x, y }
+	})
+
+	/*
+	 * The healing centre stands on the spawn plaza itself.
+	 *
+	 * Every road meets here, which is the point: a wound sends you back to the
+	 * crossroads from whichever corner of the map you were training in, and the
+	 * first one happens before the player has explored anything.
+	 */
+	const centers: MapSite[] = [{ id: 'centre-de-soins', ...campTile({ x: northX + 6, y: trunkY - 3 }) }]
+	for (const site of centers) {
+		for (let dy = -2; dy <= 2; dy++) {
+			for (let dx = -2; dx <= 2; dx++) {
+				if (!inside(site.x + dx, site.y + dy)) continue
+				ground[at(site.x + dx, site.y + dy)] = random() < 0.7 ? Tile.Stone : Tile.Cobble
+				objects[at(site.x + dx, site.y + dy)] = Tile.Empty
+				overlay[at(site.x + dx, site.y + dy)] = Tile.Empty
+			}
+		}
+		objects[at(site.x, site.y)] = Tile.HealCenter
+	}
+
 	/*
 	 * The spawn sits on the first plaza. Clear a small landing around it by
 	 * hand: the corner biomes are noisy blobs, and one unlucky roll spilling
@@ -351,5 +472,7 @@ export function createRouteMap(seed = 1337, width = DEFAULT_WIDTH, height = DEFA
 			{ name: 'objects', data: objects },
 		],
 		spawn,
+		camps,
+		centers,
 	}
 }

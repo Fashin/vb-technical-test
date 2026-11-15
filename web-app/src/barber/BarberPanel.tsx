@@ -27,7 +27,7 @@ interface SwatchesProps {
 function Swatches({ label, colors, value, onChange }: SwatchesProps) {
 	return (
 		<div>
-			<p className="text-xs text-slate-400">{label}</p>
+			<p className="text-sm text-slate-400">{label}</p>
 			<div className="mt-1 flex flex-wrap gap-1.5">
 				{colors.map((color, index) => (
 					<button
@@ -58,7 +58,7 @@ interface ChoicesProps {
 function Choices({ label, options, value, onChange }: ChoicesProps) {
 	return (
 		<div>
-			<p className="text-xs text-slate-400">{label}</p>
+			<p className="text-sm text-slate-400">{label}</p>
 			<div className="mt-1 flex flex-wrap gap-1.5">
 				{options.map((option, index) => (
 					<button
@@ -67,7 +67,7 @@ function Choices({ label, options, value, onChange }: ChoicesProps) {
 						onClick={() => onChange(index)}
 						aria-pressed={value === index}
 						className={
-							'rounded-md px-2 py-1 text-xs transition ' +
+							'rounded-md px-2 py-1 text-sm transition ' +
 							(value === index ? 'bg-white/20 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10')
 						}
 					>
@@ -133,17 +133,17 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 			<section
 				role="dialog"
 				aria-label="Coiffeur"
-				className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-center justify-between">
-					<h2 className="flex items-center gap-2 text-lg font-semibold">
-						<GiScissors className="h-5 w-5 text-emerald-300" />
+					<h2 className="flex items-center gap-2 text-xl font-semibold">
+						<GiScissors className="h-6 w-6 text-emerald-300" />
 						Coiffeur
 					</h2>
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded px-2 py-1 text-sm text-slate-400 hover:bg-white/10 hover:text-white"
+						className="rounded px-2 py-1 text-base text-slate-400 hover:bg-white/10 hover:text-white"
 					>
 						Fermer
 					</button>
@@ -154,7 +154,7 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 						<div className="rounded-lg border border-white/10 bg-gradient-to-b from-emerald-900/40 to-black/40 p-3">
 							<TrainerPortrait appearance={draft} scale={8} label="Aperçu du dresseur" />
 						</div>
-						<span className="text-xs text-slate-500">{user?.displayName}</span>
+						<span className="text-sm text-slate-500">{user?.displayName}</span>
 					</div>
 
 					<div className="flex flex-1 flex-col gap-3">
@@ -201,7 +201,7 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 				</div>
 
 				{error && (
-					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-sm text-red-300">
+					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 						{error}
 					</p>
 				)}
@@ -211,7 +211,7 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 						type="button"
 						onClick={() => user && setDraft({ ...user.appearance })}
 						disabled={!dirty || saving}
-						className="rounded-md border border-white/15 px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+						className="rounded-md border border-white/15 px-3 py-2 text-base text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
 					>
 						Annuler les retouches
 					</button>

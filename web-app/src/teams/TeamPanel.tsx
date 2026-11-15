@@ -4,6 +4,7 @@ import { GiPokecog } from 'react-icons/gi'
 import { RARITY } from '../boosters'
 import { useCollection } from '../collection'
 import { spriteUrlFor } from '../map'
+import { HealthBar, LevelBadge, XpBar } from '../progression'
 import { useEscapeToClose } from '../ui'
 import * as api from './api'
 import type { Team, TeamMember, TeamsState } from './api'
@@ -12,7 +13,7 @@ import type { Team, TeamMember, TeamsState } from './api'
 function Slot({ member, onRemove }: { member: TeamMember | null; onRemove: () => void }) {
 	if (!member) {
 		return (
-			<li className="flex h-20 w-20 items-center justify-center rounded-lg border-2 border-dashed border-white/15 text-xs text-slate-600">
+			<li className="flex h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed border-white/15 text-sm text-slate-600">
 				vide
 			</li>
 		)
@@ -24,13 +25,20 @@ function Slot({ member, onRemove }: { member: TeamMember | null; onRemove: () =>
 				type="button"
 				onClick={onRemove}
 				title={`Retirer ${member.name}`}
-				className={`group flex h-20 w-20 flex-col items-center justify-center rounded-lg border-2 bg-black/40 transition hover:border-red-400/70 ${RARITY[member.rarity].ring}`}
+				className={`group flex h-24 w-24 flex-col items-center justify-center rounded-lg border-2 bg-black/40 transition hover:border-red-400/70 ${RARITY[member.rarity].ring}`}
 			>
-				<img src={spriteUrlFor(member.pokedexId)} alt="" className="h-10 w-10 [image-rendering:pixelated]" />
-				<span className="w-full truncate px-1 text-center text-[10px] capitalize text-slate-200">
+				<img
+					src={spriteUrlFor(member.pokedexId)}
+					alt=""
+					className={`h-10 w-10 [image-rendering:pixelated] ${member.fainted ? 'opacity-40 grayscale' : ''}`}
+				/>
+				<span className="w-full truncate px-1 text-center text-xs capitalize text-slate-200">
 					{member.name}
 				</span>
-				<span className="text-[9px] text-red-300 opacity-0 transition group-hover:opacity-100">retirer</span>
+				<LevelBadge level={member.level} className="mt-1" />
+				<XpBar ratio={member.ratio} toNextLevel={member.toNextLevel} className="mt-1 w-14" />
+				{member.health < 1 && <HealthBar health={member.health} className="mt-0.5 w-14" />}
+				{member.inCare && <span className="text-[11px] font-medium text-red-300">en soins</span>}
 			</button>
 		</li>
 	)
@@ -137,24 +145,24 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 			<section
 				role="dialog"
 				aria-label="Mon équipe"
-				className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="flex max-h-[85vh] w-full max-w-4xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-center justify-between">
-					<h2 className="flex items-center gap-2 text-lg font-semibold">
-						<GiPokecog className="h-5 w-5 text-emerald-300" />
+					<h2 className="flex items-center gap-2 text-xl font-semibold">
+						<GiPokecog className="h-6 w-6 text-emerald-300" />
 						Mon équipe
 					</h2>
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded px-2 py-1 text-sm text-slate-400 hover:bg-white/10 hover:text-white"
+						className="rounded px-2 py-1 text-base text-slate-400 hover:bg-white/10 hover:text-white"
 					>
 						Fermer
 					</button>
 				</header>
 
 				{error && (
-					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-sm text-red-300">
+					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 						{error}
 					</p>
 				)}
@@ -162,7 +170,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 				<div className="mt-4 flex min-h-0 flex-1 gap-4">
 					{/* Teams */}
 					<aside className="flex w-44 shrink-0 flex-col">
-						<p className="text-xs uppercase tracking-wide text-slate-500">
+						<p className="text-sm uppercase tracking-wide text-slate-500">
 							Équipes {state && `(${state.teams.length}/${state.maxTeams})`}
 						</p>
 
@@ -177,12 +185,12 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 											setConfirmDelete(false)
 										}}
 										aria-pressed={team.id === selectedId}
-										className={`w-full rounded-md px-2 py-1.5 text-left text-sm transition ${
+										className={`w-full rounded-md px-2 py-1.5 text-left text-base transition ${
 											team.id === selectedId ? 'bg-white/15 text-white' : 'text-slate-300 hover:bg-white/10'
 										}`}
 									>
 										<span className="block truncate">{team.name}</span>
-										<span className="text-[11px] text-slate-500">
+										<span className="text-xs text-slate-500">
 											{team.members.length}/{state.teamSize}
 											{team.id === state.activeTeamId && ' · en lice'}
 										</span>
@@ -190,7 +198,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 								</li>
 							))}
 							{state?.teams.length === 0 && (
-								<li className="px-1 py-2 text-xs text-slate-500">Aucune équipe pour l’instant.</li>
+								<li className="px-1 py-2 text-sm text-slate-500">Aucune équipe pour l’instant.</li>
 							)}
 						</ul>
 
@@ -203,7 +211,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 									setSelectedId(team.id)
 								})
 							}
-							className="mt-2 rounded-md border border-white/15 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/10 disabled:opacity-40"
+							className="mt-2 rounded-md border border-white/15 px-3 py-2 text-base text-slate-200 transition hover:bg-white/10 disabled:opacity-40"
 						>
 							+ Nouvelle équipe
 						</button>
@@ -212,7 +220,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 					{/* Selected team */}
 					<div className="flex min-w-0 flex-1 flex-col">
 						{!selected ? (
-							<p className="flex flex-1 items-center justify-center text-sm text-slate-500">
+							<p className="flex flex-1 items-center justify-center text-base text-slate-500">
 								Crée une équipe pour commencer.
 							</p>
 						) : (
@@ -233,33 +241,33 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 												value={draftName}
 												onChange={(event) => setDraftName(event.target.value)}
 												maxLength={24}
-												className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-sm outline-none focus:border-emerald-400"
+												className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-base outline-none focus:border-emerald-400"
 											/>
 											<button
 												type="submit"
 												disabled={busy}
-												className="rounded-md bg-emerald-500 px-3 py-1 text-sm font-medium text-emerald-950 disabled:opacity-40"
+												className="rounded-md bg-emerald-500 px-3 py-1 text-base font-medium text-emerald-950 disabled:opacity-40"
 											>
 												OK
 											</button>
 											<button
 												type="button"
 												onClick={() => setRenaming(false)}
-												className="rounded-md px-2 py-1 text-sm text-slate-400 hover:bg-white/10"
+												className="rounded-md px-2 py-1 text-base text-slate-400 hover:bg-white/10"
 											>
 												Annuler
 											</button>
 										</form>
 									) : (
 										<>
-											<h3 className="min-w-0 flex-1 truncate text-base font-semibold">{selected.name}</h3>
+											<h3 className="min-w-0 flex-1 truncate text-lg font-semibold">{selected.name}</h3>
 											<button
 												type="button"
 												onClick={() => {
 													setDraftName(selected.name)
 													setRenaming(true)
 												}}
-												className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-white/10 hover:text-white"
+												className="rounded px-2 py-1 text-sm text-slate-400 hover:bg-white/10 hover:text-white"
 											>
 												Renommer
 											</button>
@@ -268,7 +276,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 													type="button"
 													disabled={busy}
 													onClick={() => void run(() => api.setActiveTeam(selected.id))}
-													className="rounded px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40"
+													className="rounded px-2 py-1 text-sm text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40"
 												>
 													Envoyer en lice
 												</button>
@@ -277,7 +285,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 									)}
 								</div>
 
-								<p className="mt-0.5 text-xs text-slate-500">
+								<p className="mt-0.5 text-sm text-slate-500">
 									{selected.members.length}/{state?.teamSize} Pokémon
 									{selected.id === state?.activeTeamId && ' · c’est cette équipe qui combat dans l’arène'}
 								</p>
@@ -292,15 +300,15 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 									))}
 								</ul>
 
-								<p className="mt-4 text-xs uppercase tracking-wide text-slate-500">
+								<p className="mt-4 text-sm uppercase tracking-wide text-slate-500">
 									Ma collection {full && '· équipe complète'}
 								</p>
 
 								<div className="mt-2 min-h-0 flex-1 overflow-y-auto">
 									{collection.loading ? (
-										<p className="py-6 text-center text-sm text-slate-500">Chargement…</p>
+										<p className="py-6 text-center text-base text-slate-500">Chargement…</p>
 									) : collection.cards.length === 0 ? (
-										<p className="py-6 text-center text-sm text-slate-500">
+										<p className="py-6 text-center text-base text-slate-500">
 											Aucune carte — ouvre un booster pour commencer.
 										</p>
 									) : (
@@ -314,7 +322,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 															disabled={busy || picked || full}
 															onClick={() => addCard(card.id)}
 															title={picked ? 'Déjà dans l’équipe' : `Ajouter ${card.name}`}
-															className={`flex h-16 w-16 flex-col items-center justify-center rounded-md border bg-black/30 transition disabled:cursor-not-allowed ${
+															className={`flex h-20 w-20 flex-col items-center justify-center rounded-md border bg-black/30 transition disabled:cursor-not-allowed ${
 																picked
 																	? 'border-emerald-400/60 opacity-40'
 																	: 'border-white/10 hover:border-emerald-400/70 disabled:opacity-30'
@@ -324,9 +332,9 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 																src={spriteUrlFor(card.pokedexId)}
 																alt=""
 																loading="lazy"
-																className="h-8 w-8 [image-rendering:pixelated]"
+																className="h-10 w-10 [image-rendering:pixelated]"
 															/>
-															<span className="w-full truncate px-0.5 text-center text-[9px] capitalize text-slate-300">
+															<span className="w-full truncate px-0.5 text-center text-[11px] capitalize text-slate-300">
 																{card.name}
 															</span>
 														</button>
@@ -340,13 +348,13 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 								<div className="mt-3 border-t border-white/10 pt-3">
 									{confirmDelete ? (
 										<div className="flex items-center gap-2">
-											<span className="flex-1 text-xs text-red-300">
+											<span className="flex-1 text-sm text-red-300">
 												Supprimer « {selected.name} » ? Les cartes restent dans ta collection.
 											</span>
 											<button
 												type="button"
 												onClick={() => setConfirmDelete(false)}
-												className="rounded-md border border-white/15 px-3 py-1 text-xs text-slate-300 hover:bg-white/10"
+												className="rounded-md border border-white/15 px-3 py-1 text-sm text-slate-300 hover:bg-white/10"
 											>
 												Annuler
 											</button>
@@ -359,7 +367,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 														setConfirmDelete(false)
 													})
 												}
-												className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-500 disabled:opacity-40"
+												className="rounded-md bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40"
 											>
 												Supprimer
 											</button>
@@ -368,7 +376,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 										<button
 											type="button"
 											onClick={() => setConfirmDelete(true)}
-											className="text-xs text-red-300/80 hover:text-red-200 hover:underline"
+											className="text-sm text-red-300/80 hover:text-red-200 hover:underline"
 										>
 											Supprimer cette équipe
 										</button>
