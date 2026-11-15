@@ -87,10 +87,18 @@ function TeamPicker({
 	)
 }
 
+/**
+ * The camp's band, and the level it can carry you to.
+ *
+ * The two differ by one on purpose — a camp stopping at its last level would
+ * strand everyone just short of the next camp's floor — so both are shown
+ * rather than letting a level 25 reach 26 at a camp labelled "1 – 25".
+ */
 function Band({ camp }: { camp: Camp }) {
 	return (
 		<span className="rounded bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-200">
 			Niveaux {camp.minLevel} – {camp.maxLevel}
+			<span className="text-sky-300/70"> · mène au {camp.ceiling}</span>
 		</span>
 	)
 }
@@ -299,8 +307,16 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 						{camp.roster > 0 && (
 							<p className="mt-2 text-sm text-slate-400">
 								{camp.roster === 1
-									? 'Un seul Pokémon valide : il affrontera un partenaire.'
-									: `Les ${camp.roster} Pokémon valides entrent sur le terrain, un partenaire chacun. Celui qui met son partenaire K.O. passe la main.`}
+									? 'Un seul Pokémon de la tranche : il affrontera un partenaire.'
+									: `${camp.roster} Pokémon de la tranche entrent sur le terrain, un partenaire chacun. Celui qui met son partenaire K.O. passe la main.`}
+								{camp.benched > 0 && (
+									<span className="text-slate-500">
+										{' '}
+										{camp.benched === 1 ? '1 reste au banc' : `${camp.benched} restent au banc`} : hors de
+										la tranche {camp.minLevel}–{camp.maxLevel}, rien à apprendre ici et donc rien à y
+										perdre.
+									</span>
+								)}
 							</p>
 						)}
 
@@ -334,8 +350,8 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 							<p className="mt-3 flex items-center gap-2 rounded-md bg-emerald-500/15 px-3 py-2 text-sm text-emerald-200">
 								<GiArrowDunk className="h-5 w-5 shrink-0" />
 								Plus personne de cette équipe n’est dans la tranche {camp.minLevel}–{camp.maxLevel} : tu
-								peux encore y sparrer, mais ce camp n’a plus rien à t’apprendre. Le palier suivant est
-								ailleurs sur la carte.
+								peux encore y sparrer, mais ce camp ne mène pas au-delà du niveau {camp.ceiling}. Le
+								palier suivant est ailleurs sur la carte.
 							</p>
 						)}
 
@@ -365,8 +381,8 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 									</p>
 									<p className="text-sm text-slate-500">
 										L’expérience est partagée à parts égales entre les Pokémon entrés sur le terrain.
-										Ceux qui ont dépassé le plafond du camp ({session.band.max}) n’apprennent plus rien
-										ici.
+										Ce camp ne mène personne au-delà du niveau {session.band.ceiling} : arrivé là, un
+										Pokémon laisse sa place au suivant.
 									</p>
 									<Gains session={session} />
 								</>

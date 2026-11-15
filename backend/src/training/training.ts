@@ -19,15 +19,15 @@ import { findCamp, type Camp } from './camps'
  *
  * Three rules shape everything below, and they work together:
  *
- *  - **the whole team spars**, one wild partner each, and a Pokemon hands over
- *    as soon as it has put its own partner down (`relay` in `battle/engine`).
- *    Without that hand-over only a faint would ever change who is out, so a
- *    team whose lead keeps winning would field exactly one Pokemon however
- *    many it brought — which is what used to happen.
- *  - **a camp only *teaches* its own band.** It still refuses a team with
- *    nobody inside the band, and `grantXp`'s ceiling still pays nothing to a
- *    Pokemon that has outgrown the place. What changed is that being outside
- *    the band no longer keeps you off the field.
+ *  - **everyone the camp can teach spars**, one wild partner each, and a
+ *    Pokemon hands over as soon as it has put its own partner down (`relay` in
+ *    `battle/engine`). Without that hand-over only a faint would ever change
+ *    who is out, so a team whose lead keeps winning would field exactly one
+ *    Pokemon however many it brought.
+ *  - **a camp only fields its own band.** Reaching the ceiling benches you and
+ *    leaves the place to a team mate who can still learn here; so does being
+ *    below the floor. A camp with nobody left in its band turns the team away
+ *    — but one Pokemon crossing the ceiling never shuts it for the others.
  *  - **only the Pokemon that fights earns**, and the session's purse is split
  *    equally between those who stood on the field.
  *
@@ -69,6 +69,16 @@ export interface CampProgress extends Camp {
 	nextTrainee: { name: string; level: number } | null
 	/** How many Pokemon of this team would take the field — one bout each. */
 	roster: number
+	/** How many are fit but sit this camp out, having outgrown it or not reached it. */
+	benched: number
+	/**
+	 * The highest level this camp can actually carry a Pokemon to.
+	 *
+	 * One past `maxLevel`, and stated rather than left for the client to work
+	 * out: the band reads "1 – 25" while the camp teaches up to 26, and a
+	 * player watching a level 25 reach 26 here is owed the real number.
+	 */
+	ceiling: number
 }
 
 function clamp(value: number, low: number, high: number): number {
@@ -98,35 +108,27 @@ function available(member: TeamMember): boolean {
 }
 
 /**
- * The members this camp can teach, least-trained first.
+ * Who walks in, least-trained first: the members this camp can teach.
  *
- * Used for the camp's verdicts and for the entry gate: a camp with nobody in
- * its band has nothing to teach and turns the team away.
+ * Only them. A Pokemon that has reached the ceiling stays on the bench and
+ * leaves its place to one that can still learn here — which is the point of
+ * walking to a camp rather than fighting anywhere. It also settles the
+ * arithmetic: there is one sparring partner per Pokemon fielded, so a bench
+ * that fought would be a bench taking wounds for experience it cannot earn.
+ *
+ * Being below the floor sits a Pokemon out too, for the opposite reason: the
+ * sparring would be a slaughter, and a camp fields partners at its own tier.
  */
-function traineesOf(members: TeamMember[], camp: Camp): TeamMember[] {
+function squadOf(members: TeamMember[], camp: Camp): TeamMember[] {
 	return members
 		.filter(available)
 		.filter((member) => teachable(member, camp))
 		.sort((a, b) => a.level - b.level || a.slot - b.slot)
 }
 
-/**
- * Everyone who walks in, in the order they take the field.
- *
- * The whole healthy team, not just the band: that is the point of a session.
- * The ones the camp can actually teach lead, least-trained first — the camp's
- * own trainee opens, as it always did — and the rest follow behind. A Pokemon
- * below the band or past it still gets its bout; it just earns nothing, which
- * `grantXp`'s ceiling already enforces.
- */
-function rosterOf(members: TeamMember[], camp: Camp): TeamMember[] {
-	const byLevel = (a: TeamMember, b: TeamMember) => a.level - b.level || a.slot - b.slot
-	const healthy = members.filter(available)
-
-	return [
-		...healthy.filter((member) => teachable(member, camp)).sort(byLevel),
-		...healthy.filter((member) => !teachable(member, camp)).sort(byLevel),
-	]
+/** Fit to fight, but not here: on the bench for this camp. */
+function benchedAt(members: TeamMember[], camp: Camp): TeamMember[] {
+	return members.filter(available).filter((member) => !teachable(member, camp))
 }
 
 /**
@@ -161,8 +163,8 @@ export function listCamps(userId: string, teamId?: string): CampProgress[] {
 			const camp = findCamp(site.id)
 			if (!camp) return null
 
-			const trainees = traineesOf(members, camp)
-			const next = trainees[0]
+			const squad = squadOf(members, camp)
+			const next = squad[0]
 			// Separating the two tells the player which message to act on: train
 			// somewhere else, or go and collect your Pokémon.
 			const sidelined = members.filter(
@@ -178,10 +180,12 @@ export function listCamps(userId: string, teamId?: string): CampProgress[] {
 				y: site.y,
 				teamLevel: best,
 				unlocked: best >= camp.minLevel,
-				exhausted: members.length > 0 && trainees.length === 0 && sidelined.length === 0 && best >= camp.minLevel,
-				allInCare: trainees.length === 0 && sidelined.length > 0,
+				exhausted: members.length > 0 && squad.length === 0 && sidelined.length === 0 && best >= camp.minLevel,
+				allInCare: squad.length === 0 && sidelined.length > 0,
 				nextTrainee: next ? { name: next.name, level: next.level } : null,
-				roster: rosterOf(members, camp).length,
+				roster: squad.length,
+				benched: benchedAt(members, camp).length,
+				ceiling: ceilingOf(camp),
 			}
 		})
 		.filter((camp): camp is CampProgress => camp !== null)
@@ -201,8 +205,8 @@ export interface TrainingSession {
 	/** The team that walked in, so the panel can name it back. */
 	teamId: string
 	teamName: string
-	/** Levels this camp still teaches, echoed for the panel. */
-	band: { min: number; max: number }
+	/** Levels this camp accepts, and the level it can carry a Pokemon to. */
+	band: { min: number; max: number; ceiling: number }
 }
 
 export type SessionResult =
@@ -215,6 +219,7 @@ export type SessionResult =
 				| 'TEAM_NOT_FOUND'
 				| 'TOO_FAR'
 				| 'TOO_WEAK'
+				| 'NOTHING_TO_LEARN'
 				| 'NO_HEALTHY_TEAM'
 			detail?: { minLevel: number; maxLevel: number; teamLevel: number }
 	  }
@@ -255,37 +260,36 @@ export async function runSession(userId: string, campId: string, teamId?: string
 	if (best < camp.minLevel) return { ok: false, reason: 'TOO_WEAK', detail }
 
 	/*
-	 * Having outgrown the camp is not a reason to be turned away.
+	 * One Pokemon reaching the ceiling must not shut the camp for its team.
 	 *
-	 * It used to be: with nobody left inside the band the whole session was
-	 * refused, so one Pokemon crossing the ceiling could shut the camp for the
-	 * five team mates still learning there. Outgrowing a camp now costs exactly
-	 * what it should — `grantXp`'s ceiling pays that Pokemon nothing — and it
-	 * still takes its bout and hands over like everyone else.
-	 *
-	 * Only being unable to field anyone at all stops a session, and that is a
-	 * trip to the healing centre rather than a trip to another camp.
+	 * It used to: the session was refused as soon as anybody was missing from
+	 * the band. Now whoever has outgrown the place simply sits out, and the
+	 * session runs for the rest. Only a squad with nobody left to field stops
+	 * it — and the two ways that happens are told apart, because one is solved
+	 * by walking to another camp and the other by waiting at the centre.
 	 */
-	const roster = rosterOf(team.members, camp)
-	if (roster.length === 0) return { ok: false, reason: 'NO_HEALTHY_TEAM', detail }
-
-	const trainees = traineesOf(team.members, camp)
+	const squad = squadOf(team.members, camp)
+	if (squad.length === 0) {
+		const sidelined = team.members.some(
+			(member) => (member.inCare || member.fainted) && teachable(member, camp),
+		)
+		return { ok: false, reason: sidelined ? 'NO_HEALTHY_TEAM' : 'NOTHING_TO_LEARN', detail }
+	}
 
 	/* ------------------------------- the fight ------------------------------- */
 
-	const wilds = wildCount(roster.length)
+	const wilds = wildCount(squad.length)
 
 	// "At the current level": the sparring partners follow the Pokemon that
-	// opens — the camp's own trainee when it has one, the roster's lead when
-	// everyone has outgrown the place — kept inside the band so a camp never
-	// fields opponents above its own tier.
-	const target = clamp((trainees[0] ?? roster[0]).level, camp.minLevel, camp.maxLevel)
+	// opens — the least-trained of those this camp can teach — kept inside the
+	// band so a camp never fields opponents above its own tier.
+	const target = clamp(squad[0].level, camp.minLevel, camp.maxLevel)
 	const wildLevel = () =>
 		clamp(target + Math.round((Math.random() - 0.5) * 2 * LEVEL_SPREAD), camp.minLevel, camp.maxLevel)
 
 	const [playerTeam, wildTeam] = await Promise.all([
 		Promise.all(
-			roster.map(async (member) => {
+			squad.map(async (member) => {
 				const fighter = await toFighter(member.pokedexId, member.level)
 				// It walks in as it walked out of its last fight.
 				fighter.hp = Math.max(1, Math.round(fighter.maxHp * member.health))
@@ -328,7 +332,7 @@ export async function runSession(userId: string, campId: string, teamId?: string
 	const share = participants.player.length > 0 ? Math.floor(purse / participants.player.length) : 0
 
 	const payout: XpAward[] = participants.player.map((index) => ({
-		cardId: roster[index].cardId,
+		cardId: squad[index].cardId,
 		amount: share,
 	}))
 	const gains = grantXp(payout, ceilingOf(camp))
@@ -341,7 +345,7 @@ export async function runSession(userId: string, campId: string, teamId?: string
 	// Sparring is not free either: what the session costs stays lost until the
 	// healing centre gives it back.
 	const wounds: Wound[] = playerTeam.map((fighter, index) => ({
-		cardId: roster[index].cardId,
+		cardId: squad[index].cardId,
 		lost: 1 - fighter.hp / fighter.maxHp,
 	}))
 	recordWounds(userId, wounds)
@@ -354,9 +358,9 @@ export async function runSession(userId: string, campId: string, teamId?: string
 		player,
 		master: wild,
 		status: winner === 'player' ? 'won' : 'lost',
-		playerCardIds: roster.map((member) => member.cardId),
+		playerCardIds: squad.map((member) => member.cardId),
 		intro:
-			`Entraînement au ${camp.name} : ${team.name} entre sur le terrain, ${roster[0].name} en tête,` +
+			`Entraînement au ${camp.name} : ${team.name} entre sur le terrain, ${squad[0].name} en tête,` +
 			` face à ${wilds} Pokémon sauvage${wilds > 1 ? 's' : ''} de niveau ${target} !`,
 		log: rounds,
 		reward: null,
@@ -370,10 +374,10 @@ export async function runSession(userId: string, campId: string, teamId?: string
 			battle,
 			xpEarned,
 			gains,
-			trainee: roster[0].name,
+			trainee: squad[0].name,
 			teamId: team.id,
 			teamName: team.name,
-			band: { min: camp.minLevel, max: camp.maxLevel },
+			band: { min: camp.minLevel, max: camp.maxLevel, ceiling: ceilingOf(camp) },
 		},
 	}
 }

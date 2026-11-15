@@ -95,9 +95,18 @@ const empty: PlaybackView = {
 	round: 0,
 }
 
-/** Both teams at full health: where every replay starts. */
+/**
+ * The health each team walked in with: where a replay starts.
+ *
+ * Not `maxHp`. A team carries its wounds from one training session to the
+ * next, so seeding the bars at full made every session open on a healed team
+ * and then snap back to the server's real numbers at the end — which read as
+ * the Pokémon being healed between sessions. `openingHp` is the server's own
+ * record of the starting figure; an arena battle saved before it existed falls
+ * back to full, which is what it was.
+ */
 function freshHp(side: Side): number[] {
-	return side.team.map((fighter) => fighter.maxHp)
+	return side.team.map((fighter) => fighter.openingHp ?? fighter.maxHp)
 }
 
 /** The battle as the server left it — the state the replay settles on. */
@@ -158,8 +167,9 @@ export function useBattlePlayback(battle: Battle | null) {
 				return
 			}
 
-			// The replay simulates the fight forward from full health; the server's
-			// own numbers are the teams' *final* state, so they cannot seed it.
+			// The replay simulates the fight forward from the health each side
+			// walked in with; the server's own numbers are the teams' *final*
+			// state, so they cannot seed it.
 			const hp = { player: freshHp(resolved.player), master: freshHp(resolved.master) }
 			const active = { player: 0, master: 0 }
 			const team = { player: resolved.player.team, master: resolved.master.team }

@@ -35,6 +35,16 @@ export interface BattleFighter {
 	speed: number
 	hp: number
 	maxHp: number
+	/**
+	 * Health this Pokemon walked onto the field with.
+	 *
+	 * `hp` is mutated as the fight goes, so by the time the client receives the
+	 * battle it holds the *final* figure and nothing says where the bars
+	 * started. A training session is the case that makes this matter: a team
+	 * carries its wounds in, and a replay that assumed full health showed
+	 * everyone healed between sessions.
+	 */
+	openingHp: number
 }
 
 export interface Side {
@@ -87,6 +97,8 @@ export const MAX_ROUNDS = 24
 export async function toFighter(pokedexId: number, level: number): Promise<BattleFighter> {
 	const { name, types, stats } = await fetchFighter(pokedexId)
 	const hp = maxHp(stats.hp, level)
+	// Overwritten by `resolveRounds` for a fighter that walks in wounded.
+
 
 	// The Pokedex gives base stats; what fights is the Pokemon at its level.
 	return {
@@ -101,6 +113,7 @@ export async function toFighter(pokedexId: number, level: number): Promise<Battl
 		speed: scaleStat(stats.speed, level),
 		hp,
 		maxHp: hp,
+		openingHp: hp,
 	}
 }
 
@@ -386,6 +399,13 @@ export function resolveRounds(
 ): Resolution {
 	const relay = rules.relay === true
 	const cap = Math.max(1, Math.round(rules.maxRounds ?? MAX_ROUNDS))
+
+	// Recorded before the first blow: the caller may have set `hp` to what each
+	// Pokemon carried in from an earlier fight, and that is the only moment the
+	// starting figure exists.
+	for (const side of [player, master]) {
+		for (const fighter of side.team) fighter.openingHp = fighter.hp
+	}
 
 	const rounds: RoundLog[] = []
 	const fought = { player: new Set<number>(), master: new Set<number>() }

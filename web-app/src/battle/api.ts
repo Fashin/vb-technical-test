@@ -8,8 +8,16 @@ export interface BattleFighter {
 	/** Earned in the training camps; drives both damage and the HP pool. */
 	level: number
 	speed: number
+	/** Where it ended the fight — `hp` is the server's *final* figure. */
 	hp: number
 	maxHp: number
+	/**
+	 * Where it started the fight.
+	 *
+	 * Optional: an arena battle persisted before this field existed does not
+	 * carry it, and a fight nobody walked into wounded started at `maxHp`.
+	 */
+	openingHp?: number
 }
 
 export interface Side {

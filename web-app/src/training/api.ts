@@ -26,6 +26,15 @@ export interface Camp {
 	allInCare: boolean
 	/** How many Pokémon of the selected team would take the field. */
 	roster: number
+	/** How many are fit but sit this camp out: ceiling reached, or floor not. */
+	benched: number
+	/**
+	 * The highest level this camp can carry a Pokémon to: one past `maxLevel`.
+	 *
+	 * The band accepts 1–25 but teaches up to 26, which is exactly what the
+	 * next camp's floor requires. Shown, so the ceiling is not a surprise.
+	 */
+	ceiling: number
 }
 
 export interface TrainingSession {
@@ -41,7 +50,7 @@ export interface TrainingSession {
 	/** The team that walked in. */
 	teamId: string
 	teamName: string
-	band: { min: number; max: number }
+	band: { min: number; max: number; ceiling: number }
 }
 
 export class TrainingError extends Error {
