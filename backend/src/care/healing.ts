@@ -1,5 +1,6 @@
 import { db } from '../db'
 import type { Rarity } from '../boosters/rarity'
+import { levelFromXp, MAX_LEVEL } from '../progression/levels'
 
 /**
  * Wounds, and the time it takes to mend them.
@@ -21,26 +22,41 @@ import type { Rarity } from '../boosters/rarity'
 export const HEAL_UNIT_MS = Number(process.env.HEAL_UNIT_MS) || 60_000
 
 /**
- * Units of care a fully spent Pokemon needs, by rarity.
+ * Units of care a fully spent Pokemon needs, at the level cap.
  *
- * The rare ones are the slow ones on purpose: the better the card, the more a
- * defeat costs you in time, and the more it is worth sparing it.
+ * The cost is **driven by the level**, not by the rarity: a card is slow to
+ * mend because it is strong, and at level 5 — where every fresh booster sits,
+ * and where a first defeat lands — a trip to the centre is a pause, not a
+ * break. Rarity only tilts the result, so a legendary still costs more than a
+ * common of the same level without being a different order of magnitude.
+ *
+ * `LEVEL_UNITS` is what a level-100 card of ordinary rarity costs when it is
+ * fully spent, in units; everything below scales linearly from it.
  */
-const UNITS: Record<Rarity, number> = {
-	common: 5,
-	uncommon: 10,
-	rare: 20,
-	legendary: 40,
+const LEVEL_UNITS = 10
+
+/** Multiplier on the level's cost, by rarity. */
+const RARITY_FACTOR: Record<Rarity, number> = {
+	common: 0.6,
+	uncommon: 0.8,
+	rare: 1,
+	legendary: 1.3,
 }
 
 /** Nobody waits meaningfully for a scratch, but nothing is instant either. */
 const MIN_CARE_MS = 20_000
 
-/** How long it takes to mend `share` of a Pokemon's health, in milliseconds. */
-export function careDuration(rarity: Rarity, share: number): number {
-	const units = UNITS[rarity] ?? UNITS.common
+/**
+ * How long it takes to mend `share` of a Pokemon's health, in milliseconds.
+ *
+ * Three terms, each one a thing the player can see on the card: its level, its
+ * rarity and how much of it is missing.
+ */
+export function careDuration(rarity: Rarity, share: number, level: number): number {
+	const factor = RARITY_FACTOR[rarity] ?? RARITY_FACTOR.common
 	const clamped = Math.min(1, Math.max(0, share))
-	return Math.max(MIN_CARE_MS, Math.round(units * HEAL_UNIT_MS * clamped))
+	const ranked = Math.min(MAX_LEVEL, Math.max(1, Math.round(level))) / MAX_LEVEL
+	return Math.max(MIN_CARE_MS, Math.round(LEVEL_UNITS * HEAL_UNIT_MS * ranked * factor * clamped))
 }
 
 /** A card's condition, as every panel in the app shows it. */
@@ -126,13 +142,14 @@ export function admit(userId: string, cardIds: string[]): AdmitResult {
 	const placeholders = cardIds.map(() => '?').join(', ')
 	const rows = db
 		.prepare(
-			`SELECT id, name, rarity, hp_lost, healed_at FROM cards
+			`SELECT id, name, rarity, xp, hp_lost, healed_at FROM cards
 			 WHERE user_id = ? AND id IN (${placeholders})`,
 		)
 		.all(userId, ...cardIds) as {
 		id: string
 		name: string
 		rarity: Rarity
+		xp: number
 		hp_lost: number
 		healed_at: number | null
 	}[]
@@ -151,7 +168,7 @@ export function admit(userId: string, cardIds: string[]): AdmitResult {
 				continue
 			}
 
-			const healedAt = now + careDuration(row.rarity, row.hp_lost)
+			const healedAt = now + careDuration(row.rarity, row.hp_lost, levelFromXp(row.xp))
 			update.run(healedAt, row.id, userId)
 			admitted.push({ cardId: row.id, name: row.name, healedAt })
 		}

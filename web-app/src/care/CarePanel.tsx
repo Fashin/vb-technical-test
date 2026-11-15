@@ -144,8 +144,8 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 							tone="text-red-300"
 						/>
 						<p className="mt-1 text-base text-slate-400">
-							Les PV perdus ne reviennent pas tout seuls. Le temps de soin dépend de la rareté de la carte
-							et de ce qu’elle a encaissé.
+							Les PV perdus ne reviennent pas tout seuls. Le temps de soin dépend du niveau de la carte, de
+							sa rareté et de ce qu’elle a encaissé.
 						</p>
 					</div>
 					<button

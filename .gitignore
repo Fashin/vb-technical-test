@@ -5,6 +5,7 @@ dist
 build
 tmp
 /out-tsc
+DEPLOY.md
 
 # dependencies
 node_modules

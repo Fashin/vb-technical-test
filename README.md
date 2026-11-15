@@ -62,8 +62,8 @@ niveaux (1-25, 26-45, 46-65, 66-85, 86-100) : finir un palier oblige à
 traverser la carte pour trouver le suivant.
 
 **Usure et soins** — les PV perdus en combat restent perdus. Il faut marcher
-jusqu'au centre de soins et y laisser ses blessés, pour une durée qui dépend de
-la rareté de la carte et des dégâts encaissés.
+jusqu'au centre de soins et y laisser ses blessés, pour une durée qui dépend du
+niveau de la carte, de sa rareté et des dégâts encaissés.
 
 **Entre joueurs** — en s'approchant d'un autre dresseur : **duel** (combat
 complet, commenté, où les deux équipes ressortent marquées et seul le vainqueur

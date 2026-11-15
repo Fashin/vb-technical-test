@@ -48,7 +48,7 @@ export function careState(userId: string): CareState {
 	const wounded = members.filter((member) => !member.inCare && member.health < 1)
 	const estimates: Record<string, number> = {}
 	for (const member of wounded) {
-		estimates[member.cardId] = careDuration(member.rarity as never, 1 - member.health)
+		estimates[member.cardId] = careDuration(member.rarity as never, 1 - member.health, member.level)
 	}
 
 	return {
