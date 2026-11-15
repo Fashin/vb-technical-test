@@ -75,13 +75,19 @@ const cinder: Painter = (ctx) => {
  * must line up with it column by column.
  */
 const campRoof: Painter = (ctx) => {
-	// Banner on a pole, left of the ridge.
+	/*
+	 * Banner on a pole, left of the ridge.
+	 *
+	 * The pole runs *into* the roof rather than stopping above it: the roof is
+	 * painted afterwards and covers its last pixels, which is what makes the
+	 * flag read as planted in the building instead of floating over it.
+	 */
 	ctx.fillStyle = '#6b5336'
-	ctx.fillRect(3, 2, 1, 6)
+	ctx.fillRect(3, 1, 1, 10)
 	ctx.fillStyle = '#d8613c'
-	ctx.fillRect(4, 2, 5, 3)
+	ctx.fillRect(4, 1, 5, 3)
 	ctx.fillStyle = '#f2d06b'
-	ctx.fillRect(4, 3, 2, 1)
+	ctx.fillRect(4, 2, 2, 1)
 
 	// Roof: two slopes, darker on the right so it reads as lit from the left.
 	for (let row = 0; row < 7; row++) {

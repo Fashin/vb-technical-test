@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { GiScissors } from 'react-icons/gi'
 
-import { useEscapeToClose } from '../ui'
+import { Breadcrumb, useEscapeToClose } from '../ui'
 import { useAuth } from '../auth'
 import {
 	BOTTOMS,
@@ -136,10 +136,14 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 				className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-center justify-between">
-					<h2 className="flex items-center gap-2 text-xl font-semibold">
-						<GiScissors className="h-6 w-6 text-emerald-300" />
-						Coiffeur
-					</h2>
+					<Breadcrumb
+						trail={[
+							{ label: 'Carte', onClick: onClose },
+							{ label: 'Coiffeur' },
+						]}
+						icon={GiScissors}
+						tone="text-emerald-300"
+					/>
 					<button
 						type="button"
 						onClick={onClose}

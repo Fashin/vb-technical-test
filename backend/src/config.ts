@@ -21,6 +21,19 @@ export const VIRTUALBRAIN_API_KEY = process.env.VIRTUALBRAIN_API_KEY ?? ''
 
 export const PORT = Number(process.env.PORT) || 3001
 
+/**
+ * Origins allowed to call this API, comma-separated in `CORS_ORIGINS`.
+ *
+ * Reflecting whatever `Origin` arrives is the default a boilerplate reaches
+ * for and the one that bites: any page on the internet could then call this
+ * API from a visitor's browser. The dev server's two addresses are the
+ * default; a deployment sets its own.
+ */
+export const CORS_ORIGINS = (process.env.CORS_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173')
+	.split(',')
+	.map((origin) => origin.trim())
+	.filter(Boolean)
+
 /** True when the chatbot can be reached; the arena says so rather than failing silently. */
 export function hasVirtualBrain(): boolean {
 	return VIRTUALBRAIN_API_KEY.startsWith('vb_ak_')

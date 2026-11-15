@@ -9,7 +9,7 @@ interface CardFaceProps {
 	 * client — or a face rendered from a partial record — still renders.
 	 */
 	card: Pick<Card, 'pokedexId' | 'name' | 'rarity'> &
-		Partial<Pick<Card, 'level' | 'ratio' | 'toNextLevel' | 'health' | 'inCare' | 'fainted'>>
+		Partial<Pick<Card, 'level' | 'ratio' | 'toNextLevel' | 'health' | 'inCare' | 'fainted' | 'stats'>>
 	/** Shown as "×N" when the player owns several copies. */
 	count?: number
 }
@@ -36,15 +36,43 @@ export function CardFace({ card, count = 1 }: CardFaceProps) {
 				</span>
 			)}
 			<span className="mt-1 w-full truncate text-center text-sm capitalize text-slate-100">{card.name}</span>
-			<div className="mt-1 flex items-center gap-1">
-				<span className={`rounded px-1.5 py-0.5 text-xs font-medium ${style.chip}`}>{style.label}</span>
-				{card.level !== undefined && <LevelBadge level={card.level} />}
+			{/* Wrapping, not shrinking: "Peu commune" keeps its single line and the
+			    level badge drops beneath it rather than squeezing the label in two. */}
+			<div className="mt-1 flex flex-wrap items-center justify-center gap-1">
+				<span
+					className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${style.chip}`}
+				>
+					{style.label}
+				</span>
+				{card.level !== undefined && <LevelBadge level={card.level} className="shrink-0" />}
 			</div>
 			{card.level !== undefined && (
 				<XpBar ratio={card.ratio ?? 0} toNextLevel={card.toNextLevel} className="mt-1.5 w-full" />
 			)}
 			{card.health !== undefined && card.health < 1 && (
 				<HealthBar health={card.health} className="mt-1 w-full" />
+			)}
+
+			{/* The four stats the brief asks every card to carry. */}
+			{card.stats && (
+				<dl className="mt-1.5 grid w-full grid-cols-2 gap-x-2 text-[11px] tabular-nums text-slate-400">
+					<div className="flex justify-between">
+						<dt>PV</dt>
+						<dd className="text-slate-200">{card.stats.hp}</dd>
+					</div>
+					<div className="flex justify-between">
+						<dt>Atq</dt>
+						<dd className="text-slate-200">{card.stats.attack}</dd>
+					</div>
+					<div className="flex justify-between">
+						<dt>Déf</dt>
+						<dd className="text-slate-200">{card.stats.defense}</dd>
+					</div>
+					<div className="flex justify-between">
+						<dt>Vit</dt>
+						<dd className="text-slate-200">{card.stats.speed}</dd>
+					</div>
+				</dl>
 			)}
 			{count > 1 && (
 				<span className="absolute -right-2 -top-2 rounded-full bg-white px-1.5 py-0.5 text-xs font-bold text-slate-900">

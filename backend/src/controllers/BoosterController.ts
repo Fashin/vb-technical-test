@@ -22,7 +22,7 @@ BoosterController.post('/open', async (req, res) => {
 	return res.status(200).json(result)
 })
 
-/** The collection, for the panel that comes next. */
-BoosterController.get('/cards', (req, res) => {
-	return res.status(200).json({ cards: listCards(req.user!.id) })
+/** The collection, with the types and stats the panel filters and shows. */
+BoosterController.get('/cards', async (req, res) => {
+	return res.status(200).json({ cards: await listCards(req.user!.id) })
 })

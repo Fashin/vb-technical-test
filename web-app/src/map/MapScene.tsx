@@ -5,6 +5,7 @@ import { Vector3 } from 'three'
 import { useAuth } from '../auth'
 import { BoosterPanel, useBoosters } from '../boosters'
 import { CarePanel } from '../care'
+import { AchievementsPanel } from '../achievements'
 import { ArenaPanel } from '../arena'
 import { BarberPanel } from '../barber'
 import { CollectionPanel } from '../collection'
@@ -17,6 +18,7 @@ import { TrainingPanel } from '../training'
 import { HudBar, type HudAction } from '../hud'
 import { useWorld } from '../world'
 import { CameraFollow, GROUND_Z_STRETCH, type MapBounds } from './CameraFollow'
+import { ACTOR_Z } from './depth'
 import { campAt, centerAt, type TileMapData } from './mapData'
 import { Minimap } from './Minimap'
 import { Player } from './Player'
@@ -25,8 +27,8 @@ import { TileMapMesh } from './TileMapMesh'
 import { useAtlasTexture } from './useAtlasTexture'
 import { usePlayerControls } from './usePlayerControls'
 
-/** Forward nudge applied to the character by `Player`; mirrored here for the camera's first frame. */
-const PLAYER_Z_OFFSET = 0.9
+/** Forward nudge applied to the character by `Player`; used for the camera's first frame. */
+const PLAYER_Z_OFFSET = ACTOR_Z
 
 function Route({ map }: { map: TileMapData }) {
 	return <TileMapMesh map={map} texture={useAtlasTexture()} />
@@ -84,12 +86,45 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 
 	const [campId, setCampId] = useState<string | null>(null)
 	const [atCenter, setAtCenter] = useState(false)
+	/** The element the keyboard is read from; panels take the focus away from it. */
+	const scene = useRef<HTMLDivElement>(null)
 	const standingOn = map && me ? (campAt(map, me.x, me.y) ?? centerAt(map, me.x, me.y)) : null
 	const onCenter = map && me ? centerAt(map, me.x, me.y) !== null : false
 	const cameFrom = useRef<string | null>(null)
 
 	// Encounters happen where the players are, so the map is the lobby.
 	const neighbour = me ? nearestNeighbour(me, others) : null
+
+	/**
+	 * Everything that is currently sitting over the map and holding the focus.
+	 *
+	 * Joined into a string rather than counted, so the effect below re-runs on
+	 * *which* overlay is open, not merely on how many.
+	 */
+	const overlay = [
+		panel,
+		campId && 'camp',
+		atCenter && 'care',
+		pvp.duel && 'duel',
+		pvp.trade && 'trade',
+		pvp.invitation && 'invitation',
+	]
+		.filter(Boolean)
+		.join(',')
+
+	/*
+	 * Give the keyboard back once nothing is covering the map.
+	 *
+	 * Arrow keys and ZQSD are read from the wrapper below, and panels render
+	 * inside it: clicking "Fermer" puts the focus on that button, and unmounting
+	 * it drops the focus onto `document.body` — outside the wrapper, where key
+	 * events never reach it. The character would stop walking until the player
+	 * clicked the map again. Running on mount too is a bonus: the map is live
+	 * straight away instead of waiting for a first click.
+	 */
+	useEffect(() => {
+		if (overlay === '') scene.current?.focus()
+	}, [overlay])
 
 	useEffect(() => {
 		const arrived = standingOn?.id ?? null
@@ -144,6 +179,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 
 	return (
 		<div
+			ref={scene}
 			className={`relative h-full w-full bg-[#121a12] outline-none ${className ?? ''}`}
 			tabIndex={0}
 			onPointerDown={(event) => event.currentTarget.focus()}
@@ -211,7 +247,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 				</button>
 			) : (
 				<p className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm text-white">
-					Clique sur la carte, puis déplace-toi avec les flèches ou ZQSD / WASD
+					Déplace-toi avec les flèches ou ZQSD / WASD
 				</p>
 			)}
 
@@ -227,6 +263,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 			{panel === 'team' && <TeamPanel onClose={() => setPanel(null)} />}
 			{panel === 'arena' && <ArenaPanel onClose={() => setPanel(null)} onRewarded={boosters.refresh} />}
 			{panel === 'ranking' && <RankingPanel onClose={() => setPanel(null)} />}
+			{panel === 'achievements' && <AchievementsPanel onClose={() => setPanel(null)} />}
 			{/* Keyed by camp: walking from one hut to another starts a clean panel
 			    rather than carrying over the previous camp's session and settings. */}
 			{/* Encounters: offered to a neighbour, or offered by one. */}

@@ -8,6 +8,10 @@ export interface Card {
 	name: string
 	rarity: Rarity
 	obtainedAt: number
+	/** Lowercase PokeAPI type names, in slot order. Empty if the lookup failed. */
+	types: string[]
+	/** The four headline stats, or null when PokeAPI could not be reached. */
+	stats: { hp: number; attack: number; defense: number; speed: number } | null
 	/** Derived server-side from the card's experience; see `progression/`. */
 	level: number
 	xp: number

@@ -117,6 +117,11 @@ export default {
           '0%': { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(100%)' },
         },
+        /* Cards arriving after a filter change: a short rise, not a flash. */
+        cardIn: {
+          '0%': { opacity: '0', transform: 'translateY(8px) scale(0.97)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
         typing: {
           "0%": {
             width: "0%",
@@ -148,6 +153,7 @@ export default {
         'glow-pulse': 'glowPulse 1.1s ease-out both',
         shimmer: 'shimmer 2s infinite',
         typing: 'typing 1s steps(20)',
+        'card-in': 'cardIn 260ms cubic-bezier(0.2, 0.9, 0.3, 1) both',
       },
     },
   },

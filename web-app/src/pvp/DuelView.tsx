@@ -4,6 +4,7 @@ import { GiBrokenHeart, GiCrossedSwords, GiLaurelCrown, GiLevelEndFlag } from 'r
 import { BattleField, sideWithPlaybackHp, useBattlePlayback } from '../battle'
 import { LevelBadge, XpBar } from '../progression'
 import type { DuelResult } from './usePvp'
+import { Breadcrumb } from '../ui'
 
 /**
  * A duel, played out.
@@ -37,10 +38,14 @@ export function DuelView({ duel, onClose }: { duel: DuelResult; onClose: () => v
 				className="flex max-h-[88vh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-center justify-between">
-					<h2 className="flex items-center gap-2 text-xl font-semibold">
-						<GiCrossedSwords className="h-6 w-6 text-amber-300" />
-						Duel — {battle.player.name} contre {battle.master.name}
-					</h2>
+					<Breadcrumb
+						trail={[
+							{ label: 'Carte' },
+							{ label: `Duel contre ${battle.master.name}` },
+						]}
+						icon={GiCrossedSwords}
+						tone="text-amber-300"
+					/>
 				</header>
 
 				{duel.degraded && (

@@ -8,6 +8,7 @@ import { recordWounds, type Wound } from '../care/healing'
 import { db } from '../db'
 import { grantXp, xpReward, type XpAward, type XpGain } from '../progression/levels'
 import { getActiveTeamId, getTeam, type TeamMember } from '../teams/teams'
+import { fixedWindow } from '../util/throttle'
 import { withinReach } from './encounters'
 
 /**
@@ -25,6 +26,17 @@ import { withinReach } from './encounters'
 
 /** Experience the winner's fighters share for beating a trainer's team. */
 const WIN_BONUS = 1.5
+
+/**
+ * Duels one account may fight per window.
+ *
+ * Each one has the chatbot write a whole script: real seconds, and a real
+ * billed call. A duel already needs a second consenting player standing next
+ * to you, which is most of the protection — this closes the case of two
+ * accounts looping duels between themselves. Ten per ten minutes is far more
+ * than playing needs and far less than a script would spend.
+ */
+const duelWindow = fixedWindow(10, 10 * 60 * 1000)
 
 function entrantsOf(members: TeamMember[]): Entrant[] {
 	return members.map((member) => ({
@@ -61,7 +73,7 @@ export interface DuelOutcome {
 
 export type DuelResult =
 	| { ok: true; duel: DuelOutcome }
-	| { ok: false; reason: 'TOO_FAR' | 'NO_TEAM' | 'NO_HEALTHY_TEAM' }
+	| { ok: false; reason: 'TOO_FAR' | 'NO_TEAM' | 'NO_HEALTHY_TEAM' | 'TOO_MANY' }
 
 interface Challenger {
 	userId: string
@@ -87,6 +99,16 @@ export async function fight(a: Challenger, b: Challenger): Promise<DuelResult> {
 	const rosters = teams.map((team) => fieldable(entrantsOf(team!.members)).slice(0, 6))
 	// A team that exists but cannot stand up is its own answer, not an empty one.
 	if (rosters.some((roster) => roster.length === 0)) return { ok: false, reason: 'NO_HEALTHY_TEAM' }
+
+	// Spent here and not earlier: a duel refused for distance or for a team in
+	// no state to fight has cost nothing, so it should cost no budget either.
+	// Both players pay, so neither can make the other foot the bill.
+	// Looked at before anything is spent: charging one player for a duel the
+	// other's budget refuses would be a silent theft of their allowance.
+	if ([a, b].some((player) => duelWindow.remaining(player.userId) <= 0)) {
+		return { ok: false, reason: 'TOO_MANY' }
+	}
+	for (const player of [a, b]) duelWindow.take(player.userId)
 
 	const [challenger, defender] = await Promise.all([sideOf(a.name, rosters[0]), sideOf(b.name, rosters[1])])
 

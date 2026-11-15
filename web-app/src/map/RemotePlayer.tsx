@@ -5,9 +5,10 @@ import { type Group } from 'three'
 
 import type { WorldPlayerState } from '../realtime'
 import { TrainerSprite } from '../trainer'
+import { ACTOR_Z } from './depth'
 
 /** Same forward nudge as the local player, so depth sorting agrees. */
-const Z_OFFSET = 0.9
+const Z_OFFSET = ACTOR_Z
 
 /**
  * Another player's character.

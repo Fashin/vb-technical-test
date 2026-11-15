@@ -3,6 +3,9 @@ import type { DamageRelation, Evolution, Pokemon, Resistance } from '../controll
 
 const POKEAPI_URL = 'https://pokeapi.co/api/v2'
 
+/** No outbound call may hang a request forever. */
+const REQUEST_TIMEOUT_MS = 8000
+
 interface NamedResource {
 	name: string
 	url: string
@@ -89,7 +92,12 @@ const findChainLink = (link: ApiChainLink, speciesName: string): ApiChainLink | 
  * Fetch a pokemon from PokeAPI and adapt it to the legacy pokebuildapi `Pokemon` shape
  */
 export async function fetchPokemon(id: string): Promise<Pokemon> {
-	const { data: pokemon } = await axios.get<ApiPokemon>(`${POKEAPI_URL}/pokemon/${id}`)
+	// The id reaches us from a URL, so it is encoded before being put into
+	// another one: nothing a caller types can steer the outbound request.
+	const { data: pokemon } = await axios.get<ApiPokemon>(
+		`${POKEAPI_URL}/pokemon/${encodeURIComponent(id)}`,
+		{ timeout: REQUEST_TIMEOUT_MS },
+	)
 
 	const [types, { data: species }] = await Promise.all([
 		Promise.all(

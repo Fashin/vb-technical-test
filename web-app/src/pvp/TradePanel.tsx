@@ -6,6 +6,7 @@ import { CardFace } from '../boosters/CardFace'
 import { spriteUrlFor } from '../map'
 import { LevelBadge } from '../progression'
 import type { TradeCard, TradeSide, TradeState } from '../realtime'
+import { Breadcrumb } from '../ui'
 
 /**
  * A trade between two players.
@@ -110,10 +111,14 @@ export function TradePanel({
 			>
 				<header className="flex items-start justify-between gap-3">
 					<div>
-						<h2 className="flex items-center gap-2 text-xl font-semibold">
-							<GiTrade className="h-6 w-6 text-sky-300" />
-							Échange avec {theirs.name}
-						</h2>
+						<Breadcrumb
+							trail={[
+								{ label: 'Carte', onClick: onClose },
+								{ label: `Échange avec ${theirs.name}` },
+							]}
+							icon={GiTrade}
+							tone="text-sky-300"
+						/>
 						<p className="mt-1 text-base text-slate-400">
 							Toute modification d’une offre annule les deux confirmations.
 						</p>

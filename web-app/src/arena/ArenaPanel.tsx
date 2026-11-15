@@ -6,9 +6,9 @@ import { spriteUrlFor } from '../map'
 import { LevelBadge } from '../progression'
 import { fetchTeams, type Team } from '../teams'
 import { TrainerPortrait } from '../trainer'
-import { useEscapeToClose } from '../ui'
+import { Breadcrumb, useEscapeToClose } from '../ui'
 import { ArenaError, fetchMasters, type Master } from './api'
-import { typeStyle } from './types'
+import { typeStyle } from '../pokemon'
 
 /** Difficulty as a row of pips — faster to compare than "tier 7". */
 function Difficulty({ tier }: { tier: number }) {
@@ -185,10 +185,14 @@ export function ArenaPanel({
 				className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-center justify-between">
-					<h2 className="flex items-center gap-2 text-xl font-semibold">
-						<GiCrossedSwords className="h-6 w-6 text-emerald-300" />
-						Arène
-					</h2>
+					<Breadcrumb
+						trail={[
+							{ label: 'Carte', onClick: onClose },
+							{ label: 'Arène' },
+						]}
+						icon={GiCrossedSwords}
+						tone="text-emerald-300"
+					/>
 					<button
 						type="button"
 						onClick={onClose}

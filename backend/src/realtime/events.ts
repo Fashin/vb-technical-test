@@ -72,6 +72,7 @@ export type RealtimeErrorCode =
 	| 'NOT_OWNED'
 	| 'NO_SESSION'
 	| 'BUSY'
+	| 'TOO_MANY'
 
 export interface RealtimeError {
 	code: RealtimeErrorCode

@@ -3,7 +3,7 @@ import { GiCrossedSwords, GiLaurelCrown, GiPodium } from 'react-icons/gi'
 
 import { LevelBadge } from '../progression'
 import { TrainerPortrait } from '../trainer'
-import { useEscapeToClose } from '../ui'
+import { Breadcrumb, useEscapeToClose } from '../ui'
 import * as api from './api'
 import type { RankedTrainer } from './api'
 
@@ -135,10 +135,14 @@ export function RankingPanel({ onClose }: { onClose: () => void }) {
 			>
 				<header className="flex items-start justify-between gap-3">
 					<div>
-						<h2 className="flex items-center gap-2 text-xl font-semibold">
-							<GiPodium className="h-6 w-6 text-amber-300" />
-							Classement
-						</h2>
+						<Breadcrumb
+							trail={[
+								{ label: 'Carte', onClick: onClose },
+								{ label: 'Classement' },
+							]}
+							icon={GiPodium}
+							tone="text-amber-300"
+						/>
 						<p className="mt-1 text-base text-slate-400">
 							Classés sur les maîtres vaincus, puis sur le Pokédex, puis sur les duels gagnés.
 						</p>

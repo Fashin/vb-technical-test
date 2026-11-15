@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 
+import { fixedWindow } from '../util/throttle'
 import { verifySession } from './sessions'
 import type { UserRow } from './users'
 
@@ -40,32 +41,29 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
  * real deployment puts this in Redis or at the edge.
  */
 export function rateLimit(limit: number, windowMs: number) {
-	const hits = new Map<string, { count: number; resetAt: number }>()
+	return limiter(limit, windowMs, (req) => req.ip ?? 'unknown')
+}
 
-	const sweep = setInterval(() => {
-		const now = Date.now()
-		for (const [key, entry] of hits) if (entry.resetAt <= now) hits.delete(key)
-	}, windowMs)
-	sweep.unref()
+/**
+ * The same window, counted per account.
+ *
+ * What needs protecting is not always a network address: one logged-in player
+ * hammering a route that costs the server a language-model call is the case
+ * this exists for, and they would do it from a single IP anyway. Must be
+ * mounted after `requireAuth`.
+ */
+export function rateLimitUser(limit: number, windowMs: number) {
+	return limiter(limit, windowMs, (req) => req.user?.id ?? req.ip ?? 'unknown')
+}
+
+function limiter(limit: number, windowMs: number, keyOf: (req: Request) => string) {
+	const window = fixedWindow(limit, windowMs)
 
 	return (req: Request, res: Response, next: NextFunction): void => {
-		const key = req.ip ?? 'unknown'
-		const now = Date.now()
-		const entry = hits.get(key)
+		if (window.take(keyOf(req))) return next()
 
-		if (!entry || entry.resetAt <= now) {
-			hits.set(key, { count: 1, resetAt: now + windowMs })
-			next()
-			return
-		}
-
-		entry.count += 1
-		if (entry.count > limit) {
-			res.status(429).json({
-				error: { code: 'TOO_MANY_ATTEMPTS', message: 'Too many attempts, try again later' },
-			})
-			return
-		}
-		next()
+		res.status(429).json({
+			error: { code: 'TOO_MANY_ATTEMPTS', message: 'Too many attempts, try again later' },
+		})
 	}
 }

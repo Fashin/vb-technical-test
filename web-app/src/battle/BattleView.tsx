@@ -5,7 +5,7 @@ import type { Master } from '../arena/api'
 import { spriteUrlFor } from '../map'
 import { LevelBadge } from '../progression'
 import { fetchTeams, type Team } from '../teams'
-import { useEscapeToClose } from '../ui'
+import { Breadcrumb, useEscapeToClose } from '../ui'
 import * as api from './api'
 import type { Battle, RoundLog } from './api'
 import { BattleField } from './BattleField'
@@ -253,11 +253,15 @@ export function BattleView({
 				className="flex max-h-[88vh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-center justify-between">
-					<h2 className="flex items-center gap-2 text-xl font-semibold">
-						<GiCrossedSwords className="h-6 w-6 text-emerald-300" />
-						{master.name}
-						<span className="text-base font-normal text-slate-400">{master.title}</span>
-					</h2>
+					<Breadcrumb
+						trail={[
+							{ label: 'Arène', onClick: onClose },
+							{ label: master.name },
+						]}
+						icon={GiCrossedSwords}
+						tone="text-emerald-300"
+					/>
+					<p className="mt-0.5 text-base text-slate-400">{master.title}</p>
 					<button
 						type="button"
 						onClick={onClose}

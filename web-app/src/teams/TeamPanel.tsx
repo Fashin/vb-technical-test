@@ -5,7 +5,7 @@ import { RARITY } from '../boosters'
 import { useCollection } from '../collection'
 import { spriteUrlFor } from '../map'
 import { HealthBar, LevelBadge, XpBar } from '../progression'
-import { useEscapeToClose } from '../ui'
+import { Breadcrumb, useEscapeToClose } from '../ui'
 import * as api from './api'
 import type { Team, TeamMember, TeamsState } from './api'
 
@@ -148,10 +148,14 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 				className="flex max-h-[85vh] w-full max-w-4xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-center justify-between">
-					<h2 className="flex items-center gap-2 text-xl font-semibold">
-						<GiPokecog className="h-6 w-6 text-emerald-300" />
-						Mon équipe
-					</h2>
+					<Breadcrumb
+						trail={[
+							{ label: 'Carte', onClick: onClose },
+							{ label: 'Mon équipe' },
+						]}
+						icon={GiPokecog}
+						tone="text-emerald-300"
+					/>
 					<button
 						type="button"
 						onClick={onClose}

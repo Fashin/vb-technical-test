@@ -4,7 +4,7 @@ import { GiArrowDunk, GiBarracksTent, GiLevelEndFlag } from 'react-icons/gi'
 import { BattleField, sideWithPlaybackHp, useBattlePlayback, type Battle } from '../battle'
 import { spriteUrlFor } from '../map'
 import { LevelBadge, XpBar } from '../progression'
-import { useEscapeToClose } from '../ui'
+import { Breadcrumb, Toggle, useEscapeToClose } from '../ui'
 import * as api from './api'
 import type { Camp, TrainingSession } from './api'
 
@@ -145,10 +145,15 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 			>
 				<header className="flex items-start justify-between gap-3">
 					<div className="min-w-0">
-						<h2 className="flex items-center gap-2 text-xl font-semibold">
-							<GiBarracksTent className="h-6 w-6 text-sky-300" />
-							{camp?.name ?? 'Camp d’entraînement'}
-						</h2>
+						<Breadcrumb
+							trail={[
+								{ label: 'Carte', onClick: onClose },
+								{ label: 'Camps d’entraînement' },
+								{ label: camp?.name ?? 'Camp d’entraînement' },
+							]}
+							icon={GiBarracksTent}
+							tone="text-sky-300"
+						/>
 						{camp && (
 							<div className="mt-1 flex flex-wrap items-center gap-2">
 								<span className="text-base text-slate-400">{camp.title}</span>
@@ -247,9 +252,19 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 						</div>
 
 						<div className="mt-4 shrink-0">
+							{/* Above the button on purpose: it decides what pressing it
+							    will keep doing, so it is read before, not after. */}
+							<Toggle
+								checked={chaining}
+								onChange={setChaining}
+								disabled={!camp.unlocked || camp.exhausted}
+								label="Enchaîner les sessions"
+								hint="La suivante part toute seule à la fin du combat."
+							/>
+
 							{view.playing ? (
 								/* Deliberately not skippable: watching the session through is the point. */
-								<p className="w-full rounded-md border border-white/10 bg-black/30 px-4 py-3 text-center font-medium text-slate-400">
+								<p className="mt-2 w-full rounded-md border border-white/10 bg-black/30 px-4 py-3 text-center font-medium text-slate-400">
 									Entraînement en cours…
 								</p>
 							) : (
@@ -257,7 +272,7 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 									type="button"
 									onClick={() => void train()}
 									disabled={busy || !camp.unlocked || camp.exhausted}
-									className="w-full rounded-md bg-sky-500 px-4 py-3 font-semibold text-sky-950 transition hover:bg-sky-400 disabled:opacity-40"
+									className="mt-2 w-full rounded-md bg-sky-500 px-4 py-3 font-semibold text-sky-950 transition hover:bg-sky-400 disabled:opacity-40"
 								>
 									{busy
 										? 'Entraînement en cours…'
@@ -269,16 +284,6 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 								</button>
 							)}
 
-							<label className="mt-2 flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-slate-300">
-								<input
-									type="checkbox"
-									checked={chaining}
-									onChange={(event) => setChaining(event.target.checked)}
-									disabled={!camp.unlocked || camp.exhausted}
-									className="h-4 w-4 accent-sky-500 disabled:opacity-40"
-								/>
-								Enchaîner les sessions automatiquement
-							</label>
 						</div>
 					</>
 				)}

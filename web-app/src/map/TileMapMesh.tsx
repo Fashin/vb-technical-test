@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { BufferGeometry, Float32BufferAttribute, type Texture } from 'three'
 
+import { OBJECT_Z } from './depth'
 import { layerOf, type TileMapData } from './mapData'
 import { Tile, cellUv, spriteFor, spriteRows } from './tileset'
 
@@ -72,7 +73,7 @@ function buildUprightLayer(map: TileMapData, data: Tile[]): BufferGeometry {
 			if (!sprite) continue
 
 			const height = spriteRows(tile)
-			const z = row + 0.9 // slightly forward, so the base reads as planted
+			const z = row + OBJECT_Z
 			for (let level = 0; level < height; level++) {
 				const yBottom = level
 				const yTop = level + 1

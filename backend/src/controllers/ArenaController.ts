@@ -1,6 +1,6 @@
 import { Router } from 'express'
 
-import { requireAuth } from '../auth/middleware'
+import { rateLimitUser, requireAuth } from '../auth/middleware'
 import { MASTERS, masterLevel } from '../arena/masters'
 import { forfeit, getActiveBattle, runBattle, startBattle } from '../battle/battles'
 import { db } from '../db'
@@ -87,13 +87,20 @@ ArenaController.post('/battle', async (req, res) => {
 })
 
 /**
+ * Resolving a battle asks the chatbot to write it, which costs real time and a
+ * real API call. Six a minute is far more than playing needs and far less than
+ * a script could spend.
+ */
+const battleLimiter = rateLimitUser(6, 60 * 1000)
+
+/**
  * Resolve the battle, all of it.
  *
  * The chatbot is asked once for the whole script and the server plays it out,
  * so the browser gets a complete fight to animate in one piece rather than a
  * round per click. Everything that happens in it is decided here.
  */
-ArenaController.post('/battle/run', async (req, res) => {
+ArenaController.post('/battle/run', battleLimiter, async (req, res) => {
 	const result = await runBattle(req.user!.id)
 	if (result.ok) {
 		return res.status(200).json({ battle: result.battle, degraded: result.degraded })

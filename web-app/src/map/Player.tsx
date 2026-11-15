@@ -4,6 +4,7 @@ import { Vector3, type Group } from 'three'
 
 import { TrainerSprite, type Appearance } from '../trainer'
 
+import { ACTOR_Z } from './depth'
 import { layerOf, type TileMapData } from './mapData'
 import { isSolid } from './tileset'
 import type { Direction } from './usePlayerControls'
@@ -15,7 +16,7 @@ import type { Direction } from './usePlayerControls'
  */
 const DEFAULT_SPEED = 6.5
 /** Same forward nudge as the object billboards, so depth sorting agrees. */
-const Z_OFFSET = 0.9
+const Z_OFFSET = ACTOR_Z
 
 const STEP: Record<Direction, [number, number]> = {
 	up: [0, -1],

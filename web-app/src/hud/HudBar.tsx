@@ -7,10 +7,19 @@ import {
 	GiPodium,
 	GiPokecog,
 	GiScissors,
+	GiTrophy,
 } from 'react-icons/gi'
 
 /** The panels the HUD can open. Nothing is wired to them yet. */
-export type HudAction = 'booster' | 'collection' | 'team' | 'arena' | 'ranking' | 'barber' | 'options'
+export type HudAction =
+	| 'booster'
+	| 'collection'
+	| 'team'
+	| 'arena'
+	| 'ranking'
+	| 'achievements'
+	| 'barber'
+	| 'options'
 
 interface HudEntry {
 	action: HudAction
@@ -24,6 +33,7 @@ const ENTRIES: HudEntry[] = [
 	{ action: 'team', label: 'Mon équipe', Icon: GiPokecog },
 	{ action: 'arena', label: 'Arène', Icon: GiCrossedSwords },
 	{ action: 'ranking', label: 'Classement', Icon: GiPodium },
+	{ action: 'achievements', label: 'Succès', Icon: GiTrophy },
 	{ action: 'barber', label: 'Coiffeur', Icon: GiScissors },
 	{ action: 'options', label: 'Options', Icon: GiCog },
 ]

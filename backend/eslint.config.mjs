@@ -20,5 +20,18 @@ export default tseslint.config(
 			sourceType: 'module',
 			globals: globals.node,
 		},
+		rules: {
+			/*
+			 * An underscore marks a parameter that exists only to satisfy a
+			 * signature — Express recognises an error handler by its four
+			 * arguments, so the fourth has to be there whether it is called or
+			 * not. The convention was already used in the code; this makes the
+			 * linter agree with it.
+			 */
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{ argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+			],
+		},
 	},
 )

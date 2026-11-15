@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 
 import { db } from '../db'
 import { findById, type UserRow } from '../auth/users'
-import { fetchCardFace } from '../services/pokeapi'
+import { fetchCardFace, fetchFighter } from '../services/pokeapi'
 import { conditionOf, settleCare, type Condition } from '../care/healing'
 import { progressOf, STARTING_LEVEL, xpForLevel } from '../progression/levels'
 import { pickFrom, rollRarity, type Rarity } from './rarity'
@@ -39,6 +39,10 @@ export interface DrawnCard extends Condition {
 	name: string
 	rarity: Rarity
 	obtainedAt: number
+	/** Lowercase PokeAPI type names, in slot order. Empty if the lookup failed. */
+	types: string[]
+	/** The four stats the brief asks a card to show. Null if the lookup failed. */
+	stats: { hp: number; attack: number; defense: number; speed: number } | null
 	/** Derived from the card's experience — see `progression/levels.ts`. */
 	level: number
 	xp: number
@@ -141,6 +145,8 @@ export async function openBooster(userId: string): Promise<{ cards: DrawnCard[];
 		name: draw.name,
 		rarity: draw.rarity,
 		obtainedAt: now,
+		types: [],
+		stats: null,
 		...progressOf(startingXp),
 		// A card comes out of its wrapper in perfect health.
 		...conditionOf(0, null),
@@ -158,8 +164,42 @@ export async function openBooster(userId: string): Promise<{ cards: DrawnCard[];
 	return { cards, state: getState(userId)! }
 }
 
+/**
+ * Types and base stats for a set of species, from PokeAPI's cache.
+ *
+ * `fetchFighter` keeps one entry per species for the life of the process, so
+ * this costs one round trip per *new* species and nothing afterwards. A lookup
+ * that fails leaves the card without them rather than failing the whole
+ * listing: a collection that will not load because PokeAPI hiccuped would be a
+ * poor trade for a filter.
+ */
+async function speciesDetails(pokedexIds: number[]) {
+	const details = new Map<number, { types: string[]; stats: DrawnCard['stats'] }>()
+
+	await Promise.all(
+		[...new Set(pokedexIds)].map(async (pokedexId) => {
+			try {
+				const fighter = await fetchFighter(pokedexId)
+				details.set(pokedexId, {
+					types: fighter.types,
+					stats: {
+						hp: fighter.stats.hp,
+						attack: fighter.stats.attack,
+						defense: fighter.stats.defense,
+						speed: fighter.stats.speed,
+					},
+				})
+			} catch {
+				details.set(pokedexId, { types: [], stats: null })
+			}
+		}),
+	)
+
+	return details
+}
+
 /** Everything this user owns, newest first. */
-export function listCards(userId: string): DrawnCard[] {
+export async function listCards(userId: string): Promise<DrawnCard[]> {
 	// Anything whose treatment is over walks out before the list is read.
 	settleCare(userId)
 
@@ -179,12 +219,16 @@ export function listCards(userId: string): DrawnCard[] {
 		healed_at: number | null
 	}[]
 
+	const details = await speciesDetails(rows.map((row) => row.pokedex_id))
+
 	return rows.map((row) => ({
 		id: row.id,
 		pokedexId: row.pokedex_id,
 		name: row.name,
 		rarity: row.rarity,
 		obtainedAt: row.obtained_at,
+		types: details.get(row.pokedex_id)?.types ?? [],
+		stats: details.get(row.pokedex_id)?.stats ?? null,
 		...progressOf(row.xp),
 		...conditionOf(row.hp_lost, row.healed_at),
 	}))

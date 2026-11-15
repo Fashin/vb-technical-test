@@ -10,6 +10,7 @@ import {
 	type SocketData,
 } from './events'
 import { verifySession } from '../auth/sessions'
+import { CORS_ORIGINS } from '../config'
 import { appearanceOf, findById } from '../auth/users'
 import {
 	WORLD_SPEED,
@@ -39,6 +40,7 @@ const ERROR_MESSAGES: Record<RealtimeErrorCode, string> = {
 	NOT_OWNED: 'Une de ces cartes ne t’appartient pas',
 	NO_SESSION: 'Cet échange n’existe plus',
 	BUSY: 'Une invitation est déjà en attente',
+	TOO_MANY: 'Trop de duels d’affilée — laisse souffler les dresseurs',
 }
 
 function fail(code: RealtimeErrorCode): Ack<never> {
@@ -80,7 +82,9 @@ export async function disconnectUser(userId: string): Promise<void> {
  */
 export function attachRealtime(httpServer: HttpServer): ArenaServer {
 	const io: ArenaServer = new Server(httpServer, {
-		cors: { origin: true, credentials: true },
+		// socket.io carries its own CORS configuration: hardening the Express
+		// one would have left this door open.
+		cors: { origin: CORS_ORIGINS, credentials: true },
 	})
 	server = io
 
@@ -158,7 +162,9 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 			void (async () => {
 				const result = await fight(host, guest)
 				if (!result.ok) {
-					const error = { code: result.reason, message: 'Le duel n’a pas pu avoir lieu' }
+					// The reason is the player's to read: too far, nobody fit to
+					// fight, or too many duels in a row are three different fixes.
+					const error = { code: result.reason, message: ERROR_MESSAGES[result.reason] }
 					void tell(host.userId, 'pvp:error', error as never)
 					void tell(guest.userId, 'pvp:error', error as never)
 					return

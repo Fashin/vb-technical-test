@@ -23,6 +23,9 @@ export interface CollectionEntry {
 	health: number
 	fainted: boolean
 	inCare: boolean
+	/** Shared by every copy: the species' types and base stats. */
+	types: string[]
+	stats: { hp: number; attack: number; defense: number; speed: number } | null
 }
 
 export type SortMode = 'pokedex' | 'recent' | 'rarity' | 'level'
@@ -46,6 +49,14 @@ export interface CollectionValue {
 	setSort: (mode: SortMode) => void
 	rarityFilter: Rarity | null
 	setRarityFilter: (rarity: Rarity | null) => void
+	/** Free text matched against the Pokémon's name. */
+	search: string
+	setSearch: (search: string) => void
+	/** Type the list is narrowed to, or null for all of them. */
+	typeFilter: string | null
+	setTypeFilter: (type: string | null) => void
+	/** Types actually present in the collection, so filters offer only those. */
+	ownedTypes: string[]
 	reload: () => void
 }
 
@@ -62,6 +73,8 @@ export function useCollection(): CollectionValue {
 	const [reloads, setReloads] = useState(0)
 	const [sort, setSort] = useState<SortMode>('recent')
 	const [rarityFilter, setRarityFilter] = useState<Rarity | null>(null)
+	const [search, setSearch] = useState('')
+	const [typeFilter, setTypeFilter] = useState<string | null>(null)
 
 	useEffect(() => {
 		let cancelled = false
@@ -106,6 +119,8 @@ export function useCollection(): CollectionValue {
 					rarity: card.rarity,
 					count: 1,
 					lastObtainedAt: card.obtainedAt,
+					types: card.types ?? [],
+					stats: card.stats ?? null,
 					level: card.level,
 					ratio: card.ratio,
 					toNextLevel: card.toNextLevel,
@@ -120,7 +135,16 @@ export function useCollection(): CollectionValue {
 	}, [cards])
 
 	const entries = useMemo(() => {
-		const visible = rarityFilter ? grouped.filter((e) => e.rarity === rarityFilter) : grouped
+		// Accents and case are what a player types past, not what they mean.
+		const needle = search.trim().toLowerCase()
+
+		const visible = grouped.filter((entry) => {
+			if (rarityFilter && entry.rarity !== rarityFilter) return false
+			if (typeFilter && !entry.types.includes(typeFilter)) return false
+			if (needle && !entry.name.toLowerCase().includes(needle)) return false
+			return true
+		})
+
 		const sorted = [...visible]
 
 		if (sort === 'level') sorted.sort((a, b) => b.level - a.level || a.pokedexId - b.pokedexId)
@@ -129,7 +153,14 @@ export function useCollection(): CollectionValue {
 		else sorted.sort((a, b) => RARITY[b.rarity].order - RARITY[a.rarity].order || a.pokedexId - b.pokedexId)
 
 		return sorted
-	}, [grouped, rarityFilter, sort])
+	}, [grouped, rarityFilter, typeFilter, search, sort])
+
+	// Offering a filter for a type nobody owns would be eighteen dead buttons.
+	const ownedTypes = useMemo(() => {
+		const present = new Set<string>()
+		for (const entry of grouped) for (const type of entry.types) present.add(type)
+		return [...present]
+	}, [grouped])
 
 	const byRarity = useMemo(() => {
 		const counts: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, legendary: 0 }
@@ -149,6 +180,11 @@ export function useCollection(): CollectionValue {
 		setSort,
 		rarityFilter,
 		setRarityFilter,
+		search,
+		setSearch,
+		typeFilter,
+		setTypeFilter,
+		ownedTypes,
 		reload: () => setReloads((n) => n + 1),
 	}
 }

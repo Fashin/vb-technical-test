@@ -4,7 +4,7 @@ import { GiHealthNormal, GiHospitalCross } from 'react-icons/gi'
 import { spriteUrlFor } from '../map'
 import { HealthBar, LevelBadge } from '../progression'
 import type { TeamMember } from '../teams'
-import { useEscapeToClose } from '../ui'
+import { Breadcrumb, useEscapeToClose } from '../ui'
 import * as api from './api'
 import type { CareState } from './api'
 
@@ -135,10 +135,14 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 			>
 				<header className="flex items-start justify-between gap-3">
 					<div>
-						<h2 className="flex items-center gap-2 text-xl font-semibold">
-							<GiHospitalCross className="h-6 w-6 text-red-300" />
-							Centre de soins
-						</h2>
+						<Breadcrumb
+							trail={[
+								{ label: 'Carte', onClick: onClose },
+								{ label: 'Centre de soins' },
+							]}
+							icon={GiHospitalCross}
+							tone="text-red-300"
+						/>
 						<p className="mt-1 text-base text-slate-400">
 							Les PV perdus ne reviennent pas tout seuls. Le temps de soin dépend de la rareté de la carte
 							et de ce qu’elle a encaissé.
