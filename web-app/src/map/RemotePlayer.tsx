@@ -4,7 +4,7 @@ import { Html } from '@react-three/drei'
 import { type Group } from 'three'
 
 import type { WorldPlayerState } from '../realtime'
-import { TrainerSprite } from '../trainer'
+import { TrainerSprite, type View } from '../trainer'
 import { ACTOR_Z } from './depth'
 
 /** Same forward nudge as the local player, so depth sorting agrees. */
@@ -30,17 +30,20 @@ export function RemotePlayer({ player, speed }: { player: WorldPlayerState; spee
 	 */
 	const steps = useRef(0)
 	/**
-	 * The server sends left/right facing but not north/south — it does not need
-	 * it, and the client can read it off two consecutive positions.
+	 * The server sends left/right facing but not which way the character is
+	 * turned — it does not need it, and the client can read it off two
+	 * consecutive positions, the same way the local player decides it.
 	 */
-	const lastY = useRef(player.y)
-	const [facingBack, setFacingBack] = useState(false)
+	const last = useRef({ x: player.x, y: player.y })
+	const [view, setView] = useState<View>('front')
 
 	useEffect(() => {
 		steps.current += 1
-		if (player.y < lastY.current) setFacingBack(true)
-		else if (player.y > lastY.current) setFacingBack(false)
-		lastY.current = player.y
+		// A horizontal step wins over a vertical one, as it does locally.
+		if (player.x !== last.current.x) setView('side')
+		else if (player.y < last.current.y) setView('back')
+		else if (player.y > last.current.y) setView('front')
+		last.current = { x: player.x, y: player.y }
 	}, [player.x, player.y])
 
 	useFrame((_state, delta) => {
@@ -86,7 +89,7 @@ export function RemotePlayer({ player, speed }: { player: WorldPlayerState; spee
 				appearance={player.appearance}
 				facingLeft={player.facing === 'left'}
 				frame={walkFrame}
-				back={facingBack}
+				view={view}
 			/>
 			<Html position={[0, 1.9, 0]} center zIndexRange={[10, 0]} className="pointer-events-none select-none">
 				<span className="whitespace-nowrap rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">

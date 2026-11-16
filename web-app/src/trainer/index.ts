@@ -12,6 +12,6 @@ export {
 	sanitizeAppearance,
 	type Appearance,
 } from './appearance'
-export { drawTrainer, drawTrainerPreview } from './drawTrainer'
+export { drawTrainer, drawTrainerPreview, type View } from './drawTrainer'
 export { TrainerPortrait } from './TrainerPortrait'
 export { TRAINER_HEIGHT, TRAINER_WIDTH, TrainerSprite } from './TrainerSprite'

@@ -69,6 +69,7 @@ export function HudBar({ onSelect, active = null, badges }: HudBarProps) {
 				<button
 					key={action}
 					type="button"
+					data-tutorial={action}
 					onClick={() => onSelect?.(action)}
 					aria-label={badge > 0 ? `${label} (${badge})` : label}
 					aria-pressed={active === action}

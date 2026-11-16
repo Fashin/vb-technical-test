@@ -27,13 +27,35 @@ export function getSocket(): ArenaSocket {
 	return socket
 }
 
-/** Promisified `emit` with ack, so callers can `await` a server answer. */
-export function request<R>(event: keyof ClientToServerEvents, payload?: unknown): Promise<R> {
+/**
+ * Promisified `emit` with ack, so callers can `await` a server answer.
+ *
+ * The timeout is the point: without one, a socket that is connected but no
+ * longer answering — a proxy that holds the connection open, a server mid
+ * restart, a laptop coming back from sleep — leaves the promise pending for
+ * ever and the panel that awaited it stuck on "Chargement…" with no way out.
+ * Resolving with a failed ack instead means every caller's existing error path
+ * handles it, since every ack in `ClientToServerEvents` is an `Ack<T>`.
+ */
+export function request<R>(event: keyof ClientToServerEvents, payload?: unknown, timeout = 10_000): Promise<R> {
 	return new Promise((resolve) => {
+		let settled = false
+		const settle = (res: unknown) => {
+			if (settled) return
+			settled = true
+			clearTimeout(timer)
+			resolve(res as R)
+		}
+
+		const timer = setTimeout(
+			() => settle({ ok: false, error: { code: 'TIMEOUT', message: 'Serveur injoignable' } }),
+			timeout,
+		)
+
 		// socket.io types acks variadically; the contract is enforced by the
 		// ClientToServerEvents key and the R returned to the caller.
 		const emit = getSocket().emit.bind(getSocket()) as (ev: string, ...args: unknown[]) => void
-		if (payload === undefined) emit(event, resolve)
-		else emit(event, payload, resolve)
+		if (payload === undefined) emit(event, settle)
+		else emit(event, payload, settle)
 	})
 }

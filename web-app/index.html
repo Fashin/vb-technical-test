@@ -1,13 +1,67 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>POKELIST</title>
+    <!--
+      Boot fallback. React replaces everything inside #root on mount, so this
+      markup is only ever seen while the bundle loads — or for good, if it
+      never runs at all: a browser too old for ES modules, a script blocked by
+      an extension or a proxy, a chunk that 404s after a deploy. Those failures
+      happen before any error boundary exists, and the page would otherwise
+      stay blank with the reason only in the console. The help text is revealed
+      by a CSS animation rather than a timer, so it costs no JavaScript.
+    -->
+    <style>
+      #boot {
+        display: flex;
+        min-height: 100vh;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: 1.5rem;
+        background: #121a12;
+        color: #cbd5e1;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        text-align: center;
+      }
+      #boot p {
+        margin: 0;
+        max-width: 28rem;
+      }
+      #boot .late {
+        color: #64748b;
+        font-size: 0.875rem;
+        opacity: 0;
+        animation: boot-late 0s linear 4s forwards;
+      }
+      @keyframes boot-late {
+        to {
+          opacity: 1;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot">
+        <p>Chargement du jeu…</p>
+        <p class="late">
+          Toujours rien ? Le jeu a besoin d’un navigateur récent avec JavaScript
+          activé et l’accélération graphique disponible. Essaie de recharger la
+          page, de désactiver tes extensions, ou d’ouvrir le jeu dans une
+          version à jour de Chrome, Firefox ou Edge.
+        </p>
+      </div>
+      <noscript>
+        <p style="padding: 1.5rem; color: #cbd5e1; background: #121a12; font-family: sans-serif">
+          Ce jeu a besoin de JavaScript pour fonctionner. Active-le, puis recharge la page.
+        </p>
+      </noscript>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

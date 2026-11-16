@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { CanvasTexture, NearestFilter, SRGBColorSpace } from 'three'
 
 import { appearanceKey, type Appearance } from './appearance'
-import { FRAMES, FRAME_H, FRAME_W, VIEWS, drawTrainer } from './drawTrainer'
+import { FRAMES, FRAME_H, FRAME_W, VIEWS, VIEW_INDEX, drawTrainer, type View } from './drawTrainer'
 
 /** World height of a trainer, in tiles. Roughly a head and a half above the grid. */
 export const TRAINER_HEIGHT = 1.5
@@ -19,14 +19,15 @@ export function TrainerSprite({
 	appearance,
 	facingLeft,
 	frame,
-	back = false,
+	view = 'front',
 }: {
 	appearance: Appearance
+	/** Mirrors the sprite. The profile art faces right, so this turns it round. */
 	facingLeft: boolean
 	/** 0 = standing, 1 and 2 are the two stride poses. */
 	frame: number
-	/** True when walking away from the camera. */
-	back?: boolean
+	/** Which way the trainer is turned; `side` is the profile. */
+	view?: View
 }) {
 	const key = appearanceKey(appearance)
 
@@ -48,7 +49,7 @@ export function TrainerSprite({
 
 	// Offset picks the cell; flipping is done by the mesh scale, not the UVs,
 	// so the two never fight over the same value.
-	const cell = (back ? FRAMES : 0) + (frame % FRAMES)
+	const cell = VIEW_INDEX[view] * FRAMES + (frame % FRAMES)
 	texture.offset.x = cell / (FRAMES * VIEWS)
 
 	return (

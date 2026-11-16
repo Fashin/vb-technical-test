@@ -1,3 +1,6 @@
 export { useEscapeToClose } from './useEscapeToClose'
 export { Breadcrumb, type Crumb } from './Breadcrumb'
 export { Toggle } from './Toggle'
+export { ErrorBoundary } from './ErrorBoundary'
+export { CrashScreen } from './CrashScreen'
+export { PanelError } from './PanelError'

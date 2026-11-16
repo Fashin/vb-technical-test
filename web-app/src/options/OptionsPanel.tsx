@@ -270,10 +270,13 @@ function DangerSection() {
 export function OptionsPanel({
 	onClose,
 	onRenamed,
+	onReplayTutorial,
 }: {
 	onClose: () => void
 	/** Called with the new pseudonym so the world can refresh the labels. */
 	onRenamed: (name: string) => void
+	/** Play the welcome tour again. Omitted when there is no tour to play. */
+	onReplayTutorial?: () => void
 }) {
 	const { user } = useAuth()
 	const backdrop = useRef<HTMLDivElement>(null)
@@ -320,6 +323,21 @@ export function OptionsPanel({
 				</p>
 
 				<div className="mt-4 flex-1 space-y-4 overflow-y-auto">
+					{onReplayTutorial && (
+						<section className="rounded-lg border border-white/10 bg-black/25 p-4">
+							<h3 className="text-base font-semibold">Revoir le tutoriel</h3>
+							<p className="mt-1 text-sm text-slate-500">
+								Les quatre étapes de départ : boosters, entraînement, soins et arène.
+							</p>
+							<button
+								type="button"
+								onClick={onReplayTutorial}
+								className="mt-3 w-full rounded-md border border-emerald-400/40 px-4 py-2 text-base text-emerald-200 transition hover:bg-emerald-500/15"
+							>
+								Relancer le tutoriel
+							</button>
+						</section>
+					)}
 					<NameSection onRenamed={onRenamed} />
 					<PasswordSection />
 					<DangerSection />

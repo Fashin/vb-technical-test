@@ -54,14 +54,25 @@ export function writeToken(token: string | null): void {
 
 async function send<T>(path: string, init: RequestInit = {}): Promise<T> {
 	const token = readToken()
-	const response = await fetch(`${API_URL}${path}`, {
-		...init,
-		headers: {
-			'Content-Type': 'application/json',
-			...(token ? { Authorization: `Bearer ${token}` } : {}),
-			...init.headers,
-		},
-	})
+
+	// `fetch` rejects with a bare TypeError when the request never reaches the
+	// server at all — offline, server down, blocked by a proxy or by mixed
+	// content. Translating it into an `AuthError` means every caller has one
+	// error shape to handle, and the user reads a cause instead of
+	// "Failed to fetch".
+	let response: Response
+	try {
+		response = await fetch(`${API_URL}${path}`, {
+			...init,
+			headers: {
+				'Content-Type': 'application/json',
+				...(token ? { Authorization: `Bearer ${token}` } : {}),
+				...init.headers,
+			},
+		})
+	} catch {
+		throw new AuthError('NETWORK', 'Serveur injoignable')
+	}
 
 	if (response.status === 204) return undefined as T
 	const body = await response.json().catch(() => null)

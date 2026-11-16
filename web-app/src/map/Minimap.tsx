@@ -11,6 +11,35 @@ const DOT = 6
 /** Side of a camp marker. Bigger than a player: it is a place, not a person. */
 const CAMP = 9
 
+/** A zero-weight element over a marker the canvas painted, for the tour to aim at. */
+function Landmark({ name, x, y }: { name: string; x: number; y: number }) {
+	return (
+		<span
+			data-tutorial={name}
+			aria-hidden="true"
+			className="absolute block"
+			style={{
+				left: x * SCALE + SCALE / 2 - CAMP / 2,
+				top: y * SCALE + SCALE / 2 - CAMP / 2,
+				width: CAMP,
+				height: CAMP,
+			}}
+		/>
+	)
+}
+
+/** The site of `sites` closest to the player, so the tour points at a reachable one. */
+function nearest<T extends { x: number; y: number }>(sites: T[] | undefined, me: WorldPlayerState | null) {
+	if (!sites || sites.length === 0) return null
+	if (!me) return sites[0]
+
+	return sites.reduce((best, site) =>
+		Math.abs(site.x - me.x) + Math.abs(site.y - me.y) < Math.abs(best.x - me.x) + Math.abs(best.y - me.y)
+			? site
+			: best,
+	)
+}
+
 /**
  * Overview of the whole world, bottom right.
  *
@@ -32,6 +61,10 @@ export function Minimap({
 	others: Map<string, WorldPlayerState>
 }) {
 	const canvas = useRef<HTMLCanvasElement>(null)
+
+	// Recomputed as the player walks: `nearest` is a scan of a handful of sites.
+	const camp = nearest(map.camps, me)
+	const center = nearest(map.centers, me)
 
 	// Terrain and camps, painted once per map: neither ever moves during a
 	// session, and the camps are the whole reason to read this thing.
@@ -113,16 +146,23 @@ export function Minimap({
 
 	return (
 		<div className="pointer-events-none absolute bottom-3 right-3 rounded-md border border-white/20 bg-black/55 p-1 shadow-lg">
-			<canvas
-				ref={canvas}
-				width={map.width * SCALE}
-				height={map.height * SCALE}
-				role="img"
-				aria-label={`Carte du monde, ${map.camps?.length ?? 0} camps d'entraînement${
-					me ? `, tu es en ${me.x}, ${me.y}` : ''
-				}`}
-				className="block [image-rendering:pixelated]"
-			/>
+			<div className="relative">
+				<canvas
+					ref={canvas}
+					width={map.width * SCALE}
+					height={map.height * SCALE}
+					role="img"
+					aria-label={`Carte du monde, ${map.camps?.length ?? 0} camps d'entraînement${
+						me ? `, tu es en ${me.x}, ${me.y}` : ''
+					}`}
+					className="block [image-rendering:pixelated]"
+				/>
+				{/* Invisible stand-ins for two markers the terrain is painted with.
+				    The welcome tour points at places, and a tile drawn into a canvas
+				    has no element to point at — these give it one. */}
+				{camp && <Landmark name="camps" x={camp.x} y={camp.y} />}
+				{center && <Landmark name="center" x={center.x} y={center.y} />}
+			</div>
 		</div>
 	)
 }

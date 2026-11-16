@@ -25,13 +25,20 @@ export const FRAME_H = 24
 export const FRAMES = 3
 
 /**
- * Views in the sheet: facing the camera, then facing away.
+ * Views in the sheet: facing the camera, facing away, then in profile.
  *
  * Walking north while looking the player in the eye is the other half of why
- * the animation read wrong. Left and right reuse the front view mirrored, as
- * the 2D games do — only the back needs drawing.
+ * the animation read wrong. The profile is the third: mirroring the front view
+ * for left and right made the trainer stroll sideways while still facing the
+ * camera. The profile is drawn facing right; left is that same art mirrored.
  */
-export const VIEWS = 2
+export const VIEWS = 3
+
+/** Which way a trainer is turned. */
+export type View = 'front' | 'back' | 'side'
+
+/** Cell order in the sheet; the renderer turns this into a UV offset. */
+export const VIEW_INDEX: Record<View, number> = { front: 0, back: 1, side: 2 }
 
 /**
  * The gait, per frame.
@@ -44,6 +51,19 @@ const GAIT: { left: number; right: number; arm: number }[] = [
 	{ left: 0, right: 0, arm: 0 },
 	{ left: 2, right: 0, arm: 1 },
 	{ left: 0, right: 2, arm: -1 },
+]
+
+/**
+ * The gait in profile, where a stride is horizontal rather than a lifted knee.
+ *
+ * `near` and `far` slide the two legs along the walk, in pixels: the pose with
+ * them furthest apart alternates with the pass, where they cross back the
+ * other way. `arm` swings the one visible arm against the near leg.
+ */
+const SIDE_GAIT: { near: number; far: number; arm: number }[] = [
+	{ near: 0, far: 0, arm: 0 },
+	{ near: 2, far: -2, arm: 1 },
+	{ near: -1, far: 1, arm: -1 },
 ]
 
 type Ctx = CanvasRenderingContext2D
@@ -175,7 +195,176 @@ function drawHat(ctx: Ctx, style: number, color: string, back = false): void {
 	px(ctx, back ? 1 : 12, 5, 2, 2, dark)
 }
 
-function drawFrame(ctx: Ctx, appearance: Appearance, frame: number, back = false): void {
+/**
+ * Hair in profile.
+ *
+ * The skull is hair at the back whatever the style; only the crown and the
+ * fringe depend on whether a hat is covering them.
+ */
+function drawSideHair(ctx: Ctx, style: number, color: string, hidden: boolean): void {
+	const dark = shade(color, 0.3)
+
+	// Style 4 is a shaved head: a hairline and nothing else.
+	if (style === 4) {
+		px(ctx, 4, 4, 8, 1, dark)
+		return
+	}
+
+	// The nape shows under a brim, so a hat raises this but never removes it.
+	const top = hidden ? 5 : 3
+	px(ctx, 4, top, 4, 9 - top, color)
+	px(ctx, 3, top + 1, 1, 8 - top, color)
+	px(ctx, 4, 8, 3, 1, dark)
+
+	if (!hidden) {
+		px(ctx, 4, 3, 8, 2, color) // crown, nape to brow
+		px(ctx, 10, 5, 2, 1, color) // fringe, over the eye
+	}
+
+	if (style === 1) {
+		// Long: a tail down the back of the neck.
+		px(ctx, 3, 7, 2, 5, color)
+		px(ctx, 3, 12, 2, 1, dark)
+	} else if (style === 2) {
+		// Bunches: only the near one is visible, clear of the head.
+		px(ctx, 1, 6, 2, 4, color)
+		px(ctx, 1, 10, 2, 1, dark)
+	} else if (style === 3 && !hidden) {
+		// Spiky: the tufts lean back, away from the direction of travel.
+		px(ctx, 4, 2, 2, 1, color)
+		px(ctx, 7, 1, 2, 2, color)
+		px(ctx, 10, 2, 1, 1, color)
+	}
+}
+
+/** Beard and moustache in profile, hung on the front of the jaw. */
+function drawSideFacialHair(ctx: Ctx, style: number, color: string): void {
+	if (style === 0) return
+	const dark = shade(color, 0.35)
+
+	switch (style) {
+		case 1: // Moustache, under the nose.
+			px(ctx, 10, 7, 2, 1, color)
+			break
+		case 2: // Goatee: moustache plus a chin patch.
+			px(ctx, 10, 7, 2, 1, color)
+			px(ctx, 9, 9, 2, 1, color)
+			break
+		case 3: // Short beard: along the jaw, stopping at the chin.
+			px(ctx, 10, 7, 2, 1, color)
+			px(ctx, 8, 8, 3, 2, color)
+			break
+		default: // Full beard, jaw to below the chin.
+			px(ctx, 7, 7, 5, 3, color)
+			px(ctx, 8, 10, 3, 1, color)
+			px(ctx, 10, 8, 1, 1, dark) // the mouth, so it still reads as a face
+			break
+	}
+}
+
+function drawSideHat(ctx: Ctx, style: number, color: string): void {
+	if (style === 0) return
+	const dark = shade(color, 0.35)
+
+	if (style === 1) {
+		// Cap: the brim points where we are walking, which is the whole gain of
+		// having a profile at all.
+		px(ctx, 4, 2, 8, 3, color)
+		px(ctx, 3, 3, 1, 2, color)
+		px(ctx, 11, 5, 3, 1, dark)
+		px(ctx, 6, 3, 4, 1, shade(color, -0.25))
+		return
+	}
+
+	// Bandana: a band round the head with the knot trailing behind.
+	px(ctx, 3, 4, 9, 2, color)
+	px(ctx, 1, 5, 2, 2, dark)
+}
+
+/**
+ * One profile frame, facing right.
+ *
+ * Its own geometry rather than a narrowed front view: the head loses a cheek
+ * and gains a nose, the body is drawn edge-on, and the far leg is shaded so
+ * the stride has depth. Feet land on the same rows as the other views, so the
+ * character does not bounce when it turns a corner.
+ */
+function drawSideFrame(ctx: Ctx, appearance: Appearance, frame: number): void {
+	const skin = SKIN_TONES[appearance.skin]
+	const skinDark = shade(skin, 0.22)
+	const hair = HAIR_COLORS[appearance.hairColor]
+	const shirt = CLOTH_COLORS[appearance.shirt]
+	const shirtDark = shade(shirt, 0.28)
+	const trousers = CLOTH_COLORS[appearance.trousers]
+	const trousersDark = shade(trousers, 0.3)
+	const gait = SIDE_GAIT[frame % SIDE_GAIT.length]
+
+	// Head. The nose on the leading edge and the single eye are what tell a
+	// profile from a front view at sixteen pixels across.
+	px(ctx, 4, 3, 8, 7, skin)
+	px(ctx, 12, 6, 1, 2, skin) // nose
+	px(ctx, 4, 9, 8, 1, skinDark) // neck shadow
+	px(ctx, 9, 6, 1, 1, OUTLINE) // the one visible eye
+	px(ctx, 10, 8, 1, 1, skinDark) // mouth, at the front of the jaw
+	px(ctx, 6, 6, 1, 2, skinDark) // ear
+
+	drawSideFacialHair(ctx, appearance.facialHair, hair)
+	drawSideHair(ctx, appearance.hair, hair, appearance.hat !== 0)
+	drawSideHat(ctx, appearance.hat, shirt)
+
+	// Torso, two pixels narrower than the front view: a body seen edge-on
+	// shows its depth, not its width.
+	if (appearance.build === 1) {
+		px(ctx, 5, 10, 6, 2, shirt)
+		px(ctx, 6, 12, 4, 3, shirt)
+	} else {
+		px(ctx, 5, 10, 6, 5, shirt)
+	}
+	px(ctx, 5, 15, 6, 1, shirtDark)
+
+	/**
+	 * One leg, planted `offset` pixels along the stride.
+	 *
+	 * Only the near shoe reaches a pixel further forward than the leg: giving
+	 * both a toe made them meet at the widest stride and read as one slab.
+	 */
+	const leg = (offset: number, top: number, colour: string, hem: string, near: boolean) => {
+		const x = 6 + offset
+		px(ctx, x, top, 3, 20 - top, colour)
+		px(ctx, x, 20, 3, 1, hem)
+		px(ctx, x, 21, near ? 4 : 3, 2, OUTLINE) // shoe
+	}
+
+	if (appearance.bottom === 1) {
+		// Same short flared skirt as the front view, so the two agree.
+		px(ctx, 5, 16, 6, 2, trousers)
+		px(ctx, 4, 18, 8, 1, trousersDark)
+		// Bare legs: half the stride, since two pixels of shin cannot swing far.
+		leg(Math.round(gait.far / 2), 19, skinDark, skinDark, false)
+		leg(Math.round(gait.near / 2), 19, skin, skinDark, true)
+	} else {
+		// The hips stay solid: splitting the legs from the waist up left a hole
+		// through the body at the widest point of the stride.
+		px(ctx, 5, 16, 6, 1, trousers)
+		// Far leg first and darker, so the near one reads as in front of it.
+		leg(gait.far, 17, trousersDark, shade(trousers, 0.45), false)
+		leg(gait.near, 17, trousers, trousersDark, true)
+	}
+
+	// The one arm the camera can see, swinging against the near leg.
+	const armX = gait.arm > 0 ? 10 : gait.arm < 0 ? 4 : 9
+	const armY = gait.arm > 0 ? 10 : 11
+	px(ctx, armX, armY, 2, 4, shirt)
+	px(ctx, armX, armY + 4, 2, 2, skin) // hand
+}
+
+function drawFrame(ctx: Ctx, appearance: Appearance, frame: number, view: View = 'front'): void {
+	if (view === 'side') {
+		drawSideFrame(ctx, appearance, frame)
+		return
+	}
+	const back = view === 'back'
+
 	const skin = SKIN_TONES[appearance.skin]
 	const skinDark = shade(skin, 0.22)
 	const hair = HAIR_COLORS[appearance.hairColor]
@@ -262,12 +451,12 @@ export function drawTrainer(appearance: Appearance): HTMLCanvasElement {
 	if (!ctx) return canvas
 
 	ctx.imageSmoothingEnabled = false
-	// Front views first, then the same three frames seen from behind.
-	for (let view = 0; view < VIEWS; view++) {
+	// Three frames per view, in the order `VIEW_INDEX` declares.
+	for (const [view, index] of Object.entries(VIEW_INDEX) as [View, number][]) {
 		for (let frame = 0; frame < FRAMES; frame++) {
 			ctx.save()
-			ctx.translate((view * FRAMES + frame) * FRAME_W, 0)
-			drawFrame(ctx, appearance, frame, view === 1)
+			ctx.translate((index * FRAMES + frame) * FRAME_W, 0)
+			drawFrame(ctx, appearance, frame, view)
 			ctx.restore()
 		}
 	}

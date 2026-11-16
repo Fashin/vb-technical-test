@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Vector3, type Group } from 'three'
 
-import { TrainerSprite, type Appearance } from '../trainer'
+import { TrainerSprite, type Appearance, type View } from '../trainer'
 
 import { ACTOR_Z } from './depth'
 import { layerOf, type TileMapData } from './mapData'
@@ -105,8 +105,12 @@ export function Player({
 	 */
 	const steps = useRef(0)
 	const [walkFrame, setWalkFrame] = useState(0)
-	/** True once the last move was northwards: we see the character's back. */
-	const [facingBack, setFacingBack] = useState(false)
+	/**
+	 * Which way the character is turned. A sideways step turns it into profile
+	 * rather than keeping the view it had: the front view mirrored walks
+	 * sideways while still looking at the camera, which is what read wrong.
+	 */
+	const [view, setView] = useState<View>('front')
 
 	// The server refused a step: drop whatever we predicted and stand where it
 	// says we are. Applied in an effect so the frame loop stays free of props.
@@ -153,10 +157,11 @@ export function Player({
 			if (dx || dy) {
 				if (dx < 0) setFacingLeft(true)
 				if (dx > 0) setFacingLeft(false)
-				// A purely sideways step keeps whichever view we had, as the 2D
-				// games do — only a vertical move turns the character around.
-				if (dy < 0) setFacingBack(true)
-				if (dy > 0) setFacingBack(false)
+				// Any horizontal component wins: on a diagonal the profile is the
+				// pose that reads, and it keeps the facing the mirror already shows.
+				if (dx) setView('side')
+				else if (dy < 0) setView('back')
+				else if (dy > 0) setView('front')
 
 				const next = resolveStep(to.current, dx, dy)
 				if (next) {
@@ -199,7 +204,7 @@ export function Player({
 				appearance={appearance}
 				facingLeft={facingLeft}
 				frame={walkFrame}
-				back={facingBack}
+				view={view}
 			/>
 		</group>
 	)

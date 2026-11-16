@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Vector3 } from 'three'
 
@@ -15,17 +15,22 @@ import type { WorldPlayerState } from '../realtime'
 import { RankingPanel } from '../ranking'
 import { TeamPanel } from '../teams'
 import { TrainingPanel } from '../training'
+import { TutorialOverlay, useTutorial } from '../tutorial'
 import { HudBar, type HudAction } from '../hud'
+import { ErrorBoundary, PanelError } from '../ui'
 import { useWorld } from '../world'
 import { CameraFollow, GROUND_Z_STRETCH, type MapBounds } from './CameraFollow'
+import { ContextWatch } from './ContextWatch'
 import { ACTOR_Z } from './depth'
 import { campAt, centerAt, type TileMapData } from './mapData'
 import { Minimap } from './Minimap'
 import { Player } from './Player'
+import { SceneUnavailable } from './SceneUnavailable'
 import { RemotePlayer } from './RemotePlayer'
 import { TileMapMesh } from './TileMapMesh'
 import { useAtlasTexture } from './useAtlasTexture'
 import { usePlayerControls } from './usePlayerControls'
+import { supportsWebGL } from './webgl'
 
 /** Forward nudge applied to the character by `Player`; used for the camera's first frame. */
 const PLAYER_Z_OFFSET = ACTOR_Z
@@ -53,11 +58,26 @@ export function MapScene({ className }: MapSceneProps) {
 	const { user, logout } = useAuth()
 	const { status, error, map, speed, me, others, move, correction, announceProfile } = useWorld(Boolean(user))
 	const { held, tapped, onKeyDown, onKeyUp, onBlur } = usePlayerControls()
+	// Probed once, before anything tries to render: a browser that cannot give
+	// out a WebGL context makes `<Canvas>` throw, and that used to blank the page.
+	const webgl = supportsWebGL()
+	// A context the GPU takes back mid-game, and the counter that remounts the
+	// scene from scratch when the player asks to try again.
+	const [lost, setLost] = useState(false)
+	const [attempt, setAttempt] = useState(0)
+	const onLost = useCallback(() => setLost(true), [])
+	const restartScene = useCallback(() => {
+		setLost(false)
+		setAttempt((n) => n + 1)
+	}, [])
 	// Which HUD entry is selected. The panels themselves do not exist yet, so
 	// clicking one only lights it up — and clicking it again puts it away.
 	const [panel, setPanel] = useState<HudAction | null>(null)
 	const boosters = useBoosters(Boolean(user))
 	const pvp = usePvp()
+	// The welcome tour, shown once per account — and only once the world has
+	// loaded, since every one of its four steps points at something in it.
+	const tutorial = useTutorial(user?.id, status === 'joined' && Boolean(map) && Boolean(me))
 
 	// Training camps are entered by walking onto them, so the map itself is the
 	// menu. `me` is the server's confirmed tile, which is also what it checks
@@ -103,6 +123,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 	 */
 	const overlay = [
 		panel,
+		tutorial.open && 'tutorial',
 		campId && 'camp',
 		atCenter && 'care',
 		pvp.duel && 'duel',
@@ -187,30 +208,40 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 			onKeyUp={onKeyUp}
 			onBlur={onBlur}
 		>
-			{ready && (
-				<Canvas dpr={[1, 2]} camera={{ position: [0, 9, 9], fov: 35 }} gl={{ antialias: false }}>
-					<color attach="background" args={['#121a12']} />
-					<Suspense fallback={null}>
-						<group position={centre} scale={[1, 1, GROUND_Z_STRETCH]}>
-							<Route map={map} />
-							<Player
-								map={map}
-								held={held}
-								tapped={tapped}
-								appearance={me.appearance}
-								start={spawn.current ?? undefined}
-								tracker={playerPosition}
-								speed={speed}
-								onStep={move}
-								correction={correction}
-							/>
-							{[...others.values()].map((player) => (
-								<RemotePlayer key={player.id} player={player} speed={speed} />
-							))}
-						</group>
-					</Suspense>
-					<CameraFollow target={playerPosition} bounds={bounds} />
-				</Canvas>
+			{ready && !webgl && <SceneUnavailable reason="webgl" />}
+
+			{ready && webgl && lost && <SceneUnavailable reason="lost" onRetry={restartScene} />}
+
+			{ready && webgl && !lost && (
+				<ErrorBoundary
+					key={attempt}
+					fallback={(_error, retry) => <SceneUnavailable reason="crashed" onRetry={retry} />}
+				>
+					<Canvas dpr={[1, 2]} camera={{ position: [0, 9, 9], fov: 35 }} gl={{ antialias: false }}>
+						<color attach="background" args={['#121a12']} />
+						<Suspense fallback={null}>
+							<group position={centre} scale={[1, 1, GROUND_Z_STRETCH]}>
+								<Route map={map} />
+								<Player
+									map={map}
+									held={held}
+									tapped={tapped}
+									appearance={me.appearance}
+									start={spawn.current ?? undefined}
+									tracker={playerPosition}
+									speed={speed}
+									onStep={move}
+									correction={correction}
+								/>
+								{[...others.values()].map((player) => (
+									<RemotePlayer key={player.id} player={player} speed={speed} />
+								))}
+							</group>
+						</Suspense>
+						<CameraFollow target={playerPosition} bounds={bounds} />
+						<ContextWatch onLost={onLost} />
+					</Canvas>
+				</ErrorBoundary>
 			)}
 
 			{!ready && (
@@ -257,71 +288,101 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 				onSelect={(action) => setPanel(panel === action ? null : action)}
 			/>
 
-			{panel === 'booster' && <BoosterPanel boosters={boosters} onClose={() => setPanel(null)} />}
-			{panel === 'collection' && <CollectionPanel onClose={() => setPanel(null)} />}
-			{panel === 'barber' && <BarberPanel onClose={() => setPanel(null)} onSaved={(appearance) => announceProfile({ appearance })} />}
-			{panel === 'team' && <TeamPanel onClose={() => setPanel(null)} />}
-			{panel === 'arena' && <ArenaPanel onClose={() => setPanel(null)} onRewarded={boosters.refresh} />}
-			{panel === 'ranking' && <RankingPanel onClose={() => setPanel(null)} />}
-			{panel === 'achievements' && <AchievementsPanel onClose={() => setPanel(null)} />}
-			{/* Keyed by camp: walking from one hut to another starts a clean panel
-			    rather than carrying over the previous camp's session and settings. */}
-			{/* Encounters: offered to a neighbour, or offered by one. */}
-			{ready && pvp.invitation ? (
-				<InvitationPrompt
-					invitation={pvp.invitation}
-					onRespond={(accept) => pvp.respond(pvp.invitation!.id, accept, pvp.invitation!.kind)}
-				/>
-			) : (
-				ready &&
-				neighbour &&
-				!pvp.duel &&
-				!pvp.resolving &&
-				!pvp.trade && (
-					<NeighbourPrompt
-						neighbour={neighbour}
-						busy={pvp.awaiting}
-						onInvite={(kind) => pvp.invite(neighbour.userId, kind)}
+			{/* One boundary for every overlay: a panel that throws while rendering
+			    takes itself down, not the map, the HUD or the connection. */}
+			<ErrorBoundary
+				key={`${panel}:${campId}:${atCenter}`}
+				fallback={(error, retry) => (
+					<PanelError
+						error={error}
+						onClose={() => {
+							setPanel(null)
+							setCampId(null)
+							setAtCenter(false)
+							if (pvp.duel) pvp.dismissDuel()
+							if (pvp.trade) pvp.leaveTrade()
+							if (pvp.error) pvp.dismissError()
+							retry()
+						}}
 					/>
-				)
-			)}
+				)}
+			>
+				{panel === 'booster' && <BoosterPanel boosters={boosters} onClose={() => setPanel(null)} />}
+				{panel === 'collection' && <CollectionPanel onClose={() => setPanel(null)} />}
+				{panel === 'barber' && <BarberPanel onClose={() => setPanel(null)} onSaved={(appearance) => announceProfile({ appearance })} />}
+				{panel === 'team' && <TeamPanel onClose={() => setPanel(null)} />}
+				{panel === 'arena' && <ArenaPanel onClose={() => setPanel(null)} onRewarded={boosters.refresh} />}
+				{panel === 'ranking' && <RankingPanel onClose={() => setPanel(null)} />}
+				{panel === 'achievements' && <AchievementsPanel onClose={() => setPanel(null)} />}
+				{/* Keyed by camp: walking from one hut to another starts a clean panel
+				    rather than carrying over the previous camp's session and settings. */}
+				{/* Encounters: offered to a neighbour, or offered by one. */}
+				{ready && pvp.invitation ? (
+					<InvitationPrompt
+						invitation={pvp.invitation}
+						onRespond={(accept) => pvp.respond(pvp.invitation!.id, accept, pvp.invitation!.kind)}
+					/>
+				) : (
+					ready &&
+					neighbour &&
+					!pvp.duel &&
+					!pvp.resolving &&
+					!pvp.trade && (
+						<NeighbourPrompt
+							neighbour={neighbour}
+							busy={pvp.awaiting}
+							onInvite={(kind) => pvp.invite(neighbour.userId, kind)}
+						/>
+					)
+				)}
 
-			{pvp.error && (
-				<button
-					type="button"
-					onClick={pvp.dismissError}
-					className="absolute bottom-24 left-1/2 -translate-x-1/2 rounded bg-red-500/90 px-3 py-1 text-sm font-medium text-red-950"
-				>
-					{pvp.error}
-				</button>
-			)}
+				{pvp.error && (
+					<button
+						type="button"
+						onClick={pvp.dismissError}
+						className="absolute bottom-24 left-1/2 -translate-x-1/2 rounded bg-red-500/90 px-3 py-1 text-sm font-medium text-red-950"
+					>
+						{pvp.error}
+					</button>
+				)}
 
-			{/* The wait, then the fight, in the same frame — `duel` wins the moment
-			    it lands, so the panel fills in rather than reopening. */}
-			{pvp.duel ? (
-				<DuelView duel={pvp.duel} onClose={pvp.dismissDuel} />
-			) : (
-				pvp.resolving && <DuelPending opponentName={pvp.resolving.opponentName} />
-			)}
+				{/* The wait, then the fight, in the same frame — `duel` wins the moment
+				    it lands, so the panel fills in rather than reopening. */}
+				{pvp.duel ? (
+					<DuelView duel={pvp.duel} onClose={pvp.dismissDuel} />
+				) : (
+					pvp.resolving && <DuelPending opponentName={pvp.resolving.opponentName} />
+				)}
 
-			{pvp.trade && user && (
-				<TradePanel
-					trade={pvp.trade}
-					settled={pvp.traded}
-					youUserId={user.id}
-					onOffer={pvp.offer}
-					onConfirm={pvp.confirm}
-					onClose={pvp.leaveTrade}
-				/>
-			)}
+				{pvp.trade && user && (
+					<TradePanel
+						trade={pvp.trade}
+						settled={pvp.traded}
+						youUserId={user.id}
+						onOffer={pvp.offer}
+						onConfirm={pvp.confirm}
+						onClose={pvp.leaveTrade}
+					/>
+				)}
 
-			{campId && <TrainingPanel key={campId} campId={campId} onClose={() => setCampId(null)} />}
+				{campId && <TrainingPanel key={campId} campId={campId} onClose={() => setCampId(null)} />}
 
-			{atCenter && <CarePanel onClose={() => setAtCenter(false)} />}
+				{atCenter && <CarePanel onClose={() => setAtCenter(false)} />}
 
-			{panel === 'options' && (
-				<OptionsPanel onClose={() => setPanel(null)} onRenamed={(name) => announceProfile({ name })} />
-			)}
+				{panel === 'options' && (
+					<OptionsPanel
+						onClose={() => setPanel(null)}
+						onRenamed={(name) => announceProfile({ name })}
+						onReplayTutorial={() => {
+							setPanel(null)
+							tutorial.restart()
+						}}
+					/>
+				)}
+
+				{/* Last, and above everything: the tour dims whatever is on screen. */}
+				{tutorial.open && <TutorialOverlay onDone={tutorial.finish} />}
+			</ErrorBoundary>
 		</div>
 	)
 }
