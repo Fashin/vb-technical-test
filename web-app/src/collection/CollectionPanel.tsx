@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { GiCardRandom } from 'react-icons/gi'
+import { FiSearch } from 'react-icons/fi'
 
 import { Breadcrumb, useEscapeToClose } from '../ui'
 import { CardFace } from '../boosters/CardFace'
-import { RARITY } from '../boosters/rarity'
-import type { Rarity } from '../boosters/api'
-import { typeStyle } from '../pokemon'
 import { PokemonDetail } from './PokemonDetail'
-import { RarityDonut } from './RarityDonut'
+import { RarityBars } from './RarityBars'
+import { TypeGrid } from './TypeGrid'
+import { DEX_TOTAL } from './dex'
 import { useCollection, type SortMode } from './useCollection'
 
 const SORTS: { mode: SortMode; label: string }[] = [
@@ -17,14 +17,18 @@ const SORTS: { mode: SortMode; label: string }[] = [
 	{ mode: 'level', label: 'Niveau' },
 ]
 
-const RARITIES: Rarity[] = ['common', 'uncommon', 'rare', 'legendary']
-
 /**
  * Everything the player has pulled.
  *
+ * Nearly the whole screen, split in two: the filters live in a column on the
+ * left and the cards fill the rest. A collection is browsed, not consulted —
+ * the player comes to see what they have and to go looking for what they do
+ * not, so the controls stay put on one side while the grid scrolls on the
+ * other. Narrow screens stack the two, filters first.
+ *
  * One tile per pokemon with a copy count, rather than one per card: duplicates
  * are the normal outcome of opening packs, and a wall of identical tiles would
- * hide what the collection actually contains. The totals in the header always
+ * hide what the collection actually contains. The totals in the sidebar always
  * describe the whole collection, never the filtered view — otherwise filtering
  * would look like losing cards.
  *
@@ -38,7 +42,8 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 		entries,
 		total,
 		unique,
-		byRarity,
+		uniqueByRarity,
+		uniqueByType,
 		sort,
 		setSort,
 		rarityFilter,
@@ -47,7 +52,6 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 		setSearch,
 		typeFilter,
 		setTypeFilter,
-		ownedTypes,
 	} = useCollection()
 
 	/** Which Pokémon the detail sheet is open on, if any. */
@@ -63,7 +67,7 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 		<div
 			ref={backdrop}
 			tabIndex={-1}
-			className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 p-4 outline-none"
+			className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-2 outline-none sm:p-4"
 			// The map listens for arrow keys on its wrapper; the panel must not
 			// make the character walk.
 			onKeyDown={(event) => event.stopPropagation()}
@@ -75,17 +79,24 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 			<section
 				role="dialog"
 				aria-label="Ma collection"
-				className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="flex h-full max-h-[96vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141c17] text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-center justify-between">
-					<Breadcrumb
-						trail={[
-							{ label: 'Carte', onClick: onClose },
-							{ label: 'Ma collection' },
-						]}
-						icon={GiCardRandom}
-						tone="text-emerald-300"
-					/>
+				<header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-white/10 px-4 py-3">
+					<div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+						<Breadcrumb
+							trail={[
+								{ label: 'Carte', onClick: onClose },
+								{ label: 'Ma collection' },
+							]}
+							icon={GiCardRandom}
+							tone="text-emerald-300"
+						/>
+						<p className="text-sm text-slate-400">
+							{loading
+								? 'Chargement…'
+								: `${unique} / ${DEX_TOTAL} Pokémon · ${total} carte${total > 1 ? 's' : ''}`}
+						</p>
+					</div>
 					<button
 						type="button"
 						onClick={onClose}
@@ -95,34 +106,50 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 					</button>
 				</header>
 
-				<p className="mt-1 text-base text-slate-400">
-					{loading
-						? 'Chargement…'
-						: `${unique} Pokémon différent${unique > 1 ? 's' : ''} sur les 151 obtenables`}
-				</p>
-
 				{error && (
-					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
+					<p role="alert" className="shrink-0 bg-red-500/15 px-4 py-2 text-base text-red-300">
 						{error}
 					</p>
 				)}
 
-				{!loading && total > 0 && (
-					<>
-						<div className="mt-3">
-							<RarityDonut byRarity={byRarity} total={total} />
+				<div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+					{/* Left: the filters, in the order they are reached for — the name
+					    you remember first, then the tier you are completing, then the
+					    type you are short of. */}
+					{/* Stacked on a phone, the filters are capped at a share of the
+					    screen and scroll on their own, so the cards are never pushed
+					    entirely below the fold. */}
+					<aside className="max-h-[45vh] shrink-0 space-y-4 overflow-y-auto border-b border-white/10 p-4 lg:max-h-none lg:w-72 lg:border-b-0 lg:border-r">
+						<div className="relative">
+							<FiSearch
+								aria-hidden
+								className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+							/>
+							<input
+								type="search"
+								value={search}
+								onChange={(event) => setSearch(event.target.value)}
+								placeholder="Rechercher un Pokémon…"
+								aria-label="Rechercher un Pokémon par son nom"
+								className="w-full rounded-md border border-white/10 bg-black/30 py-2 pl-8 pr-3 text-base text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/60 focus:outline-none"
+							/>
 						</div>
 
-						<input
-							type="search"
-							value={search}
-							onChange={(event) => setSearch(event.target.value)}
-							placeholder="Rechercher un Pokémon…"
-							aria-label="Rechercher un Pokémon par son nom"
-							className="mt-3 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-base text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/60 focus:outline-none"
-						/>
+						<RarityBars uniqueByRarity={uniqueByRarity} active={rarityFilter} onPick={setRarityFilter} />
 
-						<div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-white/10 py-2 text-sm">
+						<TypeGrid uniqueByType={uniqueByType} active={typeFilter} onPick={setTypeFilter} />
+					</aside>
+
+					{/* Right: what the filters left standing. */}
+					<main className="flex min-h-0 min-w-0 flex-1 flex-col">
+						<div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-white/10 px-4 py-2 text-sm">
+							<p className="text-slate-400">
+								{loading
+									? ''
+									: `${entries.length} Pokémon ${filtering ? 'trouvé' : 'obtenu'}${
+											entries.length > 1 ? 's' : ''
+										}`}
+							</p>
 							<div className="flex items-center gap-1">
 								<span className="text-slate-500">Trier</span>
 								{SORTS.map(({ mode, label }) => (
@@ -139,103 +166,56 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 									</button>
 								))}
 							</div>
+						</div>
 
-							<div className="flex items-center gap-1">
-								<button
-									type="button"
-									onClick={() => setRarityFilter(null)}
-									aria-pressed={rarityFilter === null}
-									className={`rounded px-2 py-1 ${
-										rarityFilter === null ? 'bg-white/15 text-white' : 'text-slate-400 hover:bg-white/10'
-									}`}
+						<div className="min-h-0 flex-1 overflow-y-auto p-4">
+							{loading ? null : total === 0 ? (
+								<p className="py-8 text-center text-base text-slate-500">
+									Aucune carte pour l’instant — ouvre un booster pour commencer.
+								</p>
+							) : entries.length === 0 ? (
+								<p className="py-8 text-center text-base text-slate-500">
+									Aucune carte ne correspond{filtering ? ' à cette recherche' : ''}.
+								</p>
+							) : (
+								/*
+								 * Re-keyed on the filters so the cards play their entrance
+								 * again when the set changes — switching a filter should read
+								 * as a change, not as a repaint. The search text is left out
+								 * of the key on purpose: replaying on every keystroke would
+								 * be worse than the abruptness it is meant to soften.
+								 *
+								 * A grid with a fixed row height, not a wrapping row: every
+								 * tile gets the same box whatever its rarity label does, so
+								 * "Peu commune" wrapping onto a second line can no longer
+								 * push its neighbours' sprites out of line.
+								 */
+								<ul
+									key={`${rarityFilter ?? 'all'}-${typeFilter ?? 'all'}-${sort}`}
+									className="grid auto-rows-[15rem] justify-center gap-2 [grid-template-columns:repeat(auto-fill,8rem)]"
 								>
-									Toutes
-								</button>
-								{RARITIES.map((rarity) => (
-									<button
-										key={rarity}
-										type="button"
-										onClick={() => setRarityFilter(rarityFilter === rarity ? null : rarity)}
-										aria-pressed={rarityFilter === rarity}
-										disabled={byRarity[rarity] === 0}
-										className={`rounded px-2 py-1 disabled:opacity-30 ${
-											rarityFilter === rarity ? 'bg-white/15 text-white' : 'text-slate-400 hover:bg-white/10'
-										}`}
-									>
-										{RARITY[rarity].label}
-										<span className="ml-1 text-slate-500">{byRarity[rarity]}</span>
-									</button>
-								))}
-							</div>
-
-							{/* Only the types actually owned: eighteen dead buttons help nobody. */}
-							{ownedTypes.length > 0 && (
-								<div className="flex flex-wrap items-center gap-1">
-									<span className="text-slate-500">Type</span>
-									{ownedTypes.map((type) => {
-										const style = typeStyle(type)
-										const active = typeFilter === type
-										return (
+									{entries.map((entry, index) => (
+										<li
+											key={entry.pokedexId}
+											// Capped: a stagger that keeps growing would make the
+											// hundredth card arrive two seconds late.
+											style={{ animationDelay: `${Math.min(index, 14) * 20}ms` }}
+											className="animate-card-in motion-reduce:animate-none"
+										>
 											<button
-												key={type}
 												type="button"
-												onClick={() => setTypeFilter(active ? null : type)}
-												aria-pressed={active}
-												className={`rounded px-2 py-1 font-medium transition ${
-													active ? style.chip : 'text-slate-400 hover:bg-white/10'
-												}`}
+												onClick={() => setDetailId(entry.pokedexId)}
+												aria-label={`Voir la fiche de ${entry.name}`}
+												className="h-full rounded-lg transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
 											>
-												{style.label}
+												<CardFace card={entry} count={entry.count} className="h-full" />
 											</button>
-										)
-									})}
-								</div>
+										</li>
+									))}
+								</ul>
 							)}
 						</div>
-					</>
-				)}
-
-				<div className="mt-4 min-h-[8rem] flex-1 overflow-y-auto">
-					{loading ? null : total === 0 ? (
-						<p className="py-8 text-center text-base text-slate-500">
-							Aucune carte pour l’instant — ouvre un booster pour commencer.
-						</p>
-					) : entries.length === 0 ? (
-						<p className="py-8 text-center text-base text-slate-500">
-							Aucune carte ne correspond{filtering ? ' à cette recherche' : ''}.
-						</p>
-					) : (
-						/*
-						 * Re-keyed on the filters so the cards play their entrance
-						 * again when the set changes — switching a filter should read
-						 * as a change, not as a repaint. The search text is left out
-						 * of the key on purpose: replaying on every keystroke would
-						 * be worse than the abruptness it is meant to soften.
-						 */
-						<ul
-							key={`${rarityFilter ?? 'all'}-${typeFilter ?? 'all'}-${sort}`}
-							className="flex flex-wrap justify-center gap-2"
-						>
-							{entries.map((entry, index) => (
-								<li
-									key={entry.pokedexId}
-									// Capped: a stagger that keeps growing would make the
-									// hundredth card arrive two seconds late.
-									style={{ animationDelay: `${Math.min(index, 14) * 20}ms` }}
-									className="animate-card-in motion-reduce:animate-none"
-								>
-									<button
-										type="button"
-										onClick={() => setDetailId(entry.pokedexId)}
-										aria-label={`Voir la fiche de ${entry.name}`}
-										className="rounded-lg transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-									>
-										<CardFace card={entry} count={entry.count} />
-									</button>
-								</li>
-							))}
-						</ul>
-					)}
+					</main>
 				</div>
 			</section>
 

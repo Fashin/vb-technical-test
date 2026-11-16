@@ -12,6 +12,11 @@ interface CardFaceProps {
 		Partial<Pick<Card, 'level' | 'ratio' | 'toNextLevel' | 'health' | 'inCare' | 'fainted' | 'stats'>>
 	/** Shown as "×N" when the player owns several copies. */
 	count?: number
+	/**
+	 * Extra classes on the tile itself. The collection passes `h-full` so that
+	 * every tile in its grid takes the row's height instead of its own.
+	 */
+	className?: string
 }
 
 /**
@@ -20,10 +25,12 @@ interface CardFaceProps {
  * Renders a plain block, not a list item: the reveal wraps it in animation
  * layers, so the `<li>` belongs to whichever list is doing the rendering.
  */
-export function CardFace({ card, count = 1 }: CardFaceProps) {
+export function CardFace({ card, count = 1, className = '' }: CardFaceProps) {
 	const style = RARITY[card.rarity]
 	return (
-		<div className={`relative flex w-32 flex-col items-center rounded-lg border-2 bg-black/40 p-2 ${style.ring}`}>
+		<div
+			className={`relative flex w-32 flex-col items-center rounded-lg border-2 bg-black/40 p-2 ${style.ring} ${className}`}
+		>
 			<img
 				src={spriteUrlFor(card.pokedexId)}
 				alt=""
@@ -36,15 +43,17 @@ export function CardFace({ card, count = 1 }: CardFaceProps) {
 				</span>
 			)}
 			<span className="mt-1 w-full truncate text-center text-sm capitalize text-slate-100">{card.name}</span>
-			{/* Wrapping, not shrinking: "Peu commune" keeps its single line and the
-			    level badge drops beneath it rather than squeezing the label in two. */}
-			<div className="mt-1 flex flex-wrap items-center justify-center gap-1">
-				<span
-					className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${style.chip}`}
-				>
+			{/*
+			 * Rarity above, level below, always — never side by side. The two read
+			 * faster stacked, and the tile keeps the same height whatever the label
+			 * says: "Peu commune" no longer decides whether the badge fits beside it,
+			 * so the bars and stats underneath sit at the same height on every card.
+			 */}
+			<div className="mt-1 flex min-h-11 flex-col items-center justify-center gap-1">
+				<span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${style.chip}`}>
 					{style.label}
 				</span>
-				{card.level !== undefined && <LevelBadge level={card.level} className="shrink-0" />}
+				{card.level !== undefined && <LevelBadge level={card.level} />}
 			</div>
 			{card.level !== undefined && (
 				<XpBar ratio={card.ratio ?? 0} toNextLevel={card.toNextLevel} className="mt-1.5 w-full" />

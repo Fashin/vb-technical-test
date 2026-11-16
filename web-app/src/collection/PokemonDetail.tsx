@@ -31,6 +31,13 @@ const STATS: { key: keyof Detail['stats']; label: string }[] = [
 /** A base stat tops out around 160 in this Pokédex; the bar is read against that. */
 const STAT_CEILING = 160
 
+/**
+ * The best total in this Pokédex — Mewtwo's 680. The BST bar is read against
+ * it, so a full bar means "nothing in Kanto adds up to more" rather than a
+ * share of some round number nobody reaches.
+ */
+const BST_CEILING = 680
+
 function StatRow({ label, value }: { label: string; value: number }) {
 	const ratio = Math.min(1, value / STAT_CEILING)
 	return (
@@ -39,6 +46,29 @@ function StatRow({ label, value }: { label: string; value: number }) {
 			<span className="w-10 shrink-0 text-right text-sm font-medium tabular-nums text-slate-200">{value}</span>
 			<span className="h-2 flex-1 overflow-hidden rounded-full bg-black/50">
 				<span className="block h-full rounded-full bg-emerald-400" style={{ width: `${ratio * 100}%` }} />
+			</span>
+		</li>
+	)
+}
+
+/**
+ * The six base stats added up.
+ *
+ * The number players compare Pokémon by: the individual bars say what a
+ * Pokémon is good at, the total says how much it has been given overall. It is
+ * drawn under the six it sums, separated by a rule, so it reads as their total
+ * and not as a seventh stat.
+ */
+function TotalRow({ value }: { value: number }) {
+	const ratio = Math.min(1, value / BST_CEILING)
+	return (
+		<li className="mt-2 flex items-center gap-3 border-t border-white/10 pt-2">
+			<span className="w-20 shrink-0 text-sm font-semibold text-slate-300" title="Base Stat Total">
+				Total (BST)
+			</span>
+			<span className="w-10 shrink-0 text-right text-sm font-bold tabular-nums text-slate-100">{value}</span>
+			<span className="h-2 flex-1 overflow-hidden rounded-full bg-black/50">
+				<span className="block h-full rounded-full bg-amber-300" style={{ width: `${ratio * 100}%` }} />
 			</span>
 		</li>
 	)
@@ -180,6 +210,7 @@ export function PokemonDetail({ pokedexId, onClose }: { pokedexId: number; onClo
 								{STATS.map(({ key, label }) => (
 									<StatRow key={key} label={label} value={pokemon.stats[key]} />
 								))}
+								<TotalRow value={STATS.reduce((sum, { key }) => sum + pokemon.stats[key], 0)} />
 							</ul>
 
 							<Matchups resistances={pokemon.apiResistances} />

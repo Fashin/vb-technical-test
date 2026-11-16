@@ -44,7 +44,13 @@ export interface CollectionValue {
 	/** Totals across the whole collection, never the filtered view. */
 	total: number
 	unique: number
-	byRarity: Record<Rarity, number>
+	/**
+	 * Distinct Pokémon owned per rarity and per type — what a completion bar
+	 * counts. Copies are deliberately not counted: ten Rattata are still one
+	 * species found, and a bar that filled past its own pool would be a lie.
+	 */
+	uniqueByRarity: Record<Rarity, number>
+	uniqueByType: Record<string, number>
 	sort: SortMode
 	setSort: (mode: SortMode) => void
 	rarityFilter: Rarity | null
@@ -55,8 +61,6 @@ export interface CollectionValue {
 	/** Type the list is narrowed to, or null for all of them. */
 	typeFilter: string | null
 	setTypeFilter: (type: string | null) => void
-	/** Types actually present in the collection, so filters offer only those. */
-	ownedTypes: string[]
 	reload: () => void
 }
 
@@ -155,16 +159,17 @@ export function useCollection(): CollectionValue {
 		return sorted
 	}, [grouped, rarityFilter, typeFilter, search, sort])
 
-	// Offering a filter for a type nobody owns would be eighteen dead buttons.
-	const ownedTypes = useMemo(() => {
-		const present = new Set<string>()
-		for (const entry of grouped) for (const type of entry.types) present.add(type)
-		return [...present]
+	const uniqueByRarity = useMemo(() => {
+		const counts: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, legendary: 0 }
+		for (const entry of grouped) counts[entry.rarity] += 1
+		return counts
 	}, [grouped])
 
-	const byRarity = useMemo(() => {
-		const counts: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, legendary: 0 }
-		for (const entry of grouped) counts[entry.rarity] += entry.count
+	// A two-type Pokémon counts towards both, the same way the denominators in
+	// `dex.ts` count it in both pools.
+	const uniqueByType = useMemo(() => {
+		const counts: Record<string, number> = {}
+		for (const entry of grouped) for (const type of entry.types) counts[type] = (counts[type] ?? 0) + 1
 		return counts
 	}, [grouped])
 
@@ -175,7 +180,8 @@ export function useCollection(): CollectionValue {
 		cards: cards ?? [],
 		total: cards?.length ?? 0,
 		unique: grouped.length,
-		byRarity,
+		uniqueByRarity,
+		uniqueByType,
 		sort,
 		setSort,
 		rarityFilter,
@@ -184,7 +190,6 @@ export function useCollection(): CollectionValue {
 		setSearch,
 		typeFilter,
 		setTypeFilter,
-		ownedTypes,
 		reload: () => setReloads((n) => n + 1),
 	}
 }
