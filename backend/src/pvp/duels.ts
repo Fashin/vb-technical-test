@@ -6,6 +6,7 @@ import { resolveRounds, toFighter, type RoundLog, type Side, type TurnEvent } fr
 import { requestScript } from '../battle/script'
 import { recordWounds, type Wound } from '../care/healing'
 import { db } from '../db'
+import { levelCapOf } from '../progression/badges'
 import { grantXp, xpReward, type XpAward, type XpGain } from '../progression/levels'
 import { getActiveTeamId, getTeam, type TeamMember } from '../teams/teams'
 import { fixedWindow } from '../util/throttle'
@@ -146,7 +147,10 @@ export async function fight(a: Challenger, b: Challenger): Promise<DuelResult> {
 	const payout: XpAward[] = victor.fought.map((index) => ({ cardId: victor.roster[index].cardId, amount: share }))
 
 	const id = randomUUID()
-	const gains = grantXp(payout)
+	// Capped by the winner's own badges, like every other source of experience:
+	// a duel that pushed a Pokemon past the level its badges allow would be the
+	// hole in the gate the camps are there to close.
+	const gains = grantXp(payout, levelCapOf(victor.player.userId))
 
 	db.prepare('INSERT INTO duels (id, winner_id, loser_id, fought_at) VALUES (?, ?, ?, ?)').run(
 		id,
@@ -212,4 +216,23 @@ export function mirror(battle: BattleState, opponentName: string): BattleState {
 		playerCardIds: [],
 		log,
 	}
+}
+
+/**
+ * The Pokemon an account would lead a duel with, by Pokedex id.
+ *
+ * Sent with the acceptance so both clients can play the opening — two
+ * trainers walking on and throwing their first ball — while the script is
+ * still being written. It is the same choice `fight` makes a moment later:
+ * the active team, minus whoever is in no state to stand up. Null when there
+ * is nothing to send out, in which case the opening simply skips the throw
+ * rather than guessing a Pokemon the duel will not field.
+ */
+export function leadOf(userId: string): number | null {
+	const teamId = getActiveTeamId(userId)
+	const team = teamId ? getTeam(userId, teamId) : null
+	if (!team) return null
+
+	const roster = fieldable(entrantsOf(team.members))
+	return roster[0]?.pokedexId ?? null
 }

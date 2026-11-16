@@ -15,6 +15,11 @@ export interface Master {
 	team: number[]
 	/** Boosters awarded the first time this master is beaten. */
 	reward: number
+	/**
+	 * The badge handed over on the first win: what opens the next training
+	 * camp, and what can then be worn as a pin at the barber.
+	 */
+	badge: { name: string; pin: number }
 	/** The level its whole team fights at, from its tier. */
 	level: number
 	appearance: Appearance

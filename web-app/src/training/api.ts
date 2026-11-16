@@ -17,6 +17,11 @@ export interface Camp {
 	y: number
 	/** Best level in the active team — what the camp measures you against. */
 	teamLevel: number
+	/** Arena badges the camp asks for, and how many the player holds. */
+	badgesRequired: number
+	badgesOwned: number
+	/** The badge gate is shut: nothing to do with the team's level. */
+	locked: boolean
 	unlocked: boolean
 	/** Nobody in the team falls inside the band: nothing left to learn here. */
 	exhausted: boolean
@@ -88,9 +93,20 @@ async function send<T>(path: string, init: RequestInit = {}): Promise<T> {
  * `teamId` is the team the player has selected in the panel; without one the
  * server measures the active team.
  */
-export function fetchCamps(teamId?: string): Promise<{ camps: Camp[] }> {
+/** What the camps listing answers beside the camps themselves. */
+export interface CampsState {
+	camps: Camp[]
+	/** Arena badges held. */
+	badges: number
+	/** The highest level any Pokémon can currently be trained to. */
+	levelCap: number
+	/** The next camp to open, and what it costs in badges. */
+	nextCamp: { name: string; badges: number } | null
+}
+
+export function fetchCamps(teamId?: string): Promise<CampsState> {
 	const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : ''
-	return send<{ camps: Camp[] }>(`/training/camps${query}`)
+	return send<CampsState>(`/training/camps${query}`)
 }
 
 /** Train one team once. The server decides what it meets and what it earns. */

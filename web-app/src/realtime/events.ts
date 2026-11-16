@@ -142,8 +142,18 @@ export interface ServerToClientEvents {
 	 * before the first blow. Without this event the challenger's screen still
 	 * read "waiting for <name>" all the way through, which is indistinguishable
 	 * from an invitation nobody ever answered.
+	 *
+	 * It carries enough to play the opening while that wait lasts: both looks
+	 * and both leading Pokemon, so each client can show the two trainers
+	 * walking on and throwing their first ball instead of a spinner. A lead is
+	 * null when that side has nothing fit to send out.
 	 */
-	'pvp:accepted': (payload: { opponentName: string }) => void
+	'pvp:accepted': (payload: {
+		opponentName: string
+		opponentAppearance: Appearance
+		opponentLead: number | null
+		yourLead: number | null
+	}) => void
 	/**
 	 * A resolved duel, already written from *this* client's point of view: the
 	 * reader is always the `player` side, so the battle components need to know

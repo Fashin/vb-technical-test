@@ -1,6 +1,7 @@
 import { Router } from 'express'
 
 import { requireAuth } from '../auth/middleware'
+import { badgeCount, levelCapForBadges, nextCampFor } from '../progression/badges'
 import { listCamps, runSession } from '../training/training'
 
 export const TrainingController = Router()
@@ -18,7 +19,16 @@ TrainingController.get('/camps', (req, res) => {
 	// `teamId` is the team the player is considering, so the verdicts the panel
 	// shows are about the team it has selected rather than the active one.
 	const teamId = typeof req.query.teamId === 'string' ? req.query.teamId : undefined
-	return res.status(200).json({ camps: listCamps(req.user!.id, teamId) })
+	const badges = badgeCount(req.user!.id)
+
+	// The cap travels with the camps because it is read off them: one request
+	// answers both "where can I train" and "how far can anyone get".
+	return res.status(200).json({
+		camps: listCamps(req.user!.id, teamId),
+		badges,
+		levelCap: levelCapForBadges(badges),
+		nextCamp: nextCampFor(badges),
+	})
 })
 
 /**
@@ -41,6 +51,9 @@ TrainingController.post('/:campId/session', async (req, res) => {
 		NO_HEALTHY_TEAM: 'Tes Pokémon de ce palier sont blessés ou en soins — passe par le centre de soins',
 		TOO_FAR: 'Tu dois être sur le camp pour y entrer',
 		TOO_WEAK: `Ce camp n’accepte qu’à partir du niveau ${result.detail?.minLevel}`,
+		NEED_BADGE:
+			`Ce camp demande ${result.detail?.badgesRequired} badge${(result.detail?.badgesRequired ?? 0) > 1 ? 's' : ''} d’arène` +
+			` — tu en as ${result.detail?.badgesOwned}. Va battre un maître.`,
 		NOTHING_TO_LEARN: `Plus personne de cette équipe n’est dans la tranche ${result.detail?.minLevel}–${result.detail?.maxLevel} — va au camp suivant`,
 	}
 

@@ -12,6 +12,7 @@ import {
 import { verifySession } from '../auth/sessions'
 import { CORS_ORIGINS } from '../config'
 import { appearanceOf, findById } from '../auth/users'
+import { appearanceForId } from '../appearance/appearance'
 import {
 	WORLD_SPEED,
 	addPlayer as addWorldPlayer,
@@ -23,7 +24,7 @@ import {
 	toState,
 	tryStep,
 } from '../world/world'
-import { fight, mirror } from '../pvp/duels'
+import { fight, leadOf, mirror } from '../pvp/duels'
 import { forget, invite, take } from '../pvp/encounters'
 import { close as closeTrade, confirm, open as openTrade, setOffer, type TradeSession } from '../pvp/trades'
 
@@ -164,8 +165,30 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 			// Said before the writing starts, and to both: the challenger has had
 			// nothing but "waiting for <name>" on screen since the invitation, and
 			// cannot otherwise tell an accepted duel from an ignored one.
-			void tell(host.userId, 'pvp:accepted', { opponentName: guest.name } as never)
-			void tell(guest.userId, 'pvp:accepted', { opponentName: host.name } as never)
+			//
+			// It carries both looks and both leading Pokemon too: that is all the
+			// opening animation needs, and gathering it here costs one lookup
+			// each rather than a round trip per client.
+			// A deleted account cannot be in a duel, but the lookup is typed as
+			// optional, so the placeholder look stands in rather than a crash.
+			const look = (userId: string) => {
+				const row = findById(userId)
+				return row ? appearanceOf(row) : appearanceForId(userId)
+			}
+			const leads = { [host.userId]: leadOf(host.userId), [guest.userId]: leadOf(guest.userId) }
+
+			void tell(host.userId, 'pvp:accepted', {
+				opponentName: guest.name,
+				opponentAppearance: look(guest.userId),
+				opponentLead: leads[guest.userId],
+				yourLead: leads[host.userId],
+			} as never)
+			void tell(guest.userId, 'pvp:accepted', {
+				opponentName: host.name,
+				opponentAppearance: look(host.userId),
+				opponentLead: leads[host.userId],
+				yourLead: leads[guest.userId],
+			} as never)
 
 			void (async () => {
 				const result = await fight(host, guest)

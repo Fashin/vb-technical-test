@@ -108,7 +108,17 @@ ArenaController.post('/battle/run', battleLimiter, async (req, res) => {
 	return res.status(409).json({ error: { code: result.reason, message: 'Aucun combat en cours' } })
 })
 
+/**
+ * Give up the running battle. It is recorded as a loss, not erased.
+ *
+ * The answer says whether anything was actually abandoned. A client can hold
+ * a battle the server has already finished — a run whose response was lost on
+ * the way back, a second tab, a panel left open — and in that case there is
+ * nothing to forfeit: the fight is over and was already paid out. Saying so
+ * lets the panel show the real result instead of quietly closing on a request
+ * that did nothing.
+ */
 ArenaController.delete('/battle', (req, res) => {
-	forfeit(req.user!.id)
-	return res.status(204).end()
+	const forfeited = forfeit(req.user!.id)
+	return res.status(200).json({ forfeited })
 })

@@ -23,6 +23,14 @@ export interface Appearance {
 	build: number
 	/** What the trainer wears below the waist: index into `BOTTOMS`. */
 	bottom: number
+	/**
+	 * Arena badge worn on the chest: index into `PIN_COLORS`, 0 for none.
+	 *
+	 * The only part of the look that is not a free choice — the server refuses
+	 * a pin whose master has not been beaten. See `progression/badges.ts` on
+	 * the backend.
+	 */
+	pin: number
 }
 
 export const SKIN_TONES = ['#f2c9a0', '#e0a878', '#c68642', '#8d5524', '#5c3317', '#ffd9b8']
@@ -40,6 +48,27 @@ export const CLOTH_COLORS = [
 	'#2d333b',
 	'#a8601f',
 	'#14b8a6',
+]
+
+/**
+ * Badge pins, in the masters' tier order, each in its master's own type
+ * colour — the same hues the types wear everywhere else in the app.
+ *
+ * Index 0 is "no pin" and is never drawn; it holds a placeholder so the
+ * palette can be indexed by the badge number the server hands out.
+ */
+export const PIN_COLORS = [
+	'transparent',
+	'#4ade80', // Garance — plante
+	'#fb923c', // Cendre — feu
+	'#38bdf8', // Marée — eau
+	'#fbbf24', // Volt — électrik
+	'#a3e635', // Dédale — insecte
+	'#e879f9', // Venin — poison
+	'#f472b6', // Orphée — psy
+	'#a8a29e', // Granit — roche
+	'#f87171', // Fracas — combat
+	'#818cf8', // Draconis — dragon
 ]
 
 export const HAIR_STYLES = ['Court', 'Long', 'Couettes', 'Hérissé', 'Crâne rasé'] as const
@@ -69,6 +98,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
 	facialHair: 0,
 	build: 0,
 	bottom: 0,
+	pin: 0,
 }
 
 const SIZES: Record<keyof Appearance, number> = {
@@ -81,6 +111,7 @@ const SIZES: Record<keyof Appearance, number> = {
 	facialHair: FACIAL_HAIR.length,
 	build: BUILDS.length,
 	bottom: BOTTOMS.length,
+	pin: PIN_COLORS.length,
 }
 
 /** Clamp anything that arrives from the network into a drawable appearance. */
@@ -108,5 +139,6 @@ export function appearanceKey(appearance: Appearance): string {
 		appearance.facialHair,
 		appearance.build,
 		appearance.bottom,
+		appearance.pin,
 	].join('-')
 }

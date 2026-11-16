@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { MAX_ROUNDS, resolveRounds, toFighter, type Side } from '../battle/engine'
 import type { BattleState } from '../battle/battles'
 import { recordWounds, type Wound } from '../care/healing'
+import { badgeCount } from '../progression/badges'
 import { grantXp, MAX_LEVEL, xpReward, type XpAward, type XpGain } from '../progression/levels'
 import { getActiveTeamId, getTeam, type Team, type TeamMember } from '../teams/teams'
 import { getMap, positionOf } from '../world/world'
@@ -77,6 +78,11 @@ export interface CampProgress extends Camp {
 	teamLevel: number
 	/** False while nothing in the team has reached this camp's floor. */
 	unlocked: boolean
+	/** Arena badges this camp asks for, and how many the player holds. */
+	badgesRequired: number
+	badgesOwned: number
+	/** True while the badges are missing: the gate, not the team's level. */
+	locked: boolean
 	/** True once nobody in the team falls inside the band: nothing left here. */
 	exhausted: boolean
 	/** True when the band is covered, but only by Pokémon at the centre. */
@@ -173,6 +179,7 @@ export function listCamps(userId: string, teamId?: string): CampProgress[] {
 	const team = sessionTeam(userId, teamId)
 	const members = team?.members ?? []
 	const best = members.reduce((high, member) => Math.max(high, member.level), 0)
+	const badges = badgeCount(userId)
 
 	return getMap()
 		.camps.map((site) => {
@@ -195,7 +202,12 @@ export function listCamps(userId: string, teamId?: string): CampProgress[] {
 				x: site.x,
 				y: site.y,
 				teamLevel: best,
-				unlocked: best >= camp.minLevel,
+				badgesRequired: camp.badges,
+				badgesOwned: badges,
+				locked: badges < camp.badges,
+				// Both gates in one word, because both close the same door: the
+				// badges at the gate and the team's own level inside it.
+				unlocked: badges >= camp.badges && best >= camp.minLevel,
 				exhausted: members.length > 0 && squad.length === 0 && sidelined.length === 0 && best >= camp.minLevel,
 				allInCare: squad.length === 0 && sidelined.length > 0,
 				nextTrainee: next ? { name: next.name, level: next.level } : null,
@@ -235,9 +247,16 @@ export type SessionResult =
 				| 'TEAM_NOT_FOUND'
 				| 'TOO_FAR'
 				| 'TOO_WEAK'
+				| 'NEED_BADGE'
 				| 'NOTHING_TO_LEARN'
 				| 'NO_HEALTHY_TEAM'
-			detail?: { minLevel: number; maxLevel: number; teamLevel: number }
+			detail?: {
+				minLevel: number
+				maxLevel: number
+				teamLevel: number
+				badgesRequired?: number
+				badgesOwned?: number
+			}
 	  }
 
 /**
@@ -270,7 +289,18 @@ export async function runSession(userId: string, campId: string, teamId?: string
 	}
 
 	const best = team.members.reduce((high, member) => Math.max(high, member.level), 0)
-	const detail = { minLevel: camp.minLevel, maxLevel: camp.maxLevel, teamLevel: best }
+	const badges = badgeCount(userId)
+	const detail = {
+		minLevel: camp.minLevel,
+		maxLevel: camp.maxLevel,
+		teamLevel: best,
+		badgesRequired: camp.badges,
+		badgesOwned: badges,
+	}
+
+	// The gate comes before the level check: standing here with a level 50 team
+	// and no badges is refused for the badges, which is the thing to go and fix.
+	if (badges < camp.badges) return { ok: false, reason: 'NEED_BADGE', detail }
 
 	// Nobody is strong enough to spar here at all.
 	if (best < camp.minLevel) return { ok: false, reason: 'TOO_WEAK', detail }

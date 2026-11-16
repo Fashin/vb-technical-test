@@ -1,5 +1,6 @@
 export { BattleView } from './BattleView'
 export { BattleField } from './BattleField'
+export { BattleIntro, type IntroTrainer } from './BattleIntro'
 export { sideWithPlaybackHp, useBattlePlayback } from './useBattlePlayback'
 export type { PlaybackView } from './useBattlePlayback'
 export { fetchBattle, type Battle } from './api'

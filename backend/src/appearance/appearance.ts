@@ -19,6 +19,15 @@ export interface Appearance {
 	build: number
 	/** Trousers or skirt. */
 	bottom: number
+	/**
+	 * Arena badge worn as a pin, 0 for none.
+	 *
+	 * Unlike every other field, this one is not a free choice: the pins are
+	 * earned. `sanitizeAppearance` only keeps it in range — whether this
+	 * account has actually beaten that master is checked where the appearance
+	 * is saved, since only there is there a user to check against.
+	 */
+	pin: number
 }
 
 /** Number of entries in each palette, mirrored from the web app. */
@@ -32,6 +41,8 @@ const SIZES: Record<keyof Appearance, number> = {
 	facialHair: 5,
 	build: 2,
 	bottom: 2,
+	// Ten masters, ten pins, plus 0 for "no pin".
+	pin: 11,
 }
 
 export const DEFAULT_APPEARANCE: Appearance = {
@@ -44,6 +55,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
 	facialHair: 0,
 	build: 0,
 	bottom: 0,
+	pin: 0,
 }
 
 /** Clamp anything into a drawable appearance; unknown keys are dropped. */
@@ -88,5 +100,7 @@ export function appearanceForId(id: string): Appearance {
 		facialHair: at(104729, SIZES.facialHair),
 		build: at(9907, SIZES.build),
 		bottom: at(37, SIZES.bottom),
+		// Never random: a brand new trainer has won nothing to pin on.
+		pin: 0,
 	}
 }

@@ -88,6 +88,10 @@ export function MapScene({ className }: MapSceneProps) {
 	const [menuOpen, setMenuOpen] = useState(false)
 	const boosters = useBoosters(Boolean(user))
 	const pvp = usePvp()
+	// Players who asked for less movement get the wait, not the show — the same
+	// rule the arena applies to a battle's opening.
+	const reducedMotion =
+		typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 	// The welcome tour, shown once per account — and only once the world has
 	// loaded, since every one of its four steps points at something in it.
 	const tutorial = useTutorial(user?.id, status === 'joined' && Boolean(map) && Boolean(me))
@@ -411,7 +415,16 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 				{pvp.duel ? (
 					<DuelView duel={pvp.duel} onClose={pvp.dismissDuel} />
 				) : (
-					pvp.resolving && <DuelPending opponentName={pvp.resolving.opponentName} />
+					pvp.resolving && (
+						<DuelPending
+							you={me ? { name: me.name, appearance: me.appearance } : null}
+							opponentName={pvp.resolving.opponentName}
+							opponentAppearance={pvp.resolving.opponentAppearance}
+							opponentLead={pvp.resolving.opponentLead}
+							yourLead={pvp.resolving.yourLead}
+							still={reducedMotion}
+						/>
+					)
 				)}
 
 				{pvp.trade && user && (

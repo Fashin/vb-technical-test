@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { GiArrowDunk, GiBarracksTent, GiLevelEndFlag } from 'react-icons/gi'
+import { GiArrowDunk, GiBarracksTent, GiLevelEndFlag, GiTrophyCup } from 'react-icons/gi'
 
 import { BattleField, sideWithPlaybackHp, useBattlePlayback, type Battle } from '../battle'
 import { spriteUrlFor } from '../map'
@@ -7,7 +7,7 @@ import { LevelBadge, XpBar } from '../progression'
 import { fetchTeams, type Team } from '../teams'
 import { Breadcrumb, readFlag, Toggle, useEscapeToClose, writeFlag } from '../ui'
 import * as api from './api'
-import type { Camp, TrainingSession } from './api'
+import type { Camp, CampsState, TrainingSession } from './api'
 
 /**
  * A training camp.
@@ -107,9 +107,22 @@ function TeamPicker({
  */
 function Band({ camp }: { camp: Camp }) {
 	return (
-		<span className="rounded bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-200">
-			Niveaux {camp.minLevel} – {camp.maxLevel}
-			<span className="text-sky-300/70"> · mène au {camp.ceiling}</span>
+		<span className="flex flex-wrap items-center gap-1">
+			<span className="rounded bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-200">
+				Niveaux {camp.minLevel} – {camp.maxLevel}
+				<span className="text-sky-300/70"> · mène au {camp.ceiling}</span>
+			</span>
+			{camp.badgesRequired > 0 && (
+				<span
+					className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
+						camp.locked ? 'bg-amber-500/15 text-amber-200' : 'bg-emerald-500/15 text-emerald-200'
+					}`}
+					title="Badges d’arène exigés à l’entrée"
+				>
+					<GiTrophyCup className="h-3.5 w-3.5" />
+					{camp.badgesOwned}/{camp.badgesRequired} badges
+				</span>
+			)}
 		</span>
 	)
 }
@@ -161,6 +174,8 @@ function Gains({ session }: { session: TrainingSession }) {
 
 export function TrainingPanel({ campId, onClose }: { campId: string; onClose: () => void }) {
 	const [camps, setCamps] = useState<Camp[] | null>(null)
+	/** Badges held and the level they unlock — the ladder's current ceiling. */
+	const [cap, setCap] = useState<Pick<CampsState, 'badges' | 'levelCap' | 'nextCamp'> | null>(null)
 	const [teams, setTeams] = useState<Team[] | null>(null)
 	/** The team that walks in. Starts on the active one, then the player's pick. */
 	const [teamId, setTeamId] = useState<string | null>(null)
@@ -216,7 +231,11 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 		let cancelled = false
 		api
 			.fetchCamps(teamId ?? undefined)
-			.then(({ camps: found }) => !cancelled && setCamps(found))
+			.then((state) => {
+				if (cancelled) return
+				setCamps(state.camps)
+				setCap(state)
+			})
 			.catch(() => !cancelled && setCamps([]))
 		return () => {
 			cancelled = true
@@ -237,7 +256,13 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 			play(result.battle, reducedMotion)
 			// The team levelled up and took wounds, so both the camp's verdict and
 			// the roster the picker shows have changed.
-			api.fetchCamps(teamId ?? undefined).then(({ camps: found }) => setCamps(found)).catch(() => undefined)
+			api
+				.fetchCamps(teamId ?? undefined)
+				.then((state) => {
+					setCamps(state.camps)
+					setCap(state)
+				})
+				.catch(() => undefined)
 			fetchTeams().then((state) => setTeams(state.teams)).catch(() => undefined)
 		} catch (cause) {
 			setError(cause instanceof api.TrainingError ? cause.message : 'Serveur injoignable')
@@ -316,6 +341,17 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 								</span>
 							</div>
 						)}
+						{/* The ceiling is a property of the account, not of this camp:
+						    it is the same wherever the player trains, and it moves
+						    only when a master falls. */}
+						{cap && (
+							<p className="mt-1 text-xs text-slate-500">
+								Plafond actuel : niveau {cap.levelCap} · {cap.badges} badge
+								{cap.badges > 1 ? 's' : ''} d’arène
+								{cap.nextCamp &&
+									` · ${cap.nextCamp.name} s’ouvre à ${cap.nextCamp.badges} badges`}
+							</p>
+						)}
 					</div>
 					<button
 						type="button"
@@ -372,7 +408,14 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 							))}
 						</ul>
 
-						{!camp.unlocked && (
+						{camp.locked && (
+							<p className="mt-3 flex items-center gap-2 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
+								<GiTrophyCup className="h-5 w-5 shrink-0" />
+								Ce camp demande {camp.badgesRequired} badges d’arène — tu en as {camp.badgesOwned}. Va
+								battre un maître : c’est le badge qui ouvre la tranche de niveaux suivante.
+							</p>
+						)}
+						{!camp.locked && !camp.unlocked && (
 							<p className="mt-3 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
 								Ce camp n’accepte qu’à partir du niveau {camp.minLevel}. Entraîne-toi dans un camp plus bas
 								d’abord.

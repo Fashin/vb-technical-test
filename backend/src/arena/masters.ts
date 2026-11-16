@@ -9,7 +9,9 @@ import type { Appearance } from '../appearance/appearance'
  *
  * Names are invented rather than borrowed from the official games — these are
  * this project's characters, and they each get an `appearance` so the same
- * procedural trainer renderer that draws the players draws them too.
+ * procedural trainer renderer that draws the players draws them too. Each one
+ * wears their own badge as a pin, which is where the player's pin comes from
+ * when they take it off them.
  *
  * Teams are six strong — the same ceiling a player may field — Kanto-only,
  * matching the card pools the boosters draw from, and ordered within a team by
@@ -30,7 +32,22 @@ export interface Master {
 	team: number[]
 	/** Boosters awarded the first time this master is beaten. */
 	reward: number
+	/**
+	 * The badge this master hands over, once, the first time they are beaten.
+	 *
+	 * A badge is not decoration: it is what opens the next training camp, so
+	 * the level a Pokemon can reach is bought in the arena rather than ground
+	 * out in a field. `pin` is its index in the trainer's pin palette — 0 is
+	 * "no pin", so the badges start at 1 and follow the tier order.
+	 */
+	badge: Badge
 	appearance: Appearance
+}
+
+export interface Badge {
+	name: string
+	/** Pin slot on the trainer sprite, 1..10; mirrored in the web app's palette. */
+	pin: number
 }
 
 /**
@@ -55,7 +72,8 @@ export const MASTERS: Master[] = [
 		tier: 1,
 		team: [1, 43, 69, 44, 70, 2],
 		reward: 1,
-		appearance: { skin: 0, hair: 1, hairColor: 7, shirt: 2, trousers: 8, hat: 0, facialHair: 0, build: 1, bottom: 1 },
+		badge: { name: 'Badge Feuille', pin: 1 },
+		appearance: { skin: 0, hair: 1, hairColor: 7, shirt: 2, trousers: 8, hat: 0, facialHair: 0, build: 1, bottom: 1, pin: 1 },
 	},
 	{
 		id: 'cendre',
@@ -66,7 +84,8 @@ export const MASTERS: Master[] = [
 		tier: 2,
 		team: [4, 37, 77, 58, 5, 126],
 		reward: 1,
-		appearance: { skin: 2, hair: 0, hairColor: 0, shirt: 0, trousers: 7, hat: 2, facialHair: 4, build: 0, bottom: 0 },
+		badge: { name: 'Badge Braise', pin: 2 },
+		appearance: { skin: 2, hair: 0, hairColor: 0, shirt: 0, trousers: 7, hat: 2, facialHair: 4, build: 0, bottom: 0, pin: 2 },
 	},
 	{
 		id: 'maree',
@@ -77,7 +96,8 @@ export const MASTERS: Master[] = [
 		tier: 3,
 		team: [7, 54, 61, 117, 8, 119],
 		reward: 1,
-		appearance: { skin: 1, hair: 2, hairColor: 4, shirt: 1, trousers: 7, hat: 1, facialHair: 0, build: 1, bottom: 0 },
+		badge: { name: 'Badge Vague', pin: 3 },
+		appearance: { skin: 1, hair: 2, hairColor: 4, shirt: 1, trousers: 7, hat: 1, facialHair: 0, build: 1, bottom: 0, pin: 3 },
 	},
 	{
 		id: 'volt',
@@ -88,7 +108,8 @@ export const MASTERS: Master[] = [
 		tier: 4,
 		team: [81, 100, 25, 82, 26, 125],
 		reward: 2,
-		appearance: { skin: 5, hair: 3, hairColor: 3, shirt: 3, trousers: 1, hat: 0, facialHair: 1, build: 0, bottom: 0 },
+		badge: { name: 'Badge Éclair', pin: 4 },
+		appearance: { skin: 5, hair: 3, hairColor: 3, shirt: 3, trousers: 1, hat: 0, facialHair: 1, build: 0, bottom: 0, pin: 4 },
 	},
 	{
 		id: 'dedale',
@@ -99,7 +120,8 @@ export const MASTERS: Master[] = [
 		tier: 5,
 		team: [46, 49, 12, 15, 127, 123],
 		reward: 2,
-		appearance: { skin: 3, hair: 0, hairColor: 1, shirt: 9, trousers: 8, hat: 1, facialHair: 2, build: 0, bottom: 0 },
+		badge: { name: 'Badge Carapace', pin: 5 },
+		appearance: { skin: 3, hair: 0, hairColor: 1, shirt: 9, trousers: 8, hat: 1, facialHair: 2, build: 0, bottom: 0, pin: 5 },
 	},
 	{
 		id: 'venin',
@@ -110,7 +132,8 @@ export const MASTERS: Master[] = [
 		tier: 6,
 		team: [42, 24, 110, 71, 34, 89],
 		reward: 2,
-		appearance: { skin: 4, hair: 4, hairColor: 0, shirt: 4, trousers: 7, hat: 0, facialHair: 0, build: 1, bottom: 1 },
+		badge: { name: 'Badge Fiole', pin: 6 },
+		appearance: { skin: 4, hair: 4, hairColor: 0, shirt: 4, trousers: 7, hat: 0, facialHair: 0, build: 1, bottom: 1, pin: 6 },
 	},
 	{
 		id: 'orphee',
@@ -121,7 +144,8 @@ export const MASTERS: Master[] = [
 		tier: 7,
 		team: [64, 103, 122, 80, 97, 65],
 		reward: 2,
-		appearance: { skin: 1, hair: 1, hairColor: 6, shirt: 5, trousers: 4, hat: 2, facialHair: 0, build: 1, bottom: 1 },
+		badge: { name: 'Badge Spirale', pin: 7 },
+		appearance: { skin: 1, hair: 1, hairColor: 6, shirt: 5, trousers: 4, hat: 2, facialHair: 0, build: 1, bottom: 1, pin: 7 },
 	},
 	{
 		id: 'granit',
@@ -132,7 +156,8 @@ export const MASTERS: Master[] = [
 		tier: 8,
 		team: [28, 105, 112, 95, 75, 76],
 		reward: 3,
-		appearance: { skin: 3, hair: 4, hairColor: 4, shirt: 8, trousers: 7, hat: 0, facialHair: 3, build: 0, bottom: 0 },
+		badge: { name: 'Badge Éclat', pin: 8 },
+		appearance: { skin: 3, hair: 4, hairColor: 4, shirt: 8, trousers: 7, hat: 0, facialHair: 3, build: 0, bottom: 0, pin: 8 },
 	},
 	{
 		id: 'fracas',
@@ -143,7 +168,8 @@ export const MASTERS: Master[] = [
 		tier: 9,
 		team: [57, 62, 106, 107, 67, 68],
 		reward: 3,
-		appearance: { skin: 2, hair: 3, hairColor: 0, shirt: 7, trousers: 0, hat: 0, facialHair: 1, build: 0, bottom: 0 },
+		badge: { name: 'Badge Poing', pin: 9 },
+		appearance: { skin: 2, hair: 3, hairColor: 0, shirt: 7, trousers: 0, hat: 0, facialHair: 1, build: 0, bottom: 0, pin: 9 },
 	},
 	{
 		id: 'draconis',
@@ -154,7 +180,8 @@ export const MASTERS: Master[] = [
 		tier: 10,
 		team: [147, 142, 130, 148, 6, 149],
 		reward: 3,
-		appearance: { skin: 0, hair: 1, hairColor: 5, shirt: 6, trousers: 7, hat: 0, facialHair: 3, build: 0, bottom: 0 },
+		badge: { name: 'Badge Croc', pin: 10 },
+		appearance: { skin: 0, hair: 1, hairColor: 5, shirt: 6, trousers: 7, hat: 0, facialHair: 3, build: 0, bottom: 0, pin: 10 },
 	},
 ]
 

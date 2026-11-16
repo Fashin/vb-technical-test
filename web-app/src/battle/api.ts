@@ -128,6 +128,14 @@ export function runBattle(): Promise<{ battle: Battle; degraded: boolean }> {
 	return send<{ battle: Battle; degraded: boolean }>('/arena/battle/run', { method: 'POST' })
 }
 
-export function forfeitBattle(): Promise<void> {
-	return send<void>('/arena/battle', { method: 'DELETE' })
+/**
+ * Give up the running battle; it is recorded as a loss.
+ *
+ * `forfeited` is false when the server had no battle to abandon — the fight
+ * was already resolved, and whatever this client still had on screen was out
+ * of date. The panel uses that to show the real result rather than pretending
+ * something was called off.
+ */
+export function forfeitBattle(): Promise<{ forfeited: boolean }> {
+	return send<{ forfeited: boolean }>('/arena/battle', { method: 'DELETE' })
 }

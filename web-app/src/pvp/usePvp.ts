@@ -2,7 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 
 import type { Battle } from '../battle'
 import type { XpGain } from '../progression'
-import { getSocket, type EncounterKind, type Invitation, type RealtimeError, type TradeState } from '../realtime'
+import {
+	getSocket,
+	type EncounterKind,
+	type Invitation,
+	type RealtimeError,
+	type ServerToClientEvents,
+	type TradeState,
+} from '../realtime'
 
 /**
  * Encounters with other players: one subscription for the whole feature.
@@ -21,20 +28,24 @@ export interface DuelResult {
 	degraded: boolean
 }
 
+/** The `pvp:accepted` payload, kept as the server sends it. */
+type Accepted = Parameters<ServerToClientEvents['pvp:accepted']>[0]
+
 export interface PvpState {
 	/** An invitation waiting for an answer, if any. */
 	invitation: Invitation | null
 	/** Set while an invitation of ours is waiting for an answer. */
 	awaiting: EncounterKind | null
 	/**
-	 * Set once a duel has been accepted and is being written, with the other
-	 * player's name.
+	 * Set once a duel has been accepted and is being written, with everything
+	 * the opening needs: who the other player is, what they look like, and the
+	 * Pokemon each side will lead with.
 	 *
 	 * Distinct from `awaiting` on purpose: "nobody has answered yet" and "it is
 	 * on, the chatbot is writing it" are two different waits, and showing one
 	 * for the other is what made an accepted duel look like a broken one.
 	 */
-	resolving: { opponentName: string } | null
+	resolving: Accepted | null
 	duel: DuelResult | null
 	trade: TradeState | null
 	/** True once a trade has gone through; the panel shows the result. */
@@ -66,7 +77,7 @@ export function usePvp() {
 		const onError = (error: RealtimeError) =>
 			setState((s) => ({ ...s, awaiting: null, resolving: null, error: error.message }))
 
-		const onAccepted = (payload: { opponentName: string }) =>
+		const onAccepted = (payload: Accepted) =>
 			setState((s) => ({ ...s, resolving: payload, awaiting: null, invitation: null, error: null }))
 
 		const onDuel = (duel: DuelResult) =>

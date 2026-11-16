@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { GiScissors } from 'react-icons/gi'
+import { GiScissors, GiTrophyCup } from 'react-icons/gi'
 
+import { fetchMasters, type Master } from '../arena'
 import { Breadcrumb, useEscapeToClose } from '../ui'
 import { useAuth } from '../auth'
 import {
+	PIN_COLORS,
 	BOTTOMS,
 	BUILDS,
 	CLOTH_COLORS,
@@ -79,6 +81,90 @@ function Choices({ label, options, value, onChange }: ChoicesProps) {
 	)
 }
 
+/**
+ * The badge pins, earned ones first.
+ *
+ * Every master is listed, won or not: the locked rows are the point as much as
+ * the unlocked ones — this is where a player finds out that beating Cendre is
+ * what gets them the orange pin. The colour alone never carries it, so each
+ * row is named and the locked ones say so in words.
+ */
+function Pins({
+	masters,
+	value,
+	onChange,
+}: {
+	masters: Master[]
+	value: number
+	onChange: (pin: number) => void
+}) {
+	return (
+		<div>
+			<p className="flex items-center gap-1.5 text-sm text-slate-400">
+				<GiTrophyCup className="h-4 w-4 text-amber-300" />
+				Badge d’arène
+			</p>
+
+			<div className="mt-1 flex flex-wrap gap-1.5">
+				<button
+					type="button"
+					onClick={() => onChange(0)}
+					aria-pressed={value === 0}
+					className={
+						'rounded-md px-2 py-1 text-sm transition ' +
+						(value === 0 ? 'bg-white/20 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10')
+					}
+				>
+					Aucun
+				</button>
+
+				{masters.map((master) => {
+					const locked = !master.defeated
+					return (
+						<button
+							key={master.id}
+							type="button"
+							disabled={locked}
+							onClick={() => onChange(master.badge.pin)}
+							aria-pressed={value === master.badge.pin}
+							title={
+								locked
+									? `${master.badge.name} — à gagner contre ${master.name}`
+									: `${master.badge.name} — ${master.name} vaincu`
+							}
+							className={
+								'flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition disabled:cursor-not-allowed ' +
+								(locked
+									? 'bg-white/5 text-slate-600'
+									: value === master.badge.pin
+										? 'bg-white/20 text-white'
+										: 'bg-white/5 text-slate-300 hover:bg-white/10')
+							}
+						>
+							<span
+								aria-hidden
+								className="h-3 w-3 rounded-full border border-black/40"
+								style={{
+									background: locked ? 'transparent' : PIN_COLORS[master.badge.pin],
+									borderStyle: locked ? 'dashed' : 'solid',
+								}}
+							/>
+							{master.badge.name.replace('Badge ', '')}
+						</button>
+					)
+				})}
+			</div>
+
+			{masters.length > 0 && masters.every((master) => !master.defeated) && (
+				<p className="mt-1 text-xs text-slate-500">
+					Aucun badge pour l’instant — ils se gagnent à l’arène, et chacun ouvre aussi le camp
+					d’entraînement suivant.
+				</p>
+			)}
+		</div>
+	)
+}
+
 interface BarberPanelProps {
 	onClose: () => void
 	/** Called with the saved look so the world can broadcast it. */
@@ -98,10 +184,27 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 	const [draft, setDraft] = useState<Appearance>(() => ({ ...user!.appearance }))
 	const [saving, setSaving] = useState(false)
 	const [error, setError] = useState<string | null>(null)
+	/**
+	 * The arena roster, for the pins. Fetched here rather than passed in: the
+	 * barber is the only screen that needs to know which badges are won, and a
+	 * failed lookup simply leaves the pin list empty rather than breaking the
+	 * haircut.
+	 */
+	const [masters, setMasters] = useState<Master[]>([])
 	const backdrop = useRef<HTMLDivElement>(null)
 
 	useEffect(() => backdrop.current?.focus(), [])
 	useEscapeToClose(onClose)
+
+	useEffect(() => {
+		let cancelled = false
+		fetchMasters()
+			.then(({ masters: found }) => !cancelled && setMasters(found))
+			.catch(() => undefined)
+		return () => {
+			cancelled = true
+		}
+	}, [])
 
 	const dirty = user ? appearanceKey(draft) !== appearanceKey(user.appearance) : false
 	const set = (patch: Partial<Appearance>) => setDraft((current) => ({ ...current, ...patch }))
@@ -201,6 +304,7 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 							value={draft.trousers}
 							onChange={(trousers) => set({ trousers })}
 						/>
+						<Pins masters={masters} value={draft.pin} onChange={(pin) => set({ pin })} />
 					</div>
 				</div>
 

@@ -1,4 +1,4 @@
-import { CLOTH_COLORS, HAIR_COLORS, SKIN_TONES, type Appearance } from './appearance'
+import { CLOTH_COLORS, HAIR_COLORS, PIN_COLORS, SKIN_TONES, type Appearance } from './appearance'
 
 /**
  * Procedural trainer sprite.
@@ -321,6 +321,8 @@ function drawSideFrame(ctx: Ctx, appearance: Appearance, frame: number): void {
 		px(ctx, 5, 10, 6, 5, shirt)
 	}
 	px(ctx, 5, 15, 6, 1, shirtDark)
+	// On the leading edge of the chest, the part of the torso a profile shows.
+	drawPin(ctx, appearance.pin, 8)
 
 	/**
 	 * One leg, planted `offset` pixels along the stride.
@@ -356,6 +358,24 @@ function drawSideFrame(ctx: Ctx, appearance: Appearance, frame: number): void {
 	const armY = gait.arm > 0 ? 10 : 11
 	px(ctx, armX, armY, 2, 4, shirt)
 	px(ctx, armX, armY + 4, 2, 2, skin) // hand
+}
+
+/**
+ * The arena badge, worn on the chest.
+ *
+ * Three pixels of enamel on a sixteen-pixel sprite, which is all there is
+ * room for — but it is bright, it sits on the shirt where a real pin would,
+ * and it is the one thing on the character that has to be earned. Nothing is
+ * drawn from behind: a pin on the chest is not visible from the back, and
+ * faking it there would make the sprite incoherent.
+ */
+function drawPin(ctx: Ctx, pin: number, x: number): void {
+	if (pin <= 0 || pin >= PIN_COLORS.length) return
+	const color = PIN_COLORS[pin]
+
+	px(ctx, x, 11, 2, 2, color)
+	px(ctx, x, 12, 2, 1, shade(color, 0.4)) // the lower half, so it reads as domed
+	px(ctx, x, 13, 2, 1, OUTLINE) // the clasp, which is what makes it a pin
 }
 
 function drawFrame(ctx: Ctx, appearance: Appearance, frame: number, view: View = 'front'): void {
@@ -397,6 +417,9 @@ function drawFrame(ctx: Ctx, appearance: Appearance, frame: number, view: View =
 		px(ctx, 4, 10, 8, 5, shirt)
 	}
 	px(ctx, 4, 15, 8, 1, shirtDark)
+	// Worn on the wearer's left, which is the viewer's right — and never from
+	// behind, where there is no chest to pin it to.
+	if (!back) drawPin(ctx, appearance.pin, 9)
 
 	// Legs. The planted one reaches the ground, the swinging one is cut short:
 	// on a front-facing sprite that is how a raised foot reads.
@@ -463,8 +486,21 @@ export function drawTrainer(appearance: Appearance): HTMLCanvasElement {
 	return canvas
 }
 
-/** Draw a single frame scaled up, for the editor preview. */
-export function drawTrainerPreview(canvas: HTMLCanvasElement, appearance: Appearance, scale: number): void {
+/**
+ * Draw a single frame scaled up, outside the 3D scene.
+ *
+ * The editor preview wants the standing front view; the battle's opening
+ * wants the profile, one stride at a time, so the two trainers can be seen
+ * walking on. Same art either way — the sheet the world renders from is built
+ * from this very function.
+ */
+export function drawTrainerFrame(
+	canvas: HTMLCanvasElement,
+	appearance: Appearance,
+	scale: number,
+	view: View = 'front',
+	frame = 0,
+): void {
 	canvas.width = FRAME_W * scale
 	canvas.height = FRAME_H * scale
 
@@ -475,6 +511,11 @@ export function drawTrainerPreview(canvas: HTMLCanvasElement, appearance: Appear
 	ctx.clearRect(0, 0, canvas.width, canvas.height)
 	ctx.save()
 	ctx.scale(scale, scale)
-	drawFrame(ctx, appearance, 0)
+	drawFrame(ctx, appearance, frame % FRAMES, view)
 	ctx.restore()
+}
+
+/** Draw a single frame scaled up, for the editor preview. */
+export function drawTrainerPreview(canvas: HTMLCanvasElement, appearance: Appearance, scale: number): void {
+	drawTrainerFrame(canvas, appearance, scale)
 }

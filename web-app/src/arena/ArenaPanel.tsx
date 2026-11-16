@@ -5,7 +5,7 @@ import { BattleView } from '../battle'
 import { spriteUrlFor } from '../map'
 import { LevelBadge } from '../progression'
 import { fetchTeams, type Team } from '../teams'
-import { TrainerPortrait } from '../trainer'
+import { PIN_COLORS, TrainerPortrait } from '../trainer'
 import { Breadcrumb, useEscapeToClose } from '../ui'
 import { ArenaError, fetchMasters, type Master } from './api'
 import { typeStyle } from '../pokemon'
@@ -86,8 +86,33 @@ function MasterCard({
 					</ul>
 
 					<div className="flex shrink-0 items-center gap-2">
-						<span className="text-xs text-amber-300">
-							{master.reward} booster{master.reward > 1 ? 's' : ''}
+						{/* What the first win pays: packs, and the badge that moves the
+						    level ceiling. The badge is the part worth naming — it is
+						    what opens the next training camp. */}
+						<span className="flex flex-col items-end text-xs">
+							<span className="text-amber-300">
+								{master.reward} booster{master.reward > 1 ? 's' : ''}
+							</span>
+							<span
+								className={`flex items-center gap-1 ${
+									master.defeated ? 'text-emerald-300' : 'text-slate-400'
+								}`}
+								title={
+									master.defeated
+										? `${master.badge.name} obtenu — épinglable chez le coiffeur`
+										: `${master.badge.name} : ouvre le camp d’entraînement suivant`
+								}
+							>
+								<span
+									aria-hidden
+									className="h-2.5 w-2.5 rounded-full border border-black/40"
+									style={{
+										background: master.defeated ? PIN_COLORS[master.badge.pin] : 'transparent',
+										borderStyle: master.defeated ? 'solid' : 'dashed',
+									}}
+								/>
+								{master.badge.name}
+							</span>
 						</span>
 						<button
 							type="button"
