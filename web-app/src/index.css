@@ -5,7 +5,18 @@
 html,
 body,
 #root {
+	/*
+	 * The game fills the window — the *visible* window.
+	 *
+	 * On a phone `100vh`, and a percentage resolved against it, measure the
+	 * viewport as it is with the browser's address bar hidden. The page never
+	 * scrolls, so that bar never hides, and the bottom of the layout ends up
+	 * underneath it: the joystick and the menu button live down there, and
+	 * both fell off the screen. `dvh` is the unit that follows the bar. The
+	 * `%` line stays as the fallback for browsers that do not know it.
+	 */
 	height: 100%;
+	height: 100dvh;
 	margin: 0;
 	overflow: hidden;
 }

@@ -34,8 +34,22 @@ const SORTS: { mode: SortMode; label: string }[] = [
  *
  * Searching and filtering happen on the client: the whole collection is already
  * in memory, so a round trip per keystroke would buy nothing.
+ *
+ * `trainer` points it at somebody else's cards — what you get from the player
+ * standing next to you, beside the duel and the trade. Nothing is disabled for
+ * that case because nothing in here was ever an action: the panel browses and
+ * opens a Pokedex sheet, and both are as true of a stranger's collection as of
+ * your own. Only the wording moves, so it is never in doubt whose cards these
+ * are.
  */
-export function CollectionPanel({ onClose }: { onClose: () => void }) {
+export function CollectionPanel({
+	trainer,
+	onClose,
+}: {
+	/** Whose collection to show. Omitted for our own. */
+	trainer?: { userId: string; name: string }
+	onClose: () => void
+}) {
 	const {
 		loading,
 		error,
@@ -52,7 +66,7 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 		setSearch,
 		typeFilter,
 		setTypeFilter,
-	} = useCollection()
+	} = useCollection(trainer?.userId)
 
 	/** Which Pokémon the detail sheet is open on, if any. */
 	const [detailId, setDetailId] = useState<number | null>(null)
@@ -62,6 +76,7 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 	useEscapeToClose(onClose)
 
 	const filtering = search.trim() !== '' || rarityFilter !== null || typeFilter !== null
+	const title = trainer ? `Collection de ${trainer.name}` : 'Ma collection'
 
 	return (
 		<div
@@ -78,15 +93,15 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 		>
 			<section
 				role="dialog"
-				aria-label="Ma collection"
-				className="flex h-full max-h-[96vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141c17] text-slate-100 shadow-2xl"
+				aria-label={title}
+				className="flex h-full max-h-[96dvh] w-full max-w-[1500px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141c17] text-slate-100 shadow-2xl"
 			>
 				<header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-white/10 px-4 py-3">
 					<div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
 						<Breadcrumb
 							trail={[
 								{ label: 'Carte', onClick: onClose },
-								{ label: 'Ma collection' },
+								{ label: title },
 							]}
 							icon={GiCardRandom}
 							tone="text-emerald-300"
@@ -119,7 +134,7 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 					{/* Stacked on a phone, the filters are capped at a share of the
 					    screen and scroll on their own, so the cards are never pushed
 					    entirely below the fold. */}
-					<aside className="max-h-[45vh] shrink-0 space-y-4 overflow-y-auto border-b border-white/10 p-4 lg:max-h-none lg:w-72 lg:border-b-0 lg:border-r">
+					<aside className="max-h-[45dvh] shrink-0 space-y-4 overflow-y-auto border-b border-white/10 p-4 lg:max-h-none lg:w-72 lg:border-b-0 lg:border-r">
 						<div className="relative">
 							<FiSearch
 								aria-hidden
@@ -171,7 +186,9 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 						<div className="min-h-0 flex-1 overflow-y-auto p-4">
 							{loading ? null : total === 0 ? (
 								<p className="py-8 text-center text-base text-slate-500">
-									Aucune carte pour l’instant — ouvre un booster pour commencer.
+									{trainer
+										? `${trainer.name} n’a encore aucune carte.`
+										: 'Aucune carte pour l’instant — ouvre un booster pour commencer.'}
 								</p>
 							) : entries.length === 0 ? (
 								<p className="py-8 text-center text-base text-slate-500">
@@ -219,7 +236,9 @@ export function CollectionPanel({ onClose }: { onClose: () => void }) {
 				</div>
 			</section>
 
-			{detailId !== null && <PokemonDetail pokedexId={detailId} onClose={() => setDetailId(null)} />}
+			{detailId !== null && (
+				<PokemonDetail pokedexId={detailId} from={title} onClose={() => setDetailId(null)} />
+			)}
 		</div>
 	)
 }

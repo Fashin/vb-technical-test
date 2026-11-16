@@ -131,7 +131,7 @@ export function RankingPanel({ onClose }: { onClose: () => void }) {
 			<section
 				role="dialog"
 				aria-label="Classement des dresseurs"
-				className="flex max-h-[88vh] w-full max-w-4xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="flex max-h-[88dvh] w-full max-w-4xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-start justify-between gap-3">
 					<div>

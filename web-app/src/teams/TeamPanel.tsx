@@ -193,7 +193,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 			<section
 				role="dialog"
 				aria-label="Mon équipe"
-				className="flex h-full max-h-[96vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141c17] text-slate-100 shadow-2xl"
+				className="flex h-full max-h-[96dvh] w-full max-w-[1500px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141c17] text-slate-100 shadow-2xl"
 			>
 				<header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-white/10 px-4 py-3">
 					<div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
@@ -228,7 +228,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 
 				<div className="flex min-h-0 flex-1 flex-col lg:flex-row">
 					{/* Left: the teams themselves. */}
-					<aside className="flex max-h-[30vh] shrink-0 flex-col border-b border-white/10 p-4 lg:max-h-none lg:w-56 lg:border-b-0 lg:border-r">
+					<aside className="flex max-h-[30dvh] shrink-0 flex-col border-b border-white/10 p-4 lg:max-h-none lg:w-56 lg:border-b-0 lg:border-r">
 						<p className="text-sm font-semibold uppercase tracking-wide text-slate-400">Équipes</p>
 
 						<ul className="mt-2 flex-1 space-y-1 overflow-y-auto">

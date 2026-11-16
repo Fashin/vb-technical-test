@@ -209,7 +209,7 @@ export function ArenaPanel({
 			<section
 				role="dialog"
 				aria-label="Arène"
-				className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="flex max-h-[85dvh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-center justify-between">
 					<Breadcrumb

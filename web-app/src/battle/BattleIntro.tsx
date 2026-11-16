@@ -65,6 +65,43 @@ function pick(lines: readonly string[]): string {
 }
 
 /**
+ * Whether the stage has room for its full-size layout.
+ *
+ * The stage is laid out in pixels — a trainer, a throwing hand and a Pokemon
+ * at fixed offsets from the edge, with the ball's arc cut to match — because
+ * the ball's keyframe cannot be expressed as a fraction of a parent it does
+ * not fill. On a phone those offsets put the two Pokemon on top of each other
+ * in the middle, so below Tailwind's `sm` everything shrinks: the offsets and
+ * the Pokemon through `--intro-reach` and the `sm:` classes, the trainer
+ * through this, since its size is a number the canvas is drawn at rather than
+ * a style.
+ */
+const WIDE = '(min-width: 640px)'
+
+function useWideStage(): boolean {
+	const [wide, setWide] = useState(
+		() => typeof window !== 'undefined' && (window.matchMedia?.(WIDE).matches ?? true),
+	)
+
+	useEffect(() => {
+		if (!window.matchMedia) return
+		const list = window.matchMedia(WIDE)
+		const update = () => setWide(list.matches)
+
+		update()
+		// `addEventListener` on a MediaQueryList is unsupported on Safari < 14.
+		if (list.addEventListener) {
+			list.addEventListener('change', update)
+			return () => list.removeEventListener('change', update)
+		}
+		list.addListener(update)
+		return () => list.removeListener(update)
+	}, [])
+
+	return wide
+}
+
+/**
  * The beats, in order. `standoff` is not one of them: it is what follows the
  * last, and it has no end — the server decides when it stops.
  */
@@ -128,6 +165,7 @@ function IntroSide({
 	frame,
 	released,
 	flip,
+	wide,
 	rails,
 }: {
 	trainer: IntroTrainer
@@ -135,6 +173,8 @@ function IntroSide({
 	frame: number
 	released: boolean
 	flip: boolean
+	/** See `useWideStage`: the trainer's size is a number, not a class. */
+	wide: boolean
 	/** Vertical placement of the trainer, the throwing hand, and the Pokemon. */
 	rails: { trainer: string; hand: string; pokemon: string }
 }) {
@@ -149,7 +189,7 @@ function IntroSide({
 				<div className={`absolute left-[14px] ${rails.trainer} ${walk}`}>
 					<TrainerPortrait
 						appearance={trainer.appearance}
-						scale={4}
+						scale={wide ? 4 : 3}
 						view="side"
 						frame={frame}
 						label={trainer.name}
@@ -160,17 +200,17 @@ function IntroSide({
 			{trainer.lead !== null && (
 				<>
 					{phase === 'throw' && !released && (
-						<div className={`absolute left-[48px] ${rails.hand} animate-intro-ball`}>
+						<div className={`absolute left-[32px] sm:left-[48px] ${rails.hand} animate-intro-ball`}>
 							<Pokeball />
 						</div>
 					)}
 
 					{(released || phase === 'standoff') && (
-						<div className={`absolute left-[122px] ${rails.pokemon} h-24 w-24`}>
+						<div className={`absolute left-[var(--intro-reach)] ${rails.pokemon} h-16 w-16 sm:h-24 sm:w-24`}>
 							{phase === 'throw' && (
 								<span
 									aria-hidden
-									className="absolute left-0 top-0 block h-24 w-24 animate-pack-burst rounded-full"
+									className="absolute left-0 top-0 block h-16 w-16 animate-pack-burst rounded-full sm:h-24 sm:w-24"
 									style={{
 										background:
 											'radial-gradient(circle, #ffffff 0%, #fde68a 35%, rgba(253,230,138,0.35) 55%, transparent 72%)',
@@ -185,7 +225,7 @@ function IntroSide({
 									key={phase}
 									src={spriteUrlFor(trainer.lead)}
 									alt=""
-									className={`h-24 w-24 [image-rendering:pixelated] ${
+									className={`h-16 w-16 [image-rendering:pixelated] sm:h-24 sm:w-24 ${
 										phase === 'throw' ? 'animate-intro-pop' : 'animate-intro-bob'
 									}`}
 								/>
@@ -207,7 +247,7 @@ function Bubble({ text, tone, className }: { text: string; tone: 'player' | 'opp
 
 	return (
 		<p
-			className={`absolute max-w-[58%] animate-intro-say rounded-xl border px-3 py-2 text-base font-medium shadow-lg ${colors} ${className}`}
+			className={`absolute max-w-[66%] animate-intro-say sm:max-w-[58%] rounded-xl border px-3 py-2 text-base font-medium shadow-lg ${colors} ${className}`}
 		>
 			«&nbsp;{text}&nbsp;»
 		</p>
@@ -230,6 +270,7 @@ export function BattleIntro({
 	// Drawn once per battle so a re-render does not change what was said.
 	const [lines] = useState(() => ({ player: pick(PLAYER_LINES), opponent: pick(OPPONENT_LINES) }))
 	const told = useRef(false)
+	const wide = useWideStage()
 
 	const phase: Phase = step < BEATS.length ? BEATS[step].name : 'standoff'
 
@@ -284,14 +325,19 @@ export function BattleIntro({
 				<span className="truncate text-right font-semibold text-emerald-300">{player.name}</span>
 			</div>
 
-			<div className="relative h-64 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-b from-emerald-950/40 to-black/40">
+			{/* `--intro-reach` is how far forward a side's Pokemon stands, and how
+			    far its ball flies to get there — one number, so the two can never
+			    drift apart. Each `hand` rail sits at its Pokemon's centre height
+			    for the same reason. */}
+			<div className="relative h-52 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-b from-emerald-950/40 to-black/40 [--intro-reach:72px] sm:h-64 sm:[--intro-reach:122px]">
 				<IntroSide
 					trainer={opponent}
 					phase={phase}
 					frame={frame}
 					released={released}
 					flip
-					rails={{ trainer: 'top-[18px]', hand: 'top-[80px]', pokemon: 'top-[32px]' }}
+					wide={wide}
+					rails={{ trainer: 'top-[18px]', hand: 'top-[64px] sm:top-[80px]', pokemon: 'top-[32px]' }}
 				/>
 				<IntroSide
 					trainer={player}
@@ -299,15 +345,20 @@ export function BattleIntro({
 					frame={frame}
 					released={released}
 					flip={false}
-					rails={{ trainer: 'bottom-[26px]', hand: 'bottom-[52px]', pokemon: 'bottom-[4px]' }}
+					wide={wide}
+					rails={{
+						trainer: 'bottom-[26px]',
+						hand: 'bottom-[36px] sm:bottom-[52px]',
+						pokemon: 'bottom-[4px]',
+					}}
 				/>
 
 				{/* Speech, above both halves so the mirror never reaches the text. */}
 				{phase === 'opponent' && (
-					<Bubble text={lines.opponent} tone="opponent" className="right-[108px] top-[14px] text-right" />
+					<Bubble text={lines.opponent} tone="opponent" className="right-[84px] top-[14px] text-right sm:right-[108px]" />
 				)}
 				{phase === 'player' && (
-					<Bubble text={lines.player} tone="player" className="bottom-[22px] left-[108px]" />
+					<Bubble text={lines.player} tone="player" className="bottom-[22px] left-[84px] sm:left-[108px]" />
 				)}
 			</div>
 

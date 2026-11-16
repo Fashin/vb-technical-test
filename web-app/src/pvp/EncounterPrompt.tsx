@@ -1,4 +1,4 @@
-import { GiCrossedSwords, GiTrade } from 'react-icons/gi'
+import { GiCardRandom, GiCrossedSwords, GiTrade } from 'react-icons/gi'
 
 import type { EncounterKind, Invitation, WorldPlayerState } from '../realtime'
 
@@ -22,12 +22,23 @@ export function NeighbourPrompt({
 	neighbour,
 	busy,
 	onInvite,
+	onBrowse,
 	compact = false,
 }: {
 	neighbour: WorldPlayerState
 	/** Set while an invitation of ours is waiting for an answer. */
 	busy: EncounterKind | null
 	onInvite: (kind: EncounterKind) => void
+	/**
+	 * Open this trainer's collection.
+	 *
+	 * Not an `onInvite` kind, because it is not an encounter: a duel and a
+	 * trade both need the other player to agree and both change what the two
+	 * of them own, while this only reads. So it opens at once, and it stays
+	 * available while an invitation of ours is pending — there is nothing for
+	 * it to interfere with.
+	 */
+	onBrowse: () => void
 	/** Touch layout: sit above the joystick rather than behind it. */
 	compact?: boolean
 }) {
@@ -59,6 +70,15 @@ export function NeighbourPrompt({
 			>
 				<GiTrade className="h-4 w-4" />
 				Échanger
+			</button>
+
+			<button
+				type="button"
+				onClick={onBrowse}
+				className="flex items-center gap-1 rounded bg-emerald-500 px-3 py-1 text-sm font-medium text-emerald-950 hover:bg-emerald-400"
+			>
+				<GiCardRandom className="h-4 w-4" />
+				Collection
 			</button>
 		</div>
 	)

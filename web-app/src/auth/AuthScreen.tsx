@@ -29,7 +29,7 @@ export function AuthScreen() {
 	}
 
 	return (
-		<div className="flex h-screen w-screen items-center justify-center bg-[#121a12] p-4 text-slate-100">
+		<div className="flex h-full w-full items-center justify-center bg-[#121a12] p-4 text-slate-100">
 			<form
 				onSubmit={submit}
 				className="w-full max-w-md rounded-xl border border-white/10 bg-black/30 p-6 shadow-2xl"

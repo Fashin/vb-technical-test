@@ -124,6 +124,15 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 	const [campId, setCampId] = useState<string | null>(null)
 	const [atCenter, setAtCenter] = useState(false)
 	/**
+	 * The trainer whose collection is open, if any.
+	 *
+	 * Kept apart from `panel`, which is the HUD's own menu: this one is opened
+	 * from the neighbour prompt and carries who it is about. Copied rather than
+	 * held by reference, so the panel does not close itself when that player
+	 * walks out of range mid-read.
+	 */
+	const [browsing, setBrowsing] = useState<{ userId: string; name: string } | null>(null)
+	/**
 	 * The camps' level bands, painted over their huts by `CampSigns`.
 	 *
 	 * Asked for once the world is up, and again every time a camp is left: a
@@ -154,6 +163,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 		pvp.duel && 'duel',
 		pvp.trade && 'trade',
 		pvp.invitation && 'invitation',
+		browsing && 'collection',
 	]
 		.filter(Boolean)
 		.join(',')
@@ -369,6 +379,8 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 			>
 				{panel === 'booster' && <BoosterPanel boosters={boosters} onClose={() => setPanel(null)} />}
 				{panel === 'collection' && <CollectionPanel onClose={() => setPanel(null)} />}
+				{/* Somebody else's, opened from the prompt rather than from the HUD. */}
+				{browsing && <CollectionPanel trainer={browsing} onClose={() => setBrowsing(null)} />}
 				{panel === 'barber' && <BarberPanel onClose={() => setPanel(null)} onSaved={(appearance) => announceProfile({ appearance })} />}
 				{panel === 'team' && <TeamPanel onClose={() => setPanel(null)} />}
 				{panel === 'arena' && <ArenaPanel onClose={() => setPanel(null)} onRewarded={boosters.refresh} />}
@@ -393,6 +405,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 							neighbour={neighbour}
 							busy={pvp.awaiting}
 							onInvite={(kind) => pvp.invite(neighbour.userId, kind)}
+							onBrowse={() => setBrowsing({ userId: neighbour.userId, name: neighbour.name })}
 							compact={compact}
 						/>
 					)

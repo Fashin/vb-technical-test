@@ -112,7 +112,16 @@ function Matchups({ resistances }: { resistances: api.Resistance[] }) {
 	)
 }
 
-export function PokemonDetail({ pokedexId, onClose }: { pokedexId: number; onClose: () => void }) {
+export function PokemonDetail({
+	pokedexId,
+	from = 'Ma collection',
+	onClose,
+}: {
+	pokedexId: number
+	/** The collection this sheet was opened from, named in the trail. */
+	from?: string
+	onClose: () => void
+}) {
 	const [pokemon, setPokemon] = useState<Detail | null>(null)
 	const [error, setError] = useState<string | null>(null)
 
@@ -146,7 +155,7 @@ export function PokemonDetail({ pokedexId, onClose }: { pokedexId: number; onClo
 			<section
 				role="dialog"
 				aria-label={pokemon ? `Fiche de ${pokemon.name}` : 'Fiche Pokémon'}
-				className="flex max-h-[88vh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="flex max-h-[88dvh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
 				<header className="flex items-start justify-between gap-3">
 					<div className="flex items-center gap-3">
@@ -160,7 +169,7 @@ export function PokemonDetail({ pokedexId, onClose }: { pokedexId: number; onClo
 							    the level the trail offers — not the map behind it. */}
 							<Breadcrumb
 								trail={[
-									{ label: 'Ma collection', onClick: onClose },
+									{ label: from, onClick: onClose },
 									{ label: pokemon?.name ?? '…' },
 								]}
 								icon={GiCardRandom}

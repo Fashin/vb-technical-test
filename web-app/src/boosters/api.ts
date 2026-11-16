@@ -72,3 +72,14 @@ export function openBooster(): Promise<{ cards: Card[]; state: BoosterState }> {
 export function fetchCards(): Promise<{ cards: Card[] }> {
 	return send<{ cards: Card[] }>('/boosters/cards')
 }
+
+/**
+ * Another trainer's collection, read-only.
+ *
+ * Same card shape as our own, so the collection panel can browse either one
+ * without knowing whose it is. Mirrored from
+ * `backend/src/controllers/TrainerController.ts`.
+ */
+export function fetchTrainerCards(userId: string): Promise<{ cards: Card[] }> {
+	return send<{ cards: Card[] }>(`/trainers/${encodeURIComponent(userId)}/collection`)
+}

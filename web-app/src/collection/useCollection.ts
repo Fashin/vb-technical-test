@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { BoosterError, fetchCards, type Card, type Rarity } from '../boosters/api'
+import { BoosterError, fetchCards, fetchTrainerCards, type Card, type Rarity } from '../boosters/api'
 import { RARITY } from '../boosters/rarity'
 
 /** One pokemon the player owns, with however many copies they have of it. */
@@ -65,13 +65,18 @@ export interface CollectionValue {
 }
 
 /**
- * The player's cards, grouped by pokemon.
+ * A trainer's cards, grouped by pokemon.
  *
  * Duplicates are the normal case in a pack-opening game, so the raw list is
  * folded into one tile per pokemon with a count — a hundred identical Rattata
  * tiles would tell the player nothing.
+ *
+ * `userId` browses somebody else's collection instead of our own. Everything
+ * past the fetch is identical, which is the point: grouping, filtering and
+ * sorting are about a collection, not about whose it is, and the panel that
+ * reads this offers no action either way.
  */
-export function useCollection(): CollectionValue {
+export function useCollection(userId?: string): CollectionValue {
 	const [cards, setCards] = useState<Card[] | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [reloads, setReloads] = useState(0)
@@ -84,7 +89,12 @@ export function useCollection(): CollectionValue {
 		let cancelled = false
 		setError(null)
 
-		fetchCards()
+		// Null again first: without this, switching from one trainer to another
+		// would show the previous one's cards until the new list landed.
+		setCards(null)
+
+		const asked = userId ? fetchTrainerCards(userId) : fetchCards()
+		asked
 			.then(({ cards: found }) => {
 				if (!cancelled) setCards(found)
 			})
@@ -97,7 +107,7 @@ export function useCollection(): CollectionValue {
 		return () => {
 			cancelled = true
 		}
-	}, [reloads])
+	}, [reloads, userId])
 
 	const grouped = useMemo<CollectionEntry[]>(() => {
 		if (!cards) return []

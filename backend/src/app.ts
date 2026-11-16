@@ -9,6 +9,7 @@ import { AuthController } from './controllers/AuthController'
 import { ArenaController } from './controllers/ArenaController'
 import { BoosterController } from './controllers/BoosterController'
 import { TeamController } from './controllers/TeamController'
+import { TrainerController } from './controllers/TrainerController'
 import { TrainingController } from './controllers/TrainingController'
 import { CareController } from './controllers/CareController'
 import { RankingController } from './controllers/RankingController'
@@ -59,6 +60,7 @@ app.use('/auth', AuthController)
 app.use('/boosters', BoosterController)
 app.use('/arena', ArenaController)
 app.use('/teams', TeamController)
+app.use('/trainers', TrainerController)
 app.use('/training', TrainingController)
 app.use('/care', CareController)
 app.use('/ranking', RankingController)

@@ -6,7 +6,7 @@ function Game() {
 
 	if (status === 'checking') {
 		return (
-			<div className="flex h-screen w-screen items-center justify-center bg-[#121a12] text-base text-slate-300">
+			<div className="flex h-full w-full items-center justify-center bg-[#121a12] text-base text-slate-300">
 				Reconnexion…
 			</div>
 		)
@@ -15,7 +15,7 @@ function Game() {
 	if (status === 'anonymous') return <AuthScreen />
 
 	return (
-		<div className="h-screen w-screen overflow-hidden">
+		<div className="h-full w-full overflow-hidden">
 			<MapScene />
 		</div>
 	)

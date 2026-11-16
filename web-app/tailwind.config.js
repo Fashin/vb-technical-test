@@ -114,12 +114,22 @@ export default {
           '60%': { transform: 'translate(5px, 1px) rotate(7deg)' },
           '100%': { transform: 'translate(0, 0) rotate(0deg)' },
         },
-        /* The ball's arc, from the trainer's hand to its side of the field. */
+        /* The ball's arc, from the trainer's hand to its side of the field.
+
+           `--intro-reach` is set on the stage and is the same distance the
+           Pokemon stands at, so the ball always opens where its Pokemon comes
+           out — on a phone, where that distance shrinks, included. */
         introBall: {
           '0%': { opacity: '0', transform: 'translate(0, 0) scale(0.5) rotate(0deg)' },
           '10%': { opacity: '1' },
-          '55%': { transform: 'translate(62px, -58px) scale(1) rotate(400deg)' },
-          '100%': { opacity: '1', transform: 'translate(122px, 6px) scale(1) rotate(800deg)' },
+          '55%': {
+            transform:
+              'translate(calc(var(--intro-reach, 122px) * 0.5), -52px) scale(1) rotate(400deg)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translate(var(--intro-reach, 122px), 0) scale(1) rotate(800deg)',
+          },
         },
         /* The Pokemon coming out of it. */
         introPop: {
