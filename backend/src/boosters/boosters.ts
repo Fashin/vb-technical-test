@@ -36,8 +36,15 @@ export interface BoosterState {
 	max: number
 	intervalMs: number
 	cardsPerBooster: number
-	/** When the next pack lands, or null when the stock is already full. */
-	nextAt: number | null
+	/**
+	 * Delay until the next pack, or null when the stock is already full.
+	 *
+	 * Relative on purpose, never an absolute timestamp: the client would have
+	 * to compare it against its own clock, and a browser whose clock is ahead
+	 * of this server by more than one interval would see every countdown as
+	 * already expired.
+	 */
+	nextInMs: number | null
 	/**
 	 * Packs minted from recycled duplicates, best luck first — a stock of their
 	 * own, deliberately outside `max`: these were paid for with cards, so there
@@ -106,7 +113,7 @@ export function accrue(user: UserRow): BoosterState {
 			max: MAX_PENDING,
 			intervalMs: BOOSTER_INTERVAL_MS,
 			cardsPerBooster: CARDS_PER_BOOSTER,
-			nextAt: null,
+			nextInMs: null,
 			...fromDuplicates,
 		}
 	}
@@ -116,7 +123,7 @@ export function accrue(user: UserRow): BoosterState {
 		max: MAX_PENDING,
 		intervalMs: BOOSTER_INTERVAL_MS,
 		cardsPerBooster: CARDS_PER_BOOSTER,
-		nextAt: nextSince + BOOSTER_INTERVAL_MS,
+		nextInMs: nextSince + BOOSTER_INTERVAL_MS - now,
 		...fromDuplicates,
 	}
 }

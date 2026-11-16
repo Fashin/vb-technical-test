@@ -38,8 +38,8 @@ export interface BoosterState {
 	max: number
 	intervalMs: number
 	cardsPerBooster: number
-	/** When the next pack lands, or null when the stock is already full. */
-	nextAt: number | null
+	/** Delay until the next pack, or null when the stock is already full. */
+	nextInMs: number | null
 	/** Packs bought with recycled duplicates, best luck first. */
 	lucky: LuckyStock[]
 	/** Recycling shards not yet worth a whole pack. */

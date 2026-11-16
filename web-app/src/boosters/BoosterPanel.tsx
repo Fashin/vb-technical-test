@@ -166,19 +166,19 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 							<p className="mt-0.5 text-3xl font-semibold tabular-nums">
 								{state === null
 									? '—'
-									: state.nextAt === null
+									: state.nextInMs === null
 										? 'Stock plein'
 										: remainingMs === null
 											? '—'
 											: formatCountdown(remainingMs)}
 							</p>
-							{state && state.nextAt !== null && (
+							{state && state.nextInMs !== null && (
 								<p className="mt-1 text-sm text-slate-500">
 									Un booster toutes les {Math.round(state.intervalMs / 60000)} min, {state.max} en réserve au
 									maximum.
 								</p>
 							)}
-							{state && state.nextAt === null && (
+							{state && state.nextInMs === null && (
 								<p className="mt-1 text-sm text-slate-500">
 									La réserve est pleine : ouvre un booster pour relancer le compteur.
 								</p>

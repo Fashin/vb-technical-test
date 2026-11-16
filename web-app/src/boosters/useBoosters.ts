@@ -34,12 +34,16 @@ export interface BoostersValue {
 	refresh: () => void
 }
 
+/** Floor between two countdown-driven refetches, whatever the server says. */
+const REFRESH_COOLDOWN_MS = 5000
+
 /**
  * Booster stock and countdown.
  *
- * The server owns the clock: this hook only renders the gap between now and
- * the `nextAt` it was given, and asks again when that gap closes. Nothing here
- * decides when a pack is earned.
+ * The server owns the clock: it says how long is left, this hook counts that
+ * delay down against the local clock and asks again when it closes. Nothing
+ * here decides when a pack is earned, and nothing compares a server timestamp
+ * to a browser one — see `nextInMs` in `api.ts`.
  */
 export function useBoosters(enabled: boolean): BoostersValue {
 	const [state, setState] = useState<BoosterState | null>(null)
@@ -53,44 +57,83 @@ export function useBoosters(enabled: boolean): BoostersValue {
 	// response cannot queue a second one every tick.
 	const refreshing = useRef(false)
 
-	const refresh = useCallback(async () => {
-		if (refreshing.current) return
-		refreshing.current = true
-		try {
-			const { state: next } = await api.fetchState()
-			setState(next)
-			setError(null)
-		} catch (cause) {
-			setError(cause instanceof api.BoosterError ? cause.message : 'Serveur injoignable')
-		} finally {
-			refreshing.current = false
-		}
+	/**
+	 * When the next pack is due, on this browser's clock.
+	 *
+	 * Set from the delay the server reports, at the moment the answer lands, so
+	 * a machine whose clock disagrees with the server's still counts down the
+	 * right number of seconds. A ref rather than state: the countdown reads it
+	 * without the effect having to restart on every refresh.
+	 */
+	const dueAt = useRef<number | null>(null)
+
+	const lastRefreshAt = useRef(0)
+
+	const applyState = useCallback((next: BoosterState) => {
+		dueAt.current = next.nextInMs === null ? null : Date.now() + next.nextInMs
+		setState(next)
 	}, [])
+
+	/**
+	 * `due` marks the automatic refetch the countdown fires on its own. It is
+	 * rate-limited, because it is the one call nobody asked for: a server that
+	 * reported a delay of zero would otherwise have this hook asking again on
+	 * every tick, for as long as the panel stays open. A refresh triggered by
+	 * the player, or by an arena win paying out, is never delayed.
+	 */
+	const refresh = useCallback(
+		async (due = false) => {
+			if (refreshing.current) return
+			if (due && Date.now() - lastRefreshAt.current < REFRESH_COOLDOWN_MS) return
+			refreshing.current = true
+			lastRefreshAt.current = Date.now()
+			try {
+				const { state: next } = await api.fetchState()
+				applyState(next)
+				setError(null)
+			} catch (cause) {
+				setError(cause instanceof api.BoosterError ? cause.message : 'Serveur injoignable')
+			} finally {
+				refreshing.current = false
+			}
+		},
+		[applyState],
+	)
 
 	useEffect(() => {
 		if (!enabled) return
 		void refresh()
 	}, [enabled, refresh])
 
-	useEffect(() => {
-		if (!enabled || !state) return
+	/**
+	 * `waiting` is a boolean, not the state object, and that is the point: the
+	 * countdown restarts only when the stock goes from filling to full or back,
+	 * not on every answer the server sends. Depending on `state` here meant
+	 * each refresh remounted the interval and ticked it immediately, so a
+	 * countdown that read as expired re-fetched as fast as the network allowed
+	 * instead of once a second.
+	 */
+	const waiting = state !== null && state.nextInMs !== null
 
-		if (state.nextAt === null) {
+	useEffect(() => {
+		if (!enabled) return
+
+		if (!waiting) {
 			setRemainingMs(null)
 			return
 		}
 
 		const tick = () => {
-			const left = state.nextAt! - Date.now()
+			const left = (dueAt.current ?? 0) - Date.now()
 			setRemainingMs(Math.max(0, left))
 			// The pack is due: let the server confirm it rather than assume it.
-			if (left <= 0) void refresh()
+			if (left <= 0) void refresh(true)
 		}
 
 		tick()
 		const timer = setInterval(tick, 1000)
 		return () => clearInterval(timer)
-	}, [enabled, state, refresh])
+	}, [enabled, waiting, refresh])
 
 	/**
 	 * One opener for both stocks.
@@ -108,7 +151,9 @@ export function useBoosters(enabled: boolean): BoostersValue {
 				const result = await ask()
 				setCards(result.cards)
 				setOpenedLuck(result.luck)
-				setState(result.state)
+				// Through `applyState`, not `setState`: spending a pack restarts the
+				// countdown, and the deadline has to move with it.
+				applyState(result.state)
 			} catch (cause) {
 				setError(cause instanceof api.BoosterError ? cause.message : 'Serveur injoignable')
 				// A refused open usually means our stock was stale.
@@ -117,7 +162,7 @@ export function useBoosters(enabled: boolean): BoostersValue {
 				setOpening(false)
 			}
 		},
-		[refresh],
+		[refresh, applyState],
 	)
 
 	const open = useCallback(() => spend(api.openBooster), [spend])
