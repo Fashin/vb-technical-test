@@ -16,11 +16,17 @@ import { pickFrom, rollRarity, type Rarity } from './rarity'
  * cron, and nothing to replay after a restart.
  */
 
-/** One pack every quarter hour, overridable for demos. */
-export const BOOSTER_INTERVAL_MS = Number(process.env.BOOSTER_INTERVAL_MS) || 15 * 60 * 1000
+/** One pack every ten minutes, overridable for demos. */
+export const BOOSTER_INTERVAL_MS = Number(process.env.BOOSTER_INTERVAL_MS) || 10 * 60 * 1000
 
-/** Accrual stops here, so a month offline does not hand out a hundred packs. */
-export const MAX_PENDING = 5
+/**
+ * Accrual stops here, so a month offline does not hand out a hundred packs.
+ *
+ * The arena's reward caps against this same number — see `creditVictory` in
+ * `battle/battles.ts`. Raising it in one place and not the other would let a
+ * win either overflow the ceiling or be quietly clipped below it.
+ */
+export const MAX_PENDING = 7
 
 export const CARDS_PER_BOOSTER = 5
 

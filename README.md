@@ -43,8 +43,8 @@ Le détail des variables d'environnement, des scripts et des routes est dans
 **Comptes et profil** — inscription, sessions à jeton opaque, apparence du
 dresseur dessinée par un générateur procédural, salon de coiffure, options.
 
-**Cartes** — boosters qui s'accumulent avec le temps (une toutes les 15 min,
-plafonnées), quatre raretés tirées dans le Pokédex de Kanto, collection
+**Cartes** — boosters qui s'accumulent avec le temps (un toutes les 10 min,
+7 en réserve au maximum), quatre raretés tirées dans le Pokédex de Kanto, collection
 groupée par Pokémon, équipes de six.
 
 **Monde partagé** — une carte générée côté serveur avec quatre biomes

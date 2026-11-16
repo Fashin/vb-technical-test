@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 
 import { recordWounds, type Wound } from '../care/healing'
 import { db } from '../db'
+import { MAX_PENDING } from '../boosters/boosters'
 import { findMaster, masterLevel } from '../arena/masters'
 import { MAX_ROUNDS, resolveRounds, toFighter, type RoundLog, type Side } from './engine'
 import { requestScript } from './script'
@@ -226,7 +227,10 @@ function grantVictory(userId: string, masterId: string): number {
 
 	if (already) return 0
 
-	db.prepare('UPDATE users SET boosters_pending = MIN(5, boosters_pending + ?) WHERE id = ?').run(
+	// The ceiling is the booster economy's, not a number of its own: a reward
+	// that pushed past it would be lost on the next accrual anyway.
+	db.prepare('UPDATE users SET boosters_pending = MIN(?, boosters_pending + ?) WHERE id = ?').run(
+		MAX_PENDING,
 		master.reward,
 		userId,
 	)
