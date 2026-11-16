@@ -1,4 +1,4 @@
-import { fetchFighter } from '../services/pokeapi'
+import { fetchFighter, fetchMoveset } from '../services/pokeapi'
 import { computeDamage, maxHp, scaleStat, type Move } from './damage'
 import { effectiveness, effectivenessLabel, isPokemonType, type PokemonType } from './types'
 
@@ -45,6 +45,15 @@ export interface BattleFighter {
 	 * everyone healed between sessions.
 	 */
 	openingHp: number
+	/**
+	 * The attacks this Pokemon actually knows, from PokeAPI.
+	 *
+	 * Four of them, one per type and only those it has reached at its level,
+	 * as `fetchMoveset` chooses them. Empty when
+	 * the lookup failed, and that is a supported state: the engine then
+	 * improvises off the attacker's own types, which is what it always did.
+	 */
+	moves: Move[]
 }
 
 export interface Side {
@@ -95,7 +104,15 @@ export const MAX_ROUNDS = 24
 
 /** Build a fighter from the Pokedex, at a given level. */
 export async function toFighter(pokedexId: number, level: number): Promise<BattleFighter> {
-	const { name, types, stats } = await fetchFighter(pokedexId)
+	// Side by side: the moveset is several calls behind the stats, and a fight
+	// must not wait for one and then the other. Both are cached per species, so
+	// this costs nothing from the second fight on.
+	const [{ name, types, stats }, moveset] = await Promise.all([
+		fetchFighter(pokedexId),
+		// Level-gated: a fighter throws what it has learnt so far, not the
+		// species' final arsenal.
+		fetchMoveset(pokedexId, level),
+	])
 	const hp = maxHp(stats.hp, level)
 	// Overwritten by `resolveRounds` for a fighter that walks in wounded.
 
@@ -114,6 +131,7 @@ export async function toFighter(pokedexId: number, level: number): Promise<Battl
 		hp,
 		maxHp: hp,
 		openingHp: hp,
+		moves: moveset,
 	}
 }
 
@@ -165,14 +183,71 @@ function bestOwnType(fighter: BattleFighter, defending: PokemonType[]): PokemonT
  */
 const STRUGGLE: Omit<Move, 'category'> = { name: 'Lutte', type: 'untyped', power: 40 }
 
-/** A move the engine falls back on, built from the attacker and its target. */
+/**
+ * Same-type attack bonus, mirrored from `damage.ts`.
+ *
+ * Only used to rank moves below; the damage itself is still computed there.
+ */
+const STAB_WEIGHT = 1.5
+
+/** Spread applied to each candidate's score, so a bout is not four identical rounds. */
+const CHOICE_JITTER = 0.3
+
+/**
+ * How good one of the attacker's own moves looks against this target.
+ *
+ * The damage formula without the parts that are the same for every candidate:
+ * power, the type chart, the same-type bonus, and the offensive stat against
+ * the defence it is actually measured against — a special move off a Machamp
+ * must not be chosen over the physical one it is built for. Zero for anything
+ * the target is immune to, which is what sends the attacker to `STRUGGLE`.
+ */
+function scoreMove(move: Move, attacker: BattleFighter, target?: BattleFighter): number {
+	const moveType = isPokemonType(move.type) ? move.type : null
+	const defending = target?.types.filter(isPokemonType) ?? []
+	const multiplier = moveType === null ? 1 : effectiveness(moveType, defending)
+	if (multiplier === 0) return 0
+
+	const physical = move.category === 'physical'
+	const offence = physical ? attacker.attack : attacker.specialAttack
+	const defence = target ? (physical ? target.defense : target.specialDefense) : 1
+	const stab = moveType !== null && attacker.types.includes(moveType) ? STAB_WEIGHT : 1
+
+	return move.power * multiplier * stab * (offence / Math.max(1, defence))
+}
+
+/**
+ * The attack the engine throws when nothing scripted one.
+ *
+ * It picks from the Pokemon's **real** moveset (`fetchMoveset`), choosing what
+ * works on the Pokemon in front of it: the move that would hurt most, with a
+ * little jitter so two Pokemon trading blows for six rounds do not repeat the
+ * same line. That is the whole point of carrying the moveset around — the
+ * camps improvise every round, and a Dracaufeu throwing "Déflagration" every
+ * time was the fight telling the player the engine had made the move up.
+ *
+ * Without a moveset — PokeAPI unreachable — it falls back to the generic
+ * attack it always used: the attacker's best own type at power 60.
+ */
 function improviseMove(fighter: BattleFighter, target?: BattleFighter): Move {
 	const physical = fighter.attack >= fighter.specialAttack
 	const category = physical ? ('physical' as const) : ('special' as const)
+
+	let chosen: Move | null = null
+	let best = 0
+	for (const move of fighter.moves) {
+		const score = scoreMove(move, fighter, target) * (1 - CHOICE_JITTER + Math.random() * 2 * CHOICE_JITTER)
+		if (score > best) {
+			best = score
+			chosen = move
+		}
+	}
+	if (chosen) return chosen
+	// It knows attacks, and the target is immune to every one of them.
+	if (fighter.moves.length > 0) return { ...STRUGGLE, category }
+
 	const type = bestOwnType(fighter, target?.types.filter(isPokemonType) ?? [])
-
 	if (type === null) return { ...STRUGGLE, category }
-
 	return { name: physical ? 'Charge' : 'Déflagration', type, category, power: 60 }
 }
 

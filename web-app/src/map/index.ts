@@ -1,5 +1,6 @@
 export { MapScene } from './MapScene'
 export { Joystick, type JoystickProps } from './Joystick'
+export { CampSigns } from './CampSigns'
 export { Minimap } from './Minimap'
 export { minimapColor } from './minimapColors'
 export { RemotePlayer } from './RemotePlayer'

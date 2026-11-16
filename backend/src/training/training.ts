@@ -50,6 +50,22 @@ const wildCount = (roster: number): number => roster
 /** How far the wild level may wander from the trainee's, in levels. */
 const LEVEL_SPREAD = 2
 
+/**
+ * Share of a real fight's experience that sparring is worth.
+ *
+ * `xpReward` prices a fight that was fought for keeps — a duel, an arena
+ * match. A camp's partners are not that: they are drilled against, dozens of
+ * times in a row, and the session can be chained without the player pressing
+ * anything. At full price one session paid for very nearly a whole level
+ * (`30 · L` on this curve), so a camp's twenty-level band went by in twenty
+ * chained fights and the five camps stopped being a ladder.
+ *
+ * At this rate a level costs three to four sessions at every level, which is
+ * what the quadratic curve was chosen for: the bands stay the same length at
+ * the bottom and at the top.
+ */
+const SPARRING_RATE = 0.3
+
 /** How close to the camp's tile the player must stand, in tiles. */
 const ENTRY_RANGE = 2
 
@@ -328,8 +344,12 @@ export async function runSession(userId: string, campId: string, teamId?: string
 	 * between whoever stood on the field keeps the rotation turning.
 	 */
 	const beaten = wildTeam.filter((fighter) => fighter.hp === 0)
-	const purse = beaten.reduce((sum, fighter) => sum + xpReward(fighter.level), 0)
-	const share = participants.player.length > 0 ? Math.floor(purse / participants.player.length) : 0
+	const purse = beaten.reduce((sum, fighter) => sum + xpReward(fighter.level) * SPARRING_RATE, 0)
+	// At least one point for whoever stood on the field and won something: a
+	// session that knocked a partner out must never read as having paid nothing.
+	const fighters = participants.player.length
+	const floor = beaten.length > 0 ? 1 : 0
+	const share = fighters > 0 ? Math.max(floor, Math.floor(purse / fighters)) : 0
 
 	const payout: XpAward[] = participants.player.map((index) => ({
 		cardId: squad[index].cardId,

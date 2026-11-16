@@ -54,7 +54,10 @@ anticipe et se fait corriger s'il se trompe.
 
 **Arène** — dix maîtres de niveaux croissants (12 à 100). Le chatbot écrit le
 script complet du combat, le moteur le résout, et le navigateur le joue d'un
-seul tenant, avec le commentaire synchronisé sur les animations.
+seul tenant, avec le commentaire synchronisé sur les animations. Les attaques
+sont les vraies : chaque combattant arrive avec les quatre meilleures qu'il a
+apprises à son niveau (PokeAPI, noms français), le chatbot choisit dedans et le
+moteur, quand il improvise, prend celle qui marche sur le Pokémon d'en face.
 
 **Progression** — chaque carte a un niveau et de l'expérience. Cinq camps
 d'entraînement, un par biome plus un central, chacun plafonné à une tranche de
@@ -63,7 +66,12 @@ traverser la carte pour trouver le suivant. On choisit l'équipe qui entre au
 camp, et elle y spare en entier : un partenaire sauvage par Pokémon, et celui
 qui met le sien K.O. passe la main — chacun a donc son combat. Le camp
 n'*enseigne* toujours qu'à sa tranche : un Pokémon qui l'a dépassée combat mais
-n'apprend plus rien.
+n'apprend plus rien. La tranche de chaque camp est écrite en l'air au-dessus de
+sa hutte, lisible depuis l'autre bout de l'écran, avec la couleur qui dit s'il
+accepte l'équipe active : on choisit son camp sans faire le trajet. Le sparring
+ne paie qu'une fraction de ce que vaut un vrai combat (trois à quatre sessions
+par niveau, à tous les niveaux) — autrement une tranche de vingt niveaux
+tombait en vingt combats enchaînés.
 
 **Usure et soins** — les PV perdus en combat restent perdus. Il faut marcher
 jusqu'au centre de soins et y laisser ses blessés, pour une durée qui dépend du

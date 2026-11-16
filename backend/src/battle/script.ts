@@ -34,12 +34,29 @@ function extractJson(text: string): unknown {
 	}
 }
 
+/**
+ * The attacks a fighter really knows, spelled out for the model.
+ *
+ * Without it the model invents plausible-sounding moves, and the engine has to
+ * take them: the fight then shows a Pokemon using something it cannot learn.
+ * Given the real list, the script picks from it — and when PokeAPI gave us
+ * nothing, nothing is claimed either.
+ */
+function describeMoves(fighter: BattleFighter): string {
+	if (fighter.moves.length === 0) return ''
+	const listed = fighter.moves
+		.map((move) => `${move.name} (${move.type}, ${move.category}, ${move.power})`)
+		.join(', ')
+	return `\n  attaques connues : ${listed}`
+}
+
 function describeTeam(side: Side): string {
 	return side.team
 		.map(
 			(f: BattleFighter) =>
 				`- ${f.name} niveau ${f.level} (${f.types.join('/')}) — ${f.hp}/${f.maxHp} PV, Atq ${f.attack},` +
-				` Déf ${f.defense}, Atq.Spé ${f.specialAttack}, Déf.Spé ${f.specialDefense}, Vit ${f.speed}`,
+				` Déf ${f.defense}, Atq.Spé ${f.specialAttack}, Déf.Spé ${f.specialDefense}, Vit ${f.speed}` +
+				describeMoves(f),
 		)
 		.join('\n')
 }
@@ -60,7 +77,10 @@ export async function requestScript(player: Side, opponent: Side, headline: stri
 		describeTeam(opponent),
 		'',
 		`Écris le script complet du combat : ${MAX_ROUNDS} rounds au maximum, dans l’ordre.`,
-		'Pour chaque round, choisis une attaque réelle et cohérente pour chaque camp, puis écris',
+		'Pour chaque round, choisis pour chaque camp une attaque prise dans la liste « attaques',
+		'connues » du Pokémon qui combat, en recopiant son nom, son type, sa catégorie et sa',
+		'puissance tels qu’ils sont donnés ; n’invente une attaque que si aucune liste n’est fournie.',
+		'Puis écris',
 		'UNE phrase de commentaire par attaque (20 mots maximum, au présent).',
 		'Ne calcule ni les dégâts ni les PV et n’annonce aucun K.O. : le moteur du jeu s’en charge.',
 		'',

@@ -14,12 +14,13 @@ import { DuelPending, DuelView, InvitationPrompt, NeighbourPrompt, TradePanel, u
 import type { WorldPlayerState } from '../realtime'
 import { RankingPanel } from '../ranking'
 import { TeamPanel } from '../teams'
-import { TrainingPanel } from '../training'
+import { TrainingPanel, useCamps } from '../training'
 import { TutorialOverlay, useTutorial } from '../tutorial'
 import { HudBar, HudMenu, type HudAction } from '../hud'
 import { ErrorBoundary, PanelError, useIsCompact } from '../ui'
 import { useWorld } from '../world'
 import { CameraFollow, GROUND_Z_STRETCH, type MapBounds } from './CameraFollow'
+import { CampSigns } from './CampSigns'
 import { ContextWatch } from './ContextWatch'
 import { Joystick } from './Joystick'
 import { ACTOR_Z } from './depth'
@@ -118,6 +119,13 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 
 	const [campId, setCampId] = useState<string | null>(null)
 	const [atCenter, setAtCenter] = useState(false)
+	/**
+	 * The camps' level bands, painted over their huts by `CampSigns`.
+	 *
+	 * Asked for once the world is up, and again every time a camp is left: a
+	 * session moves levels, and the sign is about who can still train there.
+	 */
+	const camps = useCamps(status === 'joined')
 	/** The element the keyboard is read from; panels take the focus away from it. */
 	const scene = useRef<HTMLDivElement>(null)
 	const standingOn = map && me ? (campAt(map, me.x, me.y) ?? centerAt(map, me.x, me.y)) : null
@@ -246,6 +254,9 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 									onStep={move}
 									correction={correction}
 								/>
+								{/* Above the huts, in the world: the band each camp teaches,
+								    so the right camp is picked from a distance. */}
+								<CampSigns camps={camps.camps} />
 								{[...others.values()].map((player) => (
 									<RemotePlayer key={player.id} player={player} speed={speed} />
 								))}
@@ -414,7 +425,17 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 					/>
 				)}
 
-				{campId && <TrainingPanel key={campId} campId={campId} onClose={() => setCampId(null)} />}
+				{campId && (
+					<TrainingPanel
+						key={campId}
+						campId={campId}
+						onClose={() => {
+							setCampId(null)
+							// The team that just trained is the team the signs describe.
+							camps.refresh()
+						}}
+					/>
+				)}
 
 				{atCenter && <CarePanel onClose={() => setAtCenter(false)} />}
 

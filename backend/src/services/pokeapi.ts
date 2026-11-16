@@ -23,6 +23,18 @@ interface ApiPokemon {
 	types: { slot: number, type: NamedResource }[]
 	abilities: { ability: NamedResource }[]
 	species: NamedResource
+	moves: {
+		move: NamedResource
+		version_group_details: { level_learned_at: number, move_learn_method: NamedResource }[]
+	}[]
+}
+
+interface ApiMove {
+	name: string
+	power: number | null
+	type: NamedResource
+	damage_class: NamedResource
+	names: { name: string, language: NamedResource }[]
 }
 
 interface ApiType {
@@ -227,4 +239,185 @@ export async function fetchFighter(pokedexId: number): Promise<Fighter> {
 	}
 	fighterCache.set(pokedexId, fighter)
 	return fighter
+}
+
+
+/**
+ * A Pokemon's real attacks, as the engine needs them.
+ *
+ * Mirrors `battle/damage.ts`'s `Move`, declared here rather than imported so
+ * this module keeps knowing nothing about the battle code — it is the adapter
+ * in front of PokeAPI, and the engine reads its output.
+ */
+export interface MoveSpec {
+	/** French name when PokeAPI has one, its English slug otherwise. */
+	name: string
+	type: string
+	category: 'physical' | 'special'
+	power: number
+}
+
+/** How many attacks a fighter walks in with, as in the games. */
+const MOVESET_SIZE = 4
+
+/**
+ * How many of a species' moves are looked up before the four are chosen.
+ *
+ * A Pokemon knows dozens; each one is its own HTTP call, so the candidates are
+ * capped. The ones kept are those learnt last — the latest moves a Pokemon of
+ * this level has reached are the ones it is known for.
+ */
+const MOVE_CANDIDATES = 14
+
+/** Power the engine accepts, matching `sanitizeMove`'s own clamp. */
+const MIN_POWER = 10
+const MAX_POWER = 120
+
+/** Per-move cache, keyed by its url: moves are shared, species are not. */
+const moveCache = new Map<string, MoveSpec | null>()
+/** What a species can learn and when, cached for the process' lifetime. */
+const learnsetCache = new Map<number, Learnable[]>()
+/** The four attacks chosen for a species at a level — the level is part of the key. */
+const movesetCache = new Map<string, MoveSpec[]>()
+
+/** One move a species learns by levelling, and the level it learns it at. */
+interface Learnable {
+	url: string
+	level: number
+}
+
+/** One move, or null when it deals no damage (status moves have no power). */
+async function fetchMove(url: string): Promise<MoveSpec | null> {
+	const cached = moveCache.get(url)
+	if (cached !== undefined) return cached
+
+	let spec: MoveSpec | null = null
+	try {
+		const { data } = await axios.get<ApiMove>(url, { timeout: REQUEST_TIMEOUT_MS })
+		const category = data.damage_class.name
+		// Status moves are not attacks: the engine only knows how to hit.
+		if (data.power !== null && data.power > 0 && (category === 'physical' || category === 'special')) {
+			spec = {
+				name: data.names.find((entry) => entry.language.name === 'fr')?.name ?? data.name,
+				type: data.type.name,
+				category,
+				// Clamped like a scripted move: a one-hit KO move must not turn a
+				// sparring session into a coin flip.
+				power: Math.min(MAX_POWER, Math.max(MIN_POWER, data.power)),
+			}
+		}
+	} catch {
+		// Left null, and not cached: a timeout is not an answer about this move.
+		return null
+	}
+
+	moveCache.set(url, spec)
+	return spec
+}
+
+/**
+ * Everything a species can learn, with the level it learns it at.
+ *
+ * One call per species, cached: the levels are what lets a fighter be given
+ * the moves it has actually reached rather than its final arsenal.
+ *
+ * Only moves learnt by levelling are kept. A machine, an egg or a tutor move
+ * carries no level at all, so there is no honest way to say whether this
+ * Pokemon has it — and filing them at level 1 was tried first: a level 5
+ * Magicarpe came out of it knowing Hydrocanon, which is exactly the kind of
+ * thing the filter exists to stop. A species with nothing levelled yet simply
+ * has no moveset, and the engine improvises as it did before.
+ */
+async function fetchLearnset(pokedexId: number): Promise<Learnable[]> {
+	const cached = learnsetCache.get(pokedexId)
+	if (cached) return cached
+
+	try {
+		const { data } = await axios.get<ApiPokemon>(`${POKEAPI_URL}/pokemon/${pokedexId}`, {
+			timeout: REQUEST_TIMEOUT_MS,
+		})
+
+		const learnset = (data.moves ?? [])
+			.map((entry) => {
+				// The latest level any game teaches it at. The generations disagree,
+				// and some file a signature move at level 1 because it is what a
+				// freshly evolved Pokemon relearns — reading that as "available from
+				// the start" is how a level 5 Dracaufeu ended up with Boutefeu.
+				const levels = entry.version_group_details
+					.filter((detail) => detail.move_learn_method.name === 'level-up')
+					.map((detail) => detail.level_learned_at)
+					.filter((level) => level > 0)
+				return { url: entry.move.url, level: levels.length > 0 ? Math.max(...levels) : 0 }
+			})
+			.filter((entry) => entry.level > 0)
+
+		learnsetCache.set(pokedexId, learnset)
+		return learnset
+	} catch {
+		// Not cached: PokeAPI being down is not an answer about this species.
+		return []
+	}
+}
+
+/**
+ * The attacks this Pokemon knows at this level: four of them, strongest per type.
+ *
+ * Two rules, and both matter:
+ *
+ *  - **nothing it has not reached.** The moveset is filtered by level, so a
+ *    level 5 Magicarpe throws Charge and a level 60 Léviator throws
+ *    Hydrocanon. Handing everyone their final arsenal was tried first and
+ *    doubled the damage of every low-level camp — the band a camp teaches is
+ *    balanced around what its trainees can actually do.
+ *  - **strongest per type**, not simply the four strongest: the engine picks
+ *    its move off the matchup (`improviseMove`), so a Dracaufeu holding four
+ *    Fire moves would have nothing to throw at another Dracaufeu. One move per
+ *    type, the hardest-hitting of each, gives it something that connects.
+ *
+ * Empty when PokeAPI is unreachable or has nothing usable, which the engine
+ * reads as "improvise off the attacker's own types" — the behaviour this
+ * replaced, kept as its fallback.
+ */
+export async function fetchMoveset(pokedexId: number, level: number): Promise<MoveSpec[]> {
+	const reached = Math.max(1, Math.round(level))
+	const key = `${pokedexId}:${reached}`
+	const cached = movesetCache.get(key)
+	if (cached) return cached
+
+	const learnset = await fetchLearnset(pokedexId)
+	const damaging = async (entries: Learnable[]): Promise<MoveSpec[]> =>
+		(await Promise.all(entries.slice(0, MOVE_CANDIDATES).map(({ url }) => fetchMove(url)))).filter(
+			(spec): spec is MoveSpec => spec !== null,
+		)
+
+	// Latest first: what it has just learnt is what it fights with.
+	const reachedMoves = learnset.filter((entry) => entry.level <= reached).sort((a, b) => b.level - a.level)
+	let specs = await damaging(reachedMoves)
+
+	/*
+	 * Nothing it can attack with yet — and that happens.
+	 *
+	 * A freshly opened level 5 Magicarpe knows Trempette and nothing else, and
+	 * a sparring partner with no attack at all would stand there for six
+	 * rounds. So the moves it is *about* to learn are allowed in, earliest
+	 * first: they are its weakest, so the band it trains in is not inflated by
+	 * borrowing them a few levels early.
+	 */
+	if (specs.length === 0) {
+		const upcoming = learnset.filter((entry) => entry.level > reached).sort((a, b) => a.level - b.level)
+		specs = await damaging(upcoming)
+	}
+
+	const strongestPerType = new Map<string, MoveSpec>()
+	for (const spec of specs) {
+		const held = strongestPerType.get(spec.type)
+		if (!held || spec.power > held.power) strongestPerType.set(spec.type, spec)
+	}
+
+	const moveset = [...strongestPerType.values()].sort((a, b) => b.power - a.power).slice(0, MOVESET_SIZE)
+
+	// An empty answer is not cached: the lookup may simply have failed, and the
+	// next fight deserves another try.
+	if (moveset.length > 0) movesetCache.set(key, moveset)
+	return moveset
 }
