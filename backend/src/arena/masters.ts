@@ -11,9 +11,10 @@ import type { Appearance } from '../appearance/appearance'
  * this project's characters, and they each get an `appearance` so the same
  * procedural trainer renderer that draws the players draws them too.
  *
- * Teams are Kanto-only, matching the card pools the boosters draw from, and
- * ordered by `tier`: an opening team of unevolved Pokemon up to a full stage-3
- * line at the end.
+ * Teams are six strong — the same ceiling a player may field — Kanto-only,
+ * matching the card pools the boosters draw from, and ordered within a team by
+ * evolution stage: the first master opens on unevolved Pokemon and closes on a
+ * single evolution, the last one on a full stage-3 line.
  */
 export interface Master {
 	id: string
@@ -25,7 +26,7 @@ export interface Master {
 	blurb: string
 	/** Difficulty, 1 to 10. The arena is listed in this order. */
 	tier: number
-	/** Pokedex ids of the three fighters, in the order they are sent out. */
+	/** Pokedex ids of the six fighters, in the order they are sent out. */
 	team: number[]
 	/** Boosters awarded the first time this master is beaten. */
 	reward: number
@@ -52,7 +53,7 @@ export const MASTERS: Master[] = [
 		type: 'grass',
 		blurb: 'Rien ne pousse sans patience. Montre-moi la tienne.',
 		tier: 1,
-		team: [43, 69, 2],
+		team: [1, 43, 69, 44, 70, 2],
 		reward: 1,
 		appearance: { skin: 0, hair: 1, hairColor: 7, shirt: 2, trousers: 8, hat: 0, facialHair: 0, build: 1, bottom: 1 },
 	},
@@ -63,7 +64,7 @@ export const MASTERS: Master[] = [
 		type: 'fire',
 		blurb: 'Le métal se travaille chaud. Les dresseurs aussi.',
 		tier: 2,
-		team: [37, 58, 5],
+		team: [4, 37, 77, 58, 5, 126],
 		reward: 1,
 		appearance: { skin: 2, hair: 0, hairColor: 0, shirt: 0, trousers: 7, hat: 2, facialHair: 4, build: 0, bottom: 0 },
 	},
@@ -74,7 +75,7 @@ export const MASTERS: Master[] = [
 		type: 'water',
 		blurb: 'La vague ne force jamais. Elle revient, simplement.',
 		tier: 3,
-		team: [61, 117, 8],
+		team: [7, 54, 61, 117, 8, 119],
 		reward: 1,
 		appearance: { skin: 1, hair: 2, hairColor: 4, shirt: 1, trousers: 7, hat: 1, facialHair: 0, build: 1, bottom: 0 },
 	},
@@ -85,7 +86,7 @@ export const MASTERS: Master[] = [
 		type: 'electric',
 		blurb: 'J’ai recâblé tout le quartier. Un dresseur, ça ira vite.',
 		tier: 4,
-		team: [82, 125, 26],
+		team: [81, 100, 25, 82, 26, 125],
 		reward: 2,
 		appearance: { skin: 5, hair: 3, hairColor: 3, shirt: 3, trousers: 1, hat: 0, facialHair: 1, build: 0, bottom: 0 },
 	},
@@ -96,7 +97,7 @@ export const MASTERS: Master[] = [
 		type: 'bug',
 		blurb: 'Six pattes, deux ailes, et plus de ruse que toi.',
 		tier: 5,
-		team: [12, 15, 123],
+		team: [46, 49, 12, 15, 127, 123],
 		reward: 2,
 		appearance: { skin: 3, hair: 0, hairColor: 1, shirt: 9, trousers: 8, hat: 1, facialHair: 2, build: 0, bottom: 0 },
 	},
@@ -107,7 +108,7 @@ export const MASTERS: Master[] = [
 		type: 'poison',
 		blurb: 'Tout est poison, c’est la dose qui décide. Tu en veux combien ?',
 		tier: 6,
-		team: [89, 110, 34],
+		team: [42, 24, 110, 71, 34, 89],
 		reward: 2,
 		appearance: { skin: 4, hair: 4, hairColor: 0, shirt: 4, trousers: 7, hat: 0, facialHair: 0, build: 1, bottom: 1 },
 	},
@@ -118,7 +119,7 @@ export const MASTERS: Master[] = [
 		type: 'psychic',
 		blurb: 'J’ai déjà vu ce combat. Il ne finit pas bien pour toi.',
 		tier: 7,
-		team: [97, 122, 65],
+		team: [64, 103, 122, 80, 97, 65],
 		reward: 2,
 		appearance: { skin: 1, hair: 1, hairColor: 6, shirt: 5, trousers: 4, hat: 2, facialHair: 0, build: 1, bottom: 1 },
 	},
@@ -129,7 +130,7 @@ export const MASTERS: Master[] = [
 		type: 'rock',
 		blurb: 'On ne contourne pas une montagne. On apprend à grimper.',
 		tier: 8,
-		team: [75, 95, 76],
+		team: [28, 105, 112, 95, 75, 76],
 		reward: 3,
 		appearance: { skin: 3, hair: 4, hairColor: 4, shirt: 8, trousers: 7, hat: 0, facialHair: 3, build: 0, bottom: 0 },
 	},
@@ -140,7 +141,7 @@ export const MASTERS: Master[] = [
 		type: 'fighting',
 		blurb: 'Pas de stratégie ici. Juste qui tient debout le plus longtemps.',
 		tier: 9,
-		team: [57, 106, 68],
+		team: [57, 62, 106, 107, 67, 68],
 		reward: 3,
 		appearance: { skin: 2, hair: 3, hairColor: 0, shirt: 7, trousers: 0, hat: 0, facialHair: 1, build: 0, bottom: 0 },
 	},
@@ -151,7 +152,7 @@ export const MASTERS: Master[] = [
 		type: 'dragon',
 		blurb: 'Les autres t’ont préparé. Moi, je te juge.',
 		tier: 10,
-		team: [148, 130, 149],
+		team: [147, 142, 130, 148, 6, 149],
 		reward: 3,
 		appearance: { skin: 0, hair: 1, hairColor: 5, shirt: 6, trousers: 7, hat: 0, facialHair: 3, build: 0, bottom: 0 },
 	},

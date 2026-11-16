@@ -61,14 +61,35 @@ function note(ctx: AudioContext, frequency: number, at: number, length: number, 
 	osc.stop(at + length + 0.02)
 }
 
-/** Four rising notes and a settled fifth: the nurse taking the team in. */
-const MELODY: [frequency: number, beat: number, length: number][] = [
-	[659.25, 0, 0.16], // E5
-	[783.99, 0.16, 0.16], // G5
-	[987.77, 0.32, 0.16], // B5
-	[1318.51, 0.48, 0.3], // E6
-	[1046.5, 0.82, 0.5], // C6
+/**
+ * The centre's healing chime: Sol La♭ Sol Mi♭ | Fa Sol Fa Ré | Mi♭ Fa Mi♭ Do |
+ * Ré Mi♭ Ré Si♭ — four falling groups in E♭ major, each one a step below the
+ * last, ending settled on the tonic's fifth.
+ */
+const SIXTEENTH = 0.11
+
+const G5 = 783.99
+const AB5 = 830.61
+const EB5 = 622.25
+const F5 = 698.46
+const D5 = 587.33
+const C5 = 523.25
+const BB4 = 466.16
+
+const PHRASE: number[] = [
+	G5, AB5, G5, EB5,
+	F5, G5, F5, D5,
+	EB5, F5, EB5, C5,
+	D5, EB5, D5, BB4,
 ]
+
+const MELODY: [frequency: number, beat: number, length: number][] = PHRASE.map((frequency, index) => [
+	frequency,
+	index * SIXTEENTH,
+	// The note closing each group of four rings on a little, which is what
+	// makes the phrase read as four gestures rather than sixteen taps.
+	index % 4 === 3 ? SIXTEENTH * 1.8 : SIXTEENTH * 0.9,
+])
 
 function synthesize(): void {
 	const ctx = audio()
@@ -77,8 +98,6 @@ function synthesize(): void {
 	for (const [frequency, beat, length] of MELODY) {
 		note(ctx, frequency, start + beat, length, 0.14)
 	}
-	// A fifth under the last note, quieter, so the ending sounds resolved.
-	note(ctx, 698.46, start + 0.82, 0.5, 0.07)
 }
 
 let track: HTMLAudioElement | null = null

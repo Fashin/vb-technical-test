@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { recordWounds, type Wound } from '../care/healing'
 import { db } from '../db'
 import { findMaster, masterLevel } from '../arena/masters'
-import { resolveRounds, toFighter, type RoundLog, type Side } from './engine'
+import { MAX_ROUNDS, resolveRounds, toFighter, type RoundLog, type Side } from './engine'
 import { requestScript } from './script'
 
 /**
@@ -185,7 +185,12 @@ export async function runBattle(userId: string): Promise<RunResult> {
 		state.master,
 		`Combat d’arène : ${state.player.name} affronte ${state.masterName}.`,
 	)
-	const { rounds, winner } = resolveRounds(state.player, state.master, script.rounds)
+	// A master fields six, like the player: the default cap was set for a single
+	// bout and would decide a full 6-against-6 on remaining health before the last
+	// Pokemon of either team ever reached the sand.
+	const { rounds, winner } = resolveRounds(state.player, state.master, script.rounds, {
+		maxRounds: Math.max(MAX_ROUNDS, (state.player.team.length + state.master.team.length) * 4),
+	})
 
 	state.intro = script.intro
 	// A battle is told as a whole, so a resumed one is retold from its start.

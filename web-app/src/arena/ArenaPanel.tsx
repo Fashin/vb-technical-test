@@ -69,15 +69,17 @@ function MasterCard({
 				<p className="truncate text-sm text-slate-400">{master.title}</p>
 				<p className="mt-1 line-clamp-2 text-sm italic text-slate-500">« {master.blurb} »</p>
 
-				<div className="mt-2 flex items-center justify-between gap-2">
-					<ul className="flex items-center gap-1" aria-label="Équipe">
+				<div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+					{/* Six sprites, so the row wraps and they shrink rather than push the
+					    "Défier" button off a phone screen. */}
+					<ul className="flex min-w-0 flex-wrap items-center gap-1" aria-label="Équipe">
 						{master.team.map((pokedexId) => (
 							<li key={pokedexId}>
 								<img
 									src={spriteUrlFor(pokedexId)}
 									alt=""
 									loading="lazy"
-									className="h-11 w-11 [image-rendering:pixelated]"
+									className="h-9 w-9 [image-rendering:pixelated] sm:h-11 sm:w-11"
 								/>
 							</li>
 						))}
