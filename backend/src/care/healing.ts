@@ -1,6 +1,7 @@
 import { db } from '../db'
 import type { Rarity } from '../boosters/rarity'
 import { levelFromXp, MAX_LEVEL } from '../progression/levels'
+import { mentorFactor, type Mentor } from '../progression/mentors'
 
 /**
  * Wounds, and the time it takes to mend them.
@@ -10,6 +11,12 @@ import { levelFromXp, MAX_LEVEL } from '../progression/levels'
  * every time the card gains a level, and a stored absolute would quietly
  * change meaning underneath. A share also means nothing here needs the
  * Pokedex, so a card's condition can be read without a single API call.
+ *
+ * The team is part of the cost: team mates that have topped out the current
+ * tier shorten the treatment of everyone below them, by exactly the factor
+ * they multiply a training session by (`progression/mentors.ts`). A finished
+ * roster nursing a newcomer is the one case where a trip to the centre should
+ * not be a real pause.
  *
  * Healing is time on the server and nowhere else, exactly like the booster
  * clock: the moment care will finish is computed once, written down, and the
@@ -49,14 +56,20 @@ const MIN_CARE_MS = 20_000
 /**
  * How long it takes to mend `share` of a Pokemon's health, in milliseconds.
  *
- * Three terms, each one a thing the player can see on the card: its level, its
- * rarity and how much of it is missing.
+ * Four terms, each one a thing the player can see: the card's level, its
+ * rarity, how much of it is missing — and `mentoring`, the factor its
+ * higher-level team mates are worth, which divides the wait rather than
+ * multiplying it. `MIN_CARE_MS` still applies: nothing is ever instant.
  */
-export function careDuration(rarity: Rarity, share: number, level: number): number {
+export function careDuration(rarity: Rarity, share: number, level: number, mentoring = 1): number {
 	const factor = RARITY_FACTOR[rarity] ?? RARITY_FACTOR.common
 	const clamped = Math.min(1, Math.max(0, share))
 	const ranked = Math.min(MAX_LEVEL, Math.max(1, Math.round(level))) / MAX_LEVEL
-	return Math.max(MIN_CARE_MS, Math.round(LEVEL_UNITS * HEAL_UNIT_MS * ranked * factor * clamped))
+	const relief = Math.max(1, mentoring)
+	return Math.max(
+		MIN_CARE_MS,
+		Math.round((LEVEL_UNITS * HEAL_UNIT_MS * ranked * factor * clamped) / relief),
+	)
 }
 
 /** A card's condition, as every panel in the app shows it. */
@@ -131,11 +144,13 @@ export interface AdmitResult {
 /**
  * Take wounded cards into care.
  *
- * The end of the treatment is computed here, from the rarity and from how much
- * was actually lost, and stored as a moment in time. Everything afterwards is
- * a comparison against the clock.
+ * The end of the treatment is computed here, from the rarity, from how much
+ * was actually lost and from the `mentors` on hand, and stored as a moment in
+ * time. Everything afterwards is a comparison against the clock — which is
+ * why the mentors have to be known now: a roster that changes during the
+ * treatment must not move a bed that was already promised.
  */
-export function admit(userId: string, cardIds: string[]): AdmitResult {
+export function admit(userId: string, cardIds: string[], mentors: Mentor[] = []): AdmitResult {
 	settleCare(userId)
 	if (cardIds.length === 0) return { admitted: [], skipped: 0 }
 
@@ -168,7 +183,9 @@ export function admit(userId: string, cardIds: string[]): AdmitResult {
 				continue
 			}
 
-			const healedAt = now + careDuration(row.rarity, row.hp_lost, levelFromXp(row.xp))
+			const level = levelFromXp(row.xp)
+			const healedAt =
+				now + careDuration(row.rarity, row.hp_lost, level, mentorFactor(level, mentors))
 			update.run(healedAt, row.id, userId)
 			admitted.push({ cardId: row.id, name: row.name, healedAt })
 		}

@@ -5,6 +5,7 @@ import type { BattleState } from '../battle/battles'
 import { recordWounds, type Wound } from '../care/healing'
 import { badgeCount } from '../progression/badges'
 import { grantXp, MAX_LEVEL, xpReward, type XpAward, type XpGain } from '../progression/levels'
+import { mentorFactor, mentorsAmong, type Mentor } from '../progression/mentors'
 import { getActiveTeamId, getTeam, type Team, type TeamMember } from '../teams/teams'
 import { getMap, positionOf } from '../world/world'
 import { findCamp, type Camp } from './camps'
@@ -31,6 +32,10 @@ import { findCamp, type Camp } from './camps'
  *    — but one Pokemon crossing the ceiling never shuts it for the others.
  *  - **only the Pokemon that fights earns**, and the session's purse is split
  *    equally between those who stood on the field.
+ *  - **whoever has outgrown the camp coaches instead**, which multiplies the
+ *    share of every team mate below its level — see `progression/mentors.ts`.
+ *    So a Pokemon crossing the ceiling is not dead weight on the roster, and
+ *    the gap it closes is what decides how much it is worth.
  *
  * Which team walks in is the player's choice: an explicit team, or the active
  * one when none is named.
@@ -228,6 +233,8 @@ export interface TrainingSession {
 	xpEarned: number
 	/** One entry per Pokemon that fought — the bench is simply not here. */
 	gains: XpGain[]
+	/** The bench's contribution, or null when nobody has outgrown the camp. */
+	mentoring: Mentoring | null
 	/** Who opened the session: the least-trained member the camp accepts. */
 	trainee: string
 	/** The team that walked in, so the panel can name it back. */
@@ -235,6 +242,16 @@ export interface TrainingSession {
 	teamName: string
 	/** Levels this camp accepts, and the level it can carry a Pokemon to. */
 	band: { min: number; max: number; ceiling: number }
+}
+
+/** What the team mates past the ceiling added to this session. */
+export interface Mentoring {
+	/** Who coached, best first. They earn nothing here; they are past the band. */
+	mentors: Mentor[]
+	/** The multiplier each trainee's share was raised by, keyed by card. */
+	factors: Record<string, number>
+	/** Experience the coaching itself paid, across the squad. */
+	xpBonus: number
 }
 
 export type SessionResult =
@@ -381,16 +398,34 @@ export async function runSession(userId: string, campId: string, teamId?: string
 	const floor = beaten.length > 0 ? 1 : 0
 	const share = fighters > 0 ? Math.max(floor, Math.floor(purse / fighters)) : 0
 
-	const payout: XpAward[] = participants.player.map((index) => ({
-		cardId: squad[index].cardId,
-		amount: share,
-	}))
+	/*
+	 * The bench coaches. Team mates at or past this camp's ceiling have nothing
+	 * left to earn here, so what they add is the trainee's share — weighted by
+	 * the level gap each of them personally closes, and cumulative. This is why
+	 * finishing a camp with one Pokemon speeds up the next one, and why a late
+	 * legendary next to a finished roster climbs fast instead of walking the
+	 * whole ladder at a level-5's pace.
+	 */
+	const mentors = mentorsAmong(team.members, ceilingOf(camp))
+	const factors: Record<string, number> = {}
+
+	const payout: XpAward[] = participants.player.map((index) => {
+		const member = squad[index]
+		const factor = mentorFactor(member.level, mentors)
+		factors[member.cardId] = factor
+		return { cardId: member.cardId, amount: Math.round(share * factor) }
+	})
 	const gains = grantXp(payout, ceilingOf(camp))
 	// Summed from what was actually credited, not from what was offered: a
 	// Pokemon past the camp's ceiling is paid nothing, and a session where
 	// everyone has outgrown the place must report zero rather than a figure
 	// nobody received.
 	const xpEarned = gains.reduce((total, gain) => total + gain.gained, 0)
+
+	// What the coaching was worth, measured against the unboosted share and
+	// after the ceiling: a trainee one point from the cap was not paid the
+	// bonus, so it must not be reported as having received it.
+	const xpBonus = gains.reduce((total, gain) => total + Math.max(0, gain.gained - share), 0)
 
 	// Sparring is not free either: what the session costs stays lost until the
 	// healing centre gives it back.
@@ -424,6 +459,7 @@ export async function runSession(userId: string, campId: string, teamId?: string
 			battle,
 			xpEarned,
 			gains,
+			mentoring: mentors.length > 0 ? { mentors, factors, xpBonus } : null,
 			trainee: squad[0].name,
 			teamId: team.id,
 			teamName: team.name,

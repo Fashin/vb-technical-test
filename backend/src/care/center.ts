@@ -1,4 +1,6 @@
 import { db } from '../db'
+import { levelCapOf } from '../progression/badges'
+import { mentorFactor, mentorsAmong, type Mentor } from '../progression/mentors'
 import { getActiveTeamId, getTeam, type TeamMember } from '../teams/teams'
 import { getMap, positionOf } from '../world/world'
 import { admit, careDuration, settleCare, HEAL_UNIT_MS, type AdmitResult } from './healing'
@@ -33,6 +35,17 @@ export interface CareState {
 	unitMs: number
 	/** What each wounded member would cost in time, keyed by card. */
 	estimates: Record<string, number>
+	/**
+	 * Team mates at the account's level cap: they shorten everyone else's stay.
+	 *
+	 * The centre has no camp to read a ceiling off, so the tier in play is the
+	 * account's own cap — the level its badges allow. See
+	 * `progression/mentors.ts`; the training panel applies the same factor to
+	 * experience.
+	 */
+	mentors: Mentor[]
+	/** How much the mentors divide each wounded member's wait by, keyed by card. */
+	relief: Record<string, number>
 }
 
 export function careState(userId: string): CareState {
@@ -46,9 +59,18 @@ export function careState(userId: string): CareState {
 	const standing = positionOf(userId)
 
 	const wounded = members.filter((member) => !member.inCare && member.health < 1)
+	const mentors = mentorsAmong(members, levelCapOf(userId))
 	const estimates: Record<string, number> = {}
+	const relief: Record<string, number> = {}
 	for (const member of wounded) {
-		estimates[member.cardId] = careDuration(member.rarity as never, 1 - member.health, member.level)
+		const factor = mentorFactor(member.level, mentors)
+		relief[member.cardId] = factor
+		estimates[member.cardId] = careDuration(
+			member.rarity as never,
+			1 - member.health,
+			member.level,
+			factor,
+		)
 	}
 
 	return {
@@ -63,6 +85,8 @@ export function careState(userId: string): CareState {
 		inCare: members.filter((member) => member.inCare),
 		unitMs: HEAL_UNIT_MS,
 		estimates,
+		mentors,
+		relief,
 	}
 }
 
@@ -96,7 +120,9 @@ export function admitCards(userId: string, cardIds?: string[]): AdmitOutcome {
 
 	if (ids.length === 0) return { ok: false, reason: 'NOTHING_TO_TREAT' }
 
-	const result = admit(userId, ids)
+	// The same mentors the estimate was shown with, so the bed the player was
+	// promised is the bed they get.
+	const result = admit(userId, ids, state.mentors)
 	if (result.admitted.length === 0) return { ok: false, reason: 'NOTHING_TO_TREAT' }
 	return { ok: true, result }
 }

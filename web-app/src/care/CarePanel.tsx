@@ -3,7 +3,7 @@ import { GiHealthNormal, GiHospitalCross } from 'react-icons/gi'
 
 import { playHealJingle } from '../audio'
 import { spriteUrlFor } from '../map'
-import { HealthBar, LevelBadge } from '../progression'
+import { HealthBar, LevelBadge, MentorBadge } from '../progression'
 import type { TeamMember } from '../teams'
 import { Breadcrumb, useEscapeToClose } from '../ui'
 import * as api from './api'
@@ -17,6 +17,11 @@ import type { CareState } from './api'
  * until their treatment is done. The wait is the cost, and it is longer the
  * rarer the card — which is the whole reason to think twice before throwing a
  * legendary at a camp five levels above it.
+ *
+ * The team shortens that wait: mates that have finished the current tier
+ * nurse everyone below their level, by the same factor they multiply a
+ * training session by (`progression/MentorBadge`). The estimates the server
+ * sends already have it in them, so the panel only has to say so.
  *
  * Every countdown here is a comparison against a moment the **server** chose
  * and stored. Nothing is timed in the browser; a reload shows the same clock.
@@ -36,11 +41,14 @@ function Patient({
 	member,
 	now,
 	estimate,
+	relief,
 }: {
 	member: TeamMember
 	now: number
 	/** What treatment would cost, for someone not yet admitted. */
 	estimate?: number
+	/** What the mentors divided that estimate by, when they did. */
+	relief?: number
 }) {
 	const remaining = member.healedAt ? member.healedAt - now : 0
 
@@ -74,6 +82,11 @@ function Patient({
 						<span className="block">{Math.round(member.health * 100)}%</span>
 						{estimate !== undefined && (
 							<span className="text-xs text-slate-500">≈ {formatDelay(estimate)}</span>
+						)}
+						{relief !== undefined && (
+							<span className="mt-1 flex justify-end">
+								<MentorBadge factor={relief} label="plus vite" />
+							</span>
 						)}
 					</>
 				)}
@@ -188,6 +201,15 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 								<h3 className="mt-4 text-xs uppercase tracking-wide text-slate-500">
 									Au comptoir
 								</h3>
+								{/* Said once, above the list: every estimate under it is
+								    already discounted, and the reason is the roster. */}
+								{care.mentors.length > 0 && (
+									<p className="mt-1 text-sm text-violet-200/80">
+										{care.mentors.length} Pokémon au niveau maximum du palier (
+										{care.mentors.map((mentor) => mentor.name).join(', ')}) soignent leurs
+										cadets : les temps ci-dessous sont déjà réduits.
+									</p>
+								)}
 								<ul className="mt-2 space-y-2">
 									{care.wounded.map((member) => (
 										<Patient
@@ -195,6 +217,7 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 											member={member}
 											now={now}
 											estimate={care.estimates[member.cardId]}
+											relief={care.relief[member.cardId]}
 										/>
 									))}
 								</ul>

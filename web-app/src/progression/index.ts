@@ -1,2 +1,3 @@
 export { LevelBadge, XpBar, HealthBar, MAX_LEVEL } from './LevelBadge'
-export type { Progress, XpGain } from './types'
+export { MentorBadge } from './MentorBadge'
+export type { Mentor, Progress, XpGain } from './types'

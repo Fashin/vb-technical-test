@@ -16,6 +16,18 @@ export interface Progress {
 	ratio: number
 }
 
+/**
+ * A team mate that has topped out the tier in play and coaches instead.
+ *
+ * Mirrored from `backend/src/progression/mentors.ts`. Travels with a training
+ * session and with the healing centre's state, because one rule drives both.
+ */
+export interface Mentor {
+	cardId: string
+	name: string
+	level: number
+}
+
 /** What one Pokémon took from a fight. */
 export interface XpGain {
 	cardId: string

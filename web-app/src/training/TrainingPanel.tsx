@@ -3,7 +3,7 @@ import { GiArrowDunk, GiBarracksTent, GiLevelEndFlag, GiTrophyCup } from 'react-
 
 import { BattleField, sideWithPlaybackHp, useBattlePlayback, type Battle } from '../battle'
 import { spriteUrlFor } from '../map'
-import { LevelBadge, XpBar } from '../progression'
+import { LevelBadge, MentorBadge, XpBar } from '../progression'
 import { fetchTeams, type Team } from '../teams'
 import { Breadcrumb, readFlag, Toggle, useEscapeToClose, writeFlag } from '../ui'
 import * as api from './api'
@@ -131,7 +131,9 @@ function Band({ camp }: { camp: Camp }) {
  * What each fighter took from the session, level-ups called out.
  *
  * Only Pokémon that actually fought are in `gains`, so this list doubles as
- * the answer to "who earned anything" — the bench is simply absent.
+ * the answer to "who earned anything" — the bench is simply absent. When the
+ * bench coached, each trainee carries the multiplier it was paid at, because
+ * that is the number that explains an otherwise surprising payout.
  */
 function Gains({ session }: { session: TrainingSession }) {
 	if (session.gains.length === 0) {
@@ -162,8 +164,11 @@ function Gains({ session }: { session: TrainingSession }) {
 							</div>
 							<XpBar ratio={gain.after.ratio} toNextLevel={gain.after.toNextLevel} className="mt-1.5" />
 						</div>
-						<span className={`shrink-0 text-sm tabular-nums ${capped ? 'text-slate-500' : 'text-sky-300'}`}>
-							{capped ? 'plafond atteint' : `+${gain.gained} XP`}
+						<span className="flex shrink-0 flex-col items-end gap-1">
+							<span className={`text-sm tabular-nums ${capped ? 'text-slate-500' : 'text-sky-300'}`}>
+								{capped ? 'plafond atteint' : `+${gain.gained} XP`}
+							</span>
+							{!capped && <MentorBadge factor={session.mentoring?.factors[gain.cardId] ?? 1} />}
 						</span>
 					</li>
 				)
@@ -465,6 +470,21 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 										Ce camp ne mène personne au-delà du niveau {session.band.ceiling} : arrivé là, un
 										Pokémon laisse sa place au suivant.
 									</p>
+									{/* The bench's share of the result, named: a Pokémon that
+									    has finished the camp is still doing something for the
+									    team, and the player is owed the number. */}
+									{session.mentoring && (
+										<p className="mt-1 text-sm text-violet-200/80">
+											{session.mentoring.mentors.length} mentor
+											{session.mentoring.mentors.length > 1 ? 's' : ''} au niveau{' '}
+											{session.band.ceiling} et plus (
+											{session.mentoring.mentors.map((mentor) => mentor.name).join(', ')}) —{' '}
+											<span className="font-medium text-violet-200">
+												+{session.mentoring.xpBonus} XP
+											</span>{' '}
+											pour leurs cadets, et des soins d’autant plus rapides.
+										</p>
+									)}
 									<Gains session={session} />
 								</>
 							)}

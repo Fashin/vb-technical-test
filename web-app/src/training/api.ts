@@ -1,6 +1,6 @@
 import { API_URL, readToken } from '../auth/api'
 import type { Battle } from '../battle'
-import type { XpGain } from '../progression'
+import type { Mentor, XpGain } from '../progression'
 
 /** Mirrored from `backend/src/training/training.ts` and `training/camps.ts`. */
 export interface Camp {
@@ -42,6 +42,22 @@ export interface Camp {
 	ceiling: number
 }
 
+/**
+ * What the team mates past the camp's ceiling added to the session.
+ *
+ * Mirrored from `backend/src/training/training.ts`. They earn nothing — they
+ * are out of the band — but they multiply what every trainee below their
+ * level is paid, and the same factor shortens a stay at the healing centre.
+ */
+export interface Mentoring {
+	/** Who coached, best first. */
+	mentors: Mentor[]
+	/** The multiplier each trainee's share was raised by, keyed by card. */
+	factors: Record<string, number>
+	/** Experience the coaching itself paid, across the squad. */
+	xpBonus: number
+}
+
 export interface TrainingSession {
 	campId: string
 	campName: string
@@ -56,6 +72,8 @@ export interface TrainingSession {
 	teamId: string
 	teamName: string
 	band: { min: number; max: number; ceiling: number }
+	/** The bench's contribution, or null when nobody has outgrown the camp. */
+	mentoring: Mentoring | null
 }
 
 export class TrainingError extends Error {
