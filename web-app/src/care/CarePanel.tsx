@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { GiHealthNormal, GiHospitalCross } from 'react-icons/gi'
 
+import { playHealJingle } from '../audio'
 import { spriteUrlFor } from '../map'
 import { HealthBar, LevelBadge } from '../progression'
 import type { TeamMember } from '../teams'
@@ -218,7 +219,13 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 				{care && care.members.length > 0 && (
 					<button
 						type="button"
-						onClick={() => void admit()}
+						onClick={() => {
+							// Played from the click itself, not from the server's answer:
+							// that is what browsers allow to make noise, and the jingle is
+							// feedback on the press, not on the round trip.
+							playHealJingle()
+							void admit()
+						}}
 						disabled={busy || care.wounded.length === 0 || !care.atCounter}
 						className="mt-4 flex w-full shrink-0 items-center justify-center gap-2 rounded-md bg-red-400 px-4 py-3 font-semibold text-red-950 transition hover:bg-red-300 disabled:opacity-40"
 					>

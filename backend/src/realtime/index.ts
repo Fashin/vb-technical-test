@@ -238,12 +238,34 @@ export function attachRealtime(httpServer: HttpServer): ArenaServer {
 			return ack?.(succeed(null))
 		})
 
+		/**
+		 * Local connections belonging to an account.
+		 *
+		 * `io.fetchSockets()` would hand back remote *copies*, whose `data` and
+		 * room changes go nowhere; this is the live socket, which is what
+		 * evicting a stale window needs. Single-process, like the world itself.
+		 */
+		const openSocketsOf = (userId: string) =>
+			[...io.sockets.sockets.values()].filter((other) => other.data.userId === userId)
+
 		socket.on('world:join', (ack) => {
 			if (socket.data.inWorld) {
 				const existing = getWorldPlayer(socket.id)
 				if (existing) {
 					return ack(succeed({ map: getMap(), speed: WORLD_SPEED, you: toState(existing), players: listPlayers() }))
 				}
+			}
+
+			// One account, one character. Every other window this account has in
+			// the world is pushed out first — otherwise the same trainer walks
+			// the map twice, once per connection, and only one of the two
+			// answers the keyboard. Leaving saves the position, so the character
+			// taking over resumes exactly where the old one stood.
+			for (const other of openSocketsOf(socket.data.userId)) {
+				if (other.id === socket.id) continue
+				if (!other.data.inWorld) continue
+				leaveWorld(other)
+				other.emit('world:taken')
 			}
 
 			const user = findById(socket.data.userId)

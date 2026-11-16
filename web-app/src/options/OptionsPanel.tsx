@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { GiCog } from 'react-icons/gi'
 
-import { Breadcrumb, useEscapeToClose } from '../ui'
+import { Breadcrumb, Toggle, useEscapeToClose } from '../ui'
+import { setSoundEnabled, soundEnabled } from '../audio'
 import { AuthError, useAuth } from '../auth'
 
 const PASSWORD_MIN = 8
@@ -260,6 +261,34 @@ function DangerSection() {
 }
 
 /**
+ * The sound switch.
+ *
+ * Read from storage on mount rather than held in a context: the only thing
+ * that needs the answer is `playHealJingle`, and it asks at the moment it is
+ * about to play, so there is no shared state to keep in step.
+ */
+function SoundSection() {
+	const [enabled, setEnabled] = useState(() => soundEnabled())
+
+	return (
+		<section className="rounded-lg border border-white/10 bg-black/25 p-4">
+			<h3 className="text-base font-semibold">Son</h3>
+			<div className="mt-3">
+				<Toggle
+					checked={enabled}
+					onChange={(next) => {
+						setEnabled(next)
+						setSoundEnabled(next)
+					}}
+					label="Effets sonores"
+					hint="Le jingle du centre de soins quand tu confies ton équipe."
+				/>
+			</div>
+		</section>
+	)
+}
+
+/**
  * Account settings.
  *
  * Both actions ask for the password again even though the player is already
@@ -338,6 +367,7 @@ export function OptionsPanel({
 							</button>
 						</section>
 					)}
+					<SoundSection />
 					<NameSection onRenamed={onRenamed} />
 					<PasswordSection />
 					<DangerSection />

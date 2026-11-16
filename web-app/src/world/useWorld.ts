@@ -108,6 +108,16 @@ export function useWorld(enabled: boolean): WorldState {
 			})
 		}
 
+		const onTaken = () => {
+			// Another window of this account just took the character over. One
+			// account walks one trainer, so this view stops here instead of
+			// drawing a world it no longer steers — and says why, rather than
+			// freezing on a character that ignores the keyboard.
+			setOthers(new Map())
+			setError('Personnage repris dans une autre fenêtre')
+			setStatus('error')
+		}
+
 		const onLeft = ({ id }: { id: string }) => {
 			setOthers((current) => {
 				if (!current.has(id)) return current
@@ -125,6 +135,7 @@ export function useWorld(enabled: boolean): WorldState {
 		socket.on('world:rejected', onRejected)
 		socket.on('world:profile', onProfile)
 		socket.on('world:left', onLeft)
+		socket.on('world:taken', onTaken)
 
 		if (socket.connected) void join()
 		else socket.connect()
@@ -139,6 +150,7 @@ export function useWorld(enabled: boolean): WorldState {
 			socket.off('world:rejected', onRejected)
 			socket.off('world:profile', onProfile)
 			socket.off('world:left', onLeft)
+			socket.off('world:taken', onTaken)
 			if (socket.connected) socket.emit('world:leave')
 		}
 	}, [enabled])

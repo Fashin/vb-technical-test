@@ -5,7 +5,7 @@ import { BattleField, sideWithPlaybackHp, useBattlePlayback, type Battle } from 
 import { spriteUrlFor } from '../map'
 import { LevelBadge, XpBar } from '../progression'
 import { fetchTeams, type Team } from '../teams'
-import { Breadcrumb, Toggle, useEscapeToClose } from '../ui'
+import { Breadcrumb, readFlag, Toggle, useEscapeToClose, writeFlag } from '../ui'
 import * as api from './api'
 import type { Camp, TrainingSession } from './api'
 
@@ -19,6 +19,17 @@ import type { Camp, TrainingSession } from './api'
  * what the session pays is decided by the server, and capped by the camp's
  * ceiling, which is what pushes the player towards the next biome.
  */
+
+/**
+ * The chaining switch is remembered in this browser.
+ *
+ * A player who wants their sessions to run on their own wants that at every
+ * camp and on every visit — having to tick the box again each time is the kind
+ * of friction the switch exists to remove. It stays local rather than on the
+ * account because it describes how this person likes to watch the game, not
+ * anything the server has to know.
+ */
+const CHAIN_KEY = 'pokemon:training:chaining'
 
 /** Breathing room between two chained sessions, so the payout can be read. */
 const CHAIN_PAUSE = 1400
@@ -158,7 +169,17 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 	const [busy, setBusy] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	/** Keep training without being asked, until something needs a decision. */
-	const [chaining, setChaining] = useState(false)
+	const [chaining, setChaining] = useState(() => readFlag(CHAIN_KEY))
+	/**
+	 * Whether the chain may fire on its own yet.
+	 *
+	 * A remembered switch must not start a session the player never asked for:
+	 * walking into a hut would spend the camp's slots and the team's health
+	 * before anyone had pressed anything. So a restored preference shows the
+	 * switch on and waits for the first manual session; flipping it by hand
+	 * arms it at once, which is what the switch has always done.
+	 */
+	const [armed, setArmed] = useState(false)
 
 	// The fight is a Battle, so it plays through the arena's own player.
 	const [battle, setBattle] = useState<Battle | null>(null)
@@ -207,6 +228,8 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 	const train = useCallback(async () => {
 		setBusy(true)
 		setError(null)
+		// One session the player started is all the chain needs to take over.
+		setArmed(true)
 		try {
 			const result = await api.trainAt(campId, teamId ?? undefined)
 			setSession(result)
@@ -223,13 +246,28 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 		}
 	}, [campId, teamId, play, reducedMotion])
 
-	/** Switching teams invalidates the session on screen: it was another team's. */
+	/** Flip the switch and remember it for the next camp, and the next visit. */
+	const chooseChaining = useCallback((next: boolean) => {
+		setChaining(next)
+		setArmed(next)
+		writeFlag(CHAIN_KEY, next)
+	}, [])
+
+	/**
+	 * Switching teams invalidates the session on screen: it was another team's.
+	 *
+	 * The chain stops here too — sending another team into a fight the player
+	 * did not ask for is exactly the decision chaining is not allowed to make.
+	 * The stored preference is left alone on purpose: this is a pause, not the
+	 * player changing their mind, so the switch comes back on at the next camp.
+	 */
 	const selectTeam = useCallback((next: string) => {
 		setTeamId(next)
 		setSession(null)
 		setBattle(null)
 		setError(null)
 		setChaining(false)
+		setArmed(false)
 	}, [])
 
 	/**
@@ -241,12 +279,12 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 	 * camp that has nothing left to teach, or one the team cannot enter.
 	 */
 	useEffect(() => {
-		if (!chaining || busy || view.playing || error) return
+		if (!chaining || !armed || busy || view.playing || error) return
 		if (!camp || !camp.unlocked || camp.exhausted) return
 
 		const timer = setTimeout(() => void train(), CHAIN_PAUSE)
 		return () => clearTimeout(timer)
-	}, [chaining, busy, view.playing, error, camp, train])
+	}, [chaining, armed, busy, view.playing, error, camp, train])
 
 	return (
 		<div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
@@ -394,7 +432,7 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 							    will keep doing, so it is read before, not after. */}
 							<Toggle
 								checked={chaining}
-								onChange={setChaining}
+								onChange={chooseChaining}
 								disabled={!camp.unlocked || camp.exhausted || camp.roster === 0}
 								label="Enchaîner les sessions"
 								hint="La suivante part toute seule à la fin du combat."

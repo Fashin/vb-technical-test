@@ -157,6 +157,15 @@ export interface ServerToClientEvents {
 	/** Your step was refused: snap back to this authoritative position. */
 	'world:rejected': (payload: { x: number; y: number }) => void
 	'world:left': (payload: { id: string }) => void
+	/**
+	 * This connection lost the world to a newer one from the same account.
+	 *
+	 * One account walks one character: opening the game in a second tab or
+	 * browser used to put two identical trainers on the map. The newcomer wins
+	 * — it is the window the player is actually looking at — and the old one
+	 * gets this, so it stops drawing a character nobody controls any more.
+	 */
+	'world:taken': () => void
 	'world:profile': (payload: { id: string; name: string; appearance: Appearance }) => void
 }
 
