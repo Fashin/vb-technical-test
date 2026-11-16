@@ -87,6 +87,11 @@ export function MapScene({ className }: MapSceneProps) {
 	 */
 	const [menuOpen, setMenuOpen] = useState(false)
 	const boosters = useBoosters(Boolean(user))
+	/**
+	 * Both stocks in one badge: from the map, "packs waiting" is one fact, and a
+	 * lucky pack sitting unopened is exactly as much a reason to go and look.
+	 */
+	const boosterBadge = (boosters.state?.pending ?? 0) + boosters.lucky.reduce((sum, stack) => sum + stack.count, 0)
 	const pvp = usePvp()
 	// Players who asked for less movement get the wait, not the show — the same
 	// rule the arena applies to a battle's opening.
@@ -345,7 +350,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 					open={menuOpen}
 					onOpenChange={setMenuOpen}
 					active={panel}
-					badges={{ booster: boosters.state?.pending ?? 0 }}
+					badges={{ booster: boosterBadge }}
 					trainerName={user?.displayName}
 					onSelect={(action) => setPanel(panel === action ? null : action)}
 					onLogout={() => void logout()}
@@ -353,7 +358,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 			) : (
 				<HudBar
 					active={panel}
-					badges={{ booster: boosters.state?.pending ?? 0 }}
+					badges={{ booster: boosterBadge }}
 					onSelect={(action) => setPanel(panel === action ? null : action)}
 				/>
 			)}
@@ -378,7 +383,9 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 				)}
 			>
 				{panel === 'booster' && <BoosterPanel boosters={boosters} onClose={() => setPanel(null)} />}
-				{panel === 'collection' && <CollectionPanel onClose={() => setPanel(null)} />}
+				{panel === 'collection' && (
+					<CollectionPanel onClose={() => setPanel(null)} onRecycled={boosters.refresh} />
+				)}
 				{/* Somebody else's, opened from the prompt rather than from the HUD. */}
 				{browsing && <CollectionPanel trainer={browsing} onClose={() => setBrowsing(null)} />}
 				{panel === 'barber' && <BarberPanel onClose={() => setPanel(null)} onSaved={(appearance) => announceProfile({ appearance })} />}

@@ -65,6 +65,7 @@ Tout est authentifié par `Authorization: Bearer <token>`, sauf `/auth/register`
 | `GET /contents/:pokemonId` | Le même, en Markdown téléchargeable. |
 | `GET /contents/all` | Exporte les 898 fiches dans `EXPORT_DIR` (un seul export à la fois). |
 | `GET /boosters`, `POST /boosters/open`, `GET /boosters/cards` | Économie de boosters et collection. |
+| `GET/POST /boosters/recycle`, `POST /boosters/open-lucky` | Recyclage des doublons en boosters à meilleurs taux. |
 | `GET/POST/PUT/DELETE /teams…` | Équipes. |
 | `GET /arena/masters`, `POST /arena/battle`, `POST /arena/battle/run` | Arène : le chatbot écrit le combat, le moteur le résout. |
 | `GET /training/camps`, `POST /training/:campId/session` | Camps d'entraînement, XP et niveaux. |

@@ -8,9 +8,20 @@ export interface BoostersValue {
 	/** Milliseconds until the next pack, recomputed every second. */
 	remainingMs: number | null
 	cards: Card[] | null
+	/**
+	 * Luck the pack on screen was drawn with, in percentage points — 0 for one
+	 * the clock handed out. The reveal says so, otherwise a recycled pack would
+	 * look exactly like a free one and the trade would feel like nothing.
+	 */
+	openedLuck: number
+	/** Lucky packs waiting, best first, and the leftover shards. */
+	lucky: BoosterState['lucky']
+	shards: number
 	opening: boolean
 	error: string | null
 	open: () => Promise<void>
+	/** Open the best pack the recycled duplicates bought. */
+	openLucky: () => Promise<void>
 	/** Put the reveal away and go back to the stock. */
 	dismiss: () => void
 	/**
@@ -34,6 +45,7 @@ export function useBoosters(enabled: boolean): BoostersValue {
 	const [state, setState] = useState<BoosterState | null>(null)
 	const [remainingMs, setRemainingMs] = useState<number | null>(null)
 	const [cards, setCards] = useState<Card[] | null>(null)
+	const [openedLuck, setOpenedLuck] = useState(0)
 	const [opening, setOpening] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 
@@ -80,23 +92,51 @@ export function useBoosters(enabled: boolean): BoostersValue {
 		return () => clearInterval(timer)
 	}, [enabled, state, refresh])
 
-	const open = useCallback(async () => {
-		setOpening(true)
-		setError(null)
-		try {
-			const result = await api.openBooster()
-			setCards(result.cards)
-			setState(result.state)
-		} catch (cause) {
-			setError(cause instanceof api.BoosterError ? cause.message : 'Serveur injoignable')
-			// A refused open usually means our stock was stale.
-			void refresh()
-		} finally {
-			setOpening(false)
-		}
-	}, [refresh])
+	/**
+	 * One opener for both stocks.
+	 *
+	 * The two differ by which pack is spent, nothing else: the same five cards
+	 * come back, the same reveal plays them, and the luck the server applied
+	 * comes back with them rather than being guessed from which button was
+	 * pressed.
+	 */
+	const spend = useCallback(
+		async (ask: () => Promise<{ cards: Card[]; state: api.BoosterState; luck: number }>) => {
+			setOpening(true)
+			setError(null)
+			try {
+				const result = await ask()
+				setCards(result.cards)
+				setOpenedLuck(result.luck)
+				setState(result.state)
+			} catch (cause) {
+				setError(cause instanceof api.BoosterError ? cause.message : 'Serveur injoignable')
+				// A refused open usually means our stock was stale.
+				void refresh()
+			} finally {
+				setOpening(false)
+			}
+		},
+		[refresh],
+	)
+
+	const open = useCallback(() => spend(api.openBooster), [spend])
+	const openLucky = useCallback(() => spend(api.openLuckyBooster), [spend])
 
 	const dismiss = useCallback(() => setCards(null), [])
 
-	return { state, remainingMs, cards, opening, error, open, dismiss, refresh: () => void refresh() }
+	return {
+		state,
+		remainingMs,
+		cards,
+		openedLuck,
+		lucky: state?.lucky ?? [],
+		shards: state?.shards ?? 0,
+		opening,
+		error,
+		open,
+		openLucky,
+		dismiss,
+		refresh: () => void refresh(),
+	}
 }

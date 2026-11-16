@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { GiCardRandom } from 'react-icons/gi'
+import { GiCardRandom, GiRecycle } from 'react-icons/gi'
 import { FiSearch } from 'react-icons/fi'
 
 import { Breadcrumb, useEscapeToClose } from '../ui'
 import { CardFace } from '../boosters/CardFace'
+import { RecycleDialog } from '../boosters/RecycleDialog'
 import { PokemonDetail } from './PokemonDetail'
 import { RarityBars } from './RarityBars'
 import { TypeGrid } from './TypeGrid'
@@ -35,6 +36,13 @@ const SORTS: { mode: SortMode; label: string }[] = [
  * Searching and filtering happen on the client: the whole collection is already
  * in memory, so a round trip per keystroke would buy nothing.
  *
+ * "Transformer mes doublons" is the one action the panel has ever offered, and
+ * it is deliberately the only one: it belongs here because this is the screen
+ * where the player *sees* that they own eleven Rattata. It is hidden outright
+ * when browsing somebody else's collection — there is nothing to hide it from,
+ * since the route is ours alone, but a button that cannot apply should not be
+ * drawn at all.
+ *
  * `trainer` points it at somebody else's cards — what you get from the player
  * standing next to you, beside the duel and the trade. Nothing is disabled for
  * that case because nothing in here was ever an action: the panel browses and
@@ -45,10 +53,17 @@ const SORTS: { mode: SortMode; label: string }[] = [
 export function CollectionPanel({
 	trainer,
 	onClose,
+	onRecycled,
 }: {
 	/** Whose collection to show. Omitted for our own. */
 	trainer?: { userId: string; name: string }
 	onClose: () => void
+	/**
+	 * Fired when duplicates were turned into packs. The booster stock lives
+	 * outside this panel, so whoever owns it is told to re-read it rather than
+	 * being left showing a count that is now too low.
+	 */
+	onRecycled?: () => void
 }) {
 	const {
 		loading,
@@ -66,10 +81,12 @@ export function CollectionPanel({
 		setSearch,
 		typeFilter,
 		setTypeFilter,
+		reload,
 	} = useCollection(trainer?.userId)
 
 	/** Which Pokémon the detail sheet is open on, if any. */
 	const [detailId, setDetailId] = useState<number | null>(null)
+	const [recycling, setRecycling] = useState(false)
 	const backdrop = useRef<HTMLDivElement>(null)
 
 	useEffect(() => backdrop.current?.focus(), [])
@@ -112,13 +129,27 @@ export function CollectionPanel({
 								: `${unique} / ${DEX_TOTAL} Pokémon · ${total} carte${total > 1 ? 's' : ''}`}
 						</p>
 					</div>
-					<button
-						type="button"
-						onClick={onClose}
-						className="rounded px-2 py-1 text-base text-slate-400 hover:bg-white/10 hover:text-white"
-					>
-						Fermer
-					</button>
+					<div className="flex items-center gap-2">
+						{/* Our own collection only: there is nothing to recycle in
+						    somebody else's, and the route would refuse anyway. */}
+						{!trainer && (
+							<button
+								type="button"
+								onClick={() => setRecycling(true)}
+								className="flex items-center gap-1.5 rounded-md border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1.5 text-sm font-medium text-emerald-200 transition hover:bg-emerald-400/20 hover:text-emerald-100"
+							>
+								<GiRecycle aria-hidden className="h-4 w-4" />
+								Transformer mes doublons
+							</button>
+						)}
+						<button
+							type="button"
+							onClick={onClose}
+							className="rounded px-2 py-1 text-base text-slate-400 hover:bg-white/10 hover:text-white"
+						>
+							Fermer
+						</button>
+					</div>
 				</header>
 
 				{error && (
@@ -238,6 +269,19 @@ export function CollectionPanel({
 
 			{detailId !== null && (
 				<PokemonDetail pokedexId={detailId} from={title} onClose={() => setDetailId(null)} />
+			)}
+
+			{recycling && (
+				<RecycleDialog
+					onClose={() => setRecycling(false)}
+					onRecycled={() => {
+						// The grid behind is now wrong by however many cards were
+						// melted: re-read it while the recap is still on screen, so
+						// closing the dialog reveals the collection as it now is.
+						reload()
+						onRecycled?.()
+					}}
+				/>
 			)}
 		</div>
 	)

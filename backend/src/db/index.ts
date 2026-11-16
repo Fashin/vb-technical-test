@@ -101,6 +101,21 @@ db.exec(`
 		PRIMARY KEY (user_id, master_id)
 	);
 
+	/**
+	 * Packs bought with recycled duplicates, grouped by how lucky they are.
+	 *
+	 * A row per (user, luck) rather than a row per pack: packs of the same luck
+	 * are interchangeable, so a counter says everything a list of identical
+	 * rows would. The luck column is the bonus in percentage points — see
+	 * boosters/recycle.ts.
+	 */
+	CREATE TABLE IF NOT EXISTS lucky_boosters (
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		luck    INTEGER NOT NULL,
+		count   INTEGER NOT NULL,
+		PRIMARY KEY (user_id, luck)
+	);
+
 	CREATE INDEX IF NOT EXISTS sessions_by_user ON sessions(user_id);
 	CREATE INDEX IF NOT EXISTS sessions_by_expiry ON sessions(expires_at);
 	CREATE INDEX IF NOT EXISTS cards_by_user ON cards(user_id);
@@ -145,6 +160,11 @@ addColumn('cards', 'xp', 'INTEGER NOT NULL DEFAULT 300')
 // hit points: the maximum moves with the level, an absolute would not.
 addColumn('cards', 'hp_lost', 'REAL NOT NULL DEFAULT 0')
 addColumn('cards', 'healed_at', 'INTEGER')
+
+// Leftover recycling shards: what a transformation produced but could not
+// turn into a whole pack. Kept rather than dropped, so nine duplicates are
+// never worth nothing — they wait for the tenth. See `boosters/recycle.ts`.
+addColumn('users', 'shards', 'INTEGER NOT NULL DEFAULT 0')
 
 // The team taken into the arena. Nullable: a fresh account has none, and
 // deleting the selected team puts it back to NULL rather than dangling.

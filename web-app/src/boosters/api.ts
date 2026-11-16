@@ -26,6 +26,13 @@ export interface Card {
 	healedAt: number | null
 }
 
+/** A stack of recycled packs sharing the same bonus. */
+export interface LuckyStock {
+	/** Bonus in percentage points, added to every tier above common. */
+	luck: number
+	count: number
+}
+
 export interface BoosterState {
 	pending: number
 	max: number
@@ -33,6 +40,57 @@ export interface BoosterState {
 	cardsPerBooster: number
 	/** When the next pack lands, or null when the stock is already full. */
 	nextAt: number | null
+	/** Packs bought with recycled duplicates, best luck first. */
+	lucky: LuckyStock[]
+	/** Recycling shards not yet worth a whole pack. */
+	shards: number
+}
+
+/** Rarities a duplicate can be melted into shards for — never a legendary. */
+export type RecyclableRarity = 'common' | 'uncommon' | 'rare'
+
+export interface RecycleCandidate {
+	cardId: string
+	pokedexId: number
+	name: string
+	rarity: RecyclableRarity
+	obtainedAt: number
+}
+
+/**
+ * What "transformer mes doublons" would consume and produce.
+ *
+ * Mirrored from `backend/src/boosters/recycle.ts`, which is also where the
+ * eligibility rules live: a spare copy, still at its starting level, not
+ * legendary, not in a team, not at the healing centre.
+ */
+export interface RecyclePreview {
+	candidates: RecycleCandidate[]
+	byRarity: Record<RecyclableRarity, number>
+	/** Shards the candidates are worth, before leftovers are added in. */
+	shards: number
+	/** Shards left from earlier transformations, which join this batch. */
+	carried: number
+	boosters: number
+	luck: number
+	remainder: number
+}
+
+export interface RecycleRules {
+	shardValue: Record<RecyclableRarity, number>
+	shardsPerBooster: number
+	maxLuck: number
+	odds: { luck: number; odds: Record<Rarity, number> }[]
+}
+
+export interface RecycleOutcome {
+	byRarity: Record<RecyclableRarity, number>
+	recycled: number
+	shards: number
+	carried: number
+	boosters: number
+	luck: number
+	remainder: number
 }
 
 export class BoosterError extends Error {
@@ -65,8 +123,21 @@ export function fetchState(): Promise<{ state: BoosterState }> {
 	return send<{ state: BoosterState }>('/boosters')
 }
 
-export function openBooster(): Promise<{ cards: Card[]; state: BoosterState }> {
-	return send<{ cards: Card[]; state: BoosterState }>('/boosters/open', { method: 'POST' })
+export function openBooster(): Promise<{ cards: Card[]; state: BoosterState; luck: number }> {
+	return send<{ cards: Card[]; state: BoosterState; luck: number }>('/boosters/open', { method: 'POST' })
+}
+
+/** Open the best pack the recycled duplicates bought. */
+export function openLuckyBooster(): Promise<{ cards: Card[]; state: BoosterState; luck: number }> {
+	return send<{ cards: Card[]; state: BoosterState; luck: number }>('/boosters/open-lucky', { method: 'POST' })
+}
+
+export function fetchRecycle(): Promise<{ preview: RecyclePreview; rules: RecycleRules }> {
+	return send<{ preview: RecyclePreview; rules: RecycleRules }>('/boosters/recycle')
+}
+
+export function recycleDuplicates(): Promise<{ outcome: RecycleOutcome; state: BoosterState }> {
+	return send<{ outcome: RecycleOutcome; state: BoosterState }>('/boosters/recycle', { method: 'POST' })
 }
 
 export function fetchCards(): Promise<{ cards: Card[] }> {

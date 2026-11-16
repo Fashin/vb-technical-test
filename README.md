@@ -45,7 +45,12 @@ dresseur dessinée par un générateur procédural, salon de coiffure, options.
 
 **Cartes** — boosters qui s'accumulent avec le temps (un toutes les 10 min,
 7 en réserve au maximum), quatre raretés tirées dans le Pokédex de Kanto, collection
-groupée par Pokémon, équipes de six.
+groupée par Pokémon, équipes de six. Les doublons inutiles se recyclent depuis la
+collection : ils sont fondus en éclats (1 pour une commune, 2 pour une peu
+commune, 5 pour une rare) et dix éclats achètent un *booster chanceux*, dont
+les taux de tirage montent de +1 à +3 points selon la rareté de ce qui a été
+sacrifié. Un exemplaire de chaque Pokémon est toujours conservé, et rien
+d'entraîné, de légendaire, d'aligné en équipe ou en soins n'est touché.
 
 **Monde partagé** — une carte générée côté serveur avec quatre biomes
 élémentaires, parcourue en temps réel par tous les joueurs connectés

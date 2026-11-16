@@ -6,6 +6,7 @@ import { fetchCardFace, fetchFighter } from '../services/pokeapi'
 import { conditionOf, settleCare, type Condition } from '../care/healing'
 import { progressOf, STARTING_LEVEL, xpForLevel } from '../progression/levels'
 import { pickFrom, rollRarity, type Rarity } from './rarity'
+import { luckyStock, shardsOf, spendLucky, type LuckyStock } from './recycle'
 
 /**
  * Booster economy.
@@ -37,6 +38,14 @@ export interface BoosterState {
 	cardsPerBooster: number
 	/** When the next pack lands, or null when the stock is already full. */
 	nextAt: number | null
+	/**
+	 * Packs minted from recycled duplicates, best luck first — a stock of their
+	 * own, deliberately outside `max`: these were paid for with cards, so there
+	 * is nothing to stop accruing and nothing to cap.
+	 */
+	lucky: LuckyStock[]
+	/** Recycling shards not yet worth a whole pack. */
+	shards: number
 }
 
 export interface DrawnCard extends Condition {
@@ -86,8 +95,20 @@ export function accrue(user: UserRow): BoosterState {
 		)
 	}
 
+	// The recycled stock and the shard balance travel with the timed one: every
+	// screen that shows "what can I open right now" needs all three, and one
+	// shape means no screen can show two of them and forget the third.
+	const fromDuplicates = { lucky: luckyStock(user.id), shards: shardsOf(user.id) }
+
 	if (pending >= MAX_PENDING) {
-		return { pending, max: MAX_PENDING, intervalMs: BOOSTER_INTERVAL_MS, cardsPerBooster: CARDS_PER_BOOSTER, nextAt: null }
+		return {
+			pending,
+			max: MAX_PENDING,
+			intervalMs: BOOSTER_INTERVAL_MS,
+			cardsPerBooster: CARDS_PER_BOOSTER,
+			nextAt: null,
+			...fromDuplicates,
+		}
 	}
 
 	return {
@@ -96,6 +117,7 @@ export function accrue(user: UserRow): BoosterState {
 		intervalMs: BOOSTER_INTERVAL_MS,
 		cardsPerBooster: CARDS_PER_BOOSTER,
 		nextAt: nextSince + BOOSTER_INTERVAL_MS,
+		...fromDuplicates,
 	}
 }
 
@@ -105,34 +127,17 @@ export function getState(userId: string): BoosterState | null {
 }
 
 /**
- * Open one pack. Returns null when there is nothing to open — the check and
- * the decrement happen in one transaction, so two clicks cannot spend one pack
- * twice.
+ * Draw a pack's worth of cards and file them in the collection.
+ *
+ * `luck` shifts the odds of every slot by that many percentage points — 0 for
+ * the packs time hands out, more for the ones bought with duplicates. It is
+ * the only difference between the two: a lucky pack is a pack, same five
+ * cards, same guaranteed slot, better table.
  */
-export async function openBooster(userId: string): Promise<{ cards: DrawnCard[]; state: BoosterState } | null> {
-	const user = findById(userId)
-	if (!user) return null
-
-	accrue(user)
-
-	const spend = db.transaction((id: string) => {
-		const row = db.prepare('SELECT boosters_pending AS pending FROM users WHERE id = ?').get(id) as
-			| { pending: number }
-			| undefined
-		if (!row || row.pending <= 0) return false
-
-		const wasFull = row.pending >= MAX_PENDING
-		db.prepare('UPDATE users SET boosters_pending = boosters_pending - 1 WHERE id = ?').run(id)
-		// Coming down from a full stock restarts the clock, which was parked.
-		if (wasFull) db.prepare('UPDATE users SET booster_since = ? WHERE id = ?').run(Date.now(), id)
-		return true
-	})
-
-	if (!spend(userId)) return null
-
+async function drawPack(userId: string, luck: number): Promise<DrawnCard[]> {
 	const draws = Array.from({ length: CARDS_PER_BOOSTER }, (_, index) => {
 		// The last slot is the guaranteed one, so a pack is never five commons.
-		const rarity = rollRarity(index === CARDS_PER_BOOSTER - 1)
+		const rarity = rollRarity(index === CARDS_PER_BOOSTER - 1, luck)
 		return { rarity, pokedexId: pickFrom(rarity) }
 	})
 
@@ -167,7 +172,62 @@ export async function openBooster(userId: string): Promise<{ cards: DrawnCard[];
 		}
 	})()
 
-	return { cards, state: getState(userId)! }
+	return cards
+}
+
+export interface OpenedBooster {
+	cards: DrawnCard[]
+	state: BoosterState
+	/** Bonus the pack was drawn with, in percentage points. 0 for a timed one. */
+	luck: number
+}
+
+/**
+ * Open one pack. Returns null when there is nothing to open — the check and
+ * the decrement happen in one transaction, so two clicks cannot spend one pack
+ * twice.
+ */
+export async function openBooster(userId: string): Promise<OpenedBooster | null> {
+	const user = findById(userId)
+	if (!user) return null
+
+	accrue(user)
+
+	const spend = db.transaction((id: string) => {
+		const row = db.prepare('SELECT boosters_pending AS pending FROM users WHERE id = ?').get(id) as
+			| { pending: number }
+			| undefined
+		if (!row || row.pending <= 0) return false
+
+		const wasFull = row.pending >= MAX_PENDING
+		db.prepare('UPDATE users SET boosters_pending = boosters_pending - 1 WHERE id = ?').run(id)
+		// Coming down from a full stock restarts the clock, which was parked.
+		if (wasFull) db.prepare('UPDATE users SET booster_since = ? WHERE id = ?').run(Date.now(), id)
+		return true
+	})
+
+	if (!spend(userId)) return null
+
+	const cards = await drawPack(userId, 0)
+	return { cards, state: getState(userId)!, luck: 0 }
+}
+
+/**
+ * Open the best pack the player's recycled duplicates bought.
+ *
+ * The pack is spent before it is drawn, and the stock is its own table, so
+ * this never touches the timed accrual: emptying the lucky stock does not
+ * restart the ten-minute clock, and a full timed stock does not block it.
+ */
+export async function openLuckyBooster(userId: string): Promise<OpenedBooster | null> {
+	const user = findById(userId)
+	if (!user) return null
+
+	const luck = spendLucky(userId)
+	if (luck === null) return null
+
+	const cards = await drawPack(userId, luck)
+	return { cards, state: getState(userId)!, luck }
 }
 
 /**
