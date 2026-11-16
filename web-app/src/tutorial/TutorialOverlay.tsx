@@ -1,9 +1,9 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { useEscapeToClose } from '../ui'
 
 /** The name a step looks for in `data-tutorial="…"`, somewhere on screen. */
-export type TutorialTarget = 'booster' | 'camps' | 'center' | 'arena'
+export type TutorialTarget = 'booster' | 'camps' | 'center' | 'arena' | 'joystick' | 'menu'
 
 interface Step {
 	target: TutorialTarget
@@ -41,6 +41,30 @@ const STEPS: Step[] = [
 	},
 ]
 
+/**
+ * Two extra steps for touch screens, in front of the others.
+ *
+ * The desktop tour can take the controls for granted: arrow keys, and eight
+ * icons in plain sight. On a phone both are new — the joystick has no keyboard
+ * equivalent and the icons sit behind a button — so the tour introduces them
+ * before it talks about what they open.
+ */
+const TOUCH_STEPS: Step[] = [
+	{
+		target: 'joystick',
+		title: 'Déplace-toi au pouce',
+		body: 'Pose le pouce sur le joystick et fais-le glisser vers l’endroit où tu veux aller. Les diagonales marchent aussi.',
+	},
+	{
+		target: 'menu',
+		title: 'Ton menu est ici',
+		body: 'Ce bouton ouvre toutes tes actions : boosters, collection, équipe, arène, classement…',
+	},
+]
+
+/** Steps whose target lives inside the touch drawer, which therefore has to be open. */
+const IN_MENU: TutorialTarget[] = ['booster', 'arena']
+
 interface Box {
 	left: number
 	top: number
@@ -48,7 +72,7 @@ interface Box {
 	height: number
 }
 
-/** Width of the instruction card, in pixels. Fixed, so it can be centred on the target. */
+/** Width of the instruction card, in pixels. Centred on the target, and narrowed when the screen is. */
 const CARD = 320
 /** Room left between the target and the card, where the arrow is drawn. */
 const GAP = 52
@@ -94,16 +118,39 @@ function Arrow({ up }: { up: boolean }) {
  * Clicks are swallowed by the backdrop on purpose: the player reads the four
  * steps, then gets the map. "Passer" and Escape both end it immediately.
  */
-export function TutorialOverlay({ onDone }: { onDone: () => void }) {
+export function TutorialOverlay({
+	onDone,
+	compact = false,
+	menuOpen = false,
+	onNeedMenu,
+}: {
+	onDone: () => void
+	/** Touch layout: two extra steps, and the HUD lives behind the menu button. */
+	compact?: boolean
+	/** Whether the touch drawer is out, so a step pointing inside it can be measured. */
+	menuOpen?: boolean
+	/** Ask the scene to open or close the drawer for the step being shown. */
+	onNeedMenu?: (open: boolean) => void
+}) {
 	const [index, setIndex] = useState(0)
 	const [box, setBox] = useState<Box | null>(null)
 	const [host, setHost] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
 	const root = useRef<HTMLDivElement>(null)
 
-	const step = STEPS[index]
-	const last = index === STEPS.length - 1
+	const steps = compact ? [...TOUCH_STEPS, ...STEPS] : STEPS
+	// Clamped rather than reset: a rotation that swaps the layout mid-tour
+	// shortens the list, and dropping the player back to step one would be worse.
+	const step = steps[Math.min(index, steps.length - 1)]
+	const last = index >= steps.length - 1
 
 	useEscapeToClose(onDone)
+
+	// A step that points at a row of the drawer needs the drawer out. The scene
+	// owns that state, because the player opens it too.
+	const needsMenu = compact && IN_MENU.includes(step.target)
+	useEffect(() => {
+		onNeedMenu?.(needsMenu)
+	}, [needsMenu, onNeedMenu])
 
 	useLayoutEffect(() => {
 		const measure = () => {
@@ -138,13 +185,17 @@ export function TutorialOverlay({ onDone }: { onDone: () => void }) {
 			cancelAnimationFrame(frame)
 			window.removeEventListener('resize', measure)
 		}
-	}, [step.target])
+		// `menuOpen` counts: a row of the drawer has no box until it has slid in.
+	}, [step.target, menuOpen])
 
 	// The card goes below the target when the target sits in the upper half and
 	// above it otherwise, so it never covers what the arrow points at.
 	const anchorX = box ? box.left + box.width / 2 : host.width / 2
 	const under = box ? box.top + box.height / 2 < host.height / 2 : true
-	const cardLeft = clamp(anchorX - CARD / 2, MARGIN, Math.max(MARGIN, host.width - CARD - MARGIN))
+	// A 320px card on a 360px screen leaves no margin either side; shrink it
+	// instead of letting it hang off the edge.
+	const card = host.width > 0 ? Math.min(CARD, host.width - MARGIN * 2) : CARD
+	const cardLeft = clamp(anchorX - card / 2, MARGIN, Math.max(MARGIN, host.width - card - MARGIN))
 
 	/** `distance` pixels away from the target, on whichever side the card is on. */
 	const place = (distance: number) =>
@@ -189,17 +240,17 @@ export function TutorialOverlay({ onDone }: { onDone: () => void }) {
 
 			<div
 				className="pointer-events-auto absolute rounded-xl border border-emerald-400/40 bg-[#141c17]/95 p-4 text-slate-100 shadow-2xl transition-all duration-300"
-				style={{ left: cardLeft, width: CARD, ...place(GAP) }}
+				style={{ left: cardLeft, width: card, ...place(GAP) }}
 			>
 				<p className="text-xs font-medium uppercase tracking-wide text-emerald-300">
-					Étape {index + 1} / {STEPS.length}
+					Étape {index + 1} / {steps.length}
 				</p>
 				<h2 className="mt-1 text-lg font-semibold">{step.title}</h2>
 				<p className="mt-1.5 text-base text-slate-300">{step.body}</p>
 
 				<div className="mt-4 flex items-center gap-2">
 					<div className="flex flex-1 items-center gap-1.5" aria-hidden="true">
-						{STEPS.map((other, position) => (
+						{steps.map((other, position) => (
 							<span
 								key={other.target}
 								className={`h-1.5 rounded-full transition-all ${
@@ -213,7 +264,7 @@ export function TutorialOverlay({ onDone }: { onDone: () => void }) {
 						<button
 							type="button"
 							onClick={onDone}
-							className="rounded-md px-2 py-1.5 text-sm text-slate-400 transition hover:bg-white/10 hover:text-white"
+							className="rounded-md px-3 py-2 text-sm text-slate-400 transition hover:bg-white/10 hover:text-white"
 						>
 							Passer
 						</button>
@@ -222,7 +273,7 @@ export function TutorialOverlay({ onDone }: { onDone: () => void }) {
 						<button
 							type="button"
 							onClick={() => setIndex(index - 1)}
-							className="rounded-md border border-white/15 px-3 py-1.5 text-sm text-slate-300 transition hover:bg-white/10"
+							className="rounded-md border border-white/15 px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10"
 						>
 							Retour
 						</button>
@@ -233,7 +284,7 @@ export function TutorialOverlay({ onDone }: { onDone: () => void }) {
 						type="button"
 						autoFocus
 						onClick={() => (last ? onDone() : setIndex(index + 1))}
-						className="rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400"
+						className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400"
 					>
 						{last ? 'C’est parti !' : 'Suivant'}
 					</button>

@@ -11,18 +11,37 @@ const DOT = 6
 /** Side of a camp marker. Bigger than a player: it is a place, not a person. */
 const CAMP = 9
 
-/** A zero-weight element over a marker the canvas painted, for the tour to aim at. */
-function Landmark({ name, x, y }: { name: string; x: number; y: number }) {
+/**
+ * A zero-weight element over a marker the canvas painted, for the tour to aim at.
+ *
+ * Placed in percentages of the canvas rather than in pixels: the canvas keeps
+ * its tile resolution but is displayed at whatever width fits the screen, so a
+ * pixel offset would drift away from the marker as soon as it is scaled down.
+ */
+function Landmark({
+	name,
+	x,
+	y,
+	surface,
+}: {
+	name: string
+	x: number
+	y: number
+	/** Size of the canvas in its own pixels, the unit the offsets are in. */
+	surface: { width: number; height: number }
+}) {
+	const percent = (value: number, total: number) => `${(value / total) * 100}%`
+
 	return (
 		<span
 			data-tutorial={name}
 			aria-hidden="true"
 			className="absolute block"
 			style={{
-				left: x * SCALE + SCALE / 2 - CAMP / 2,
-				top: y * SCALE + SCALE / 2 - CAMP / 2,
-				width: CAMP,
-				height: CAMP,
+				left: percent(x * SCALE + SCALE / 2 - CAMP / 2, surface.width),
+				top: percent(y * SCALE + SCALE / 2 - CAMP / 2, surface.height),
+				width: percent(CAMP, surface.width),
+				height: percent(CAMP, surface.height),
 			}}
 		/>
 	)
@@ -41,7 +60,8 @@ function nearest<T extends { x: number; y: number }>(sites: T[] | undefined, me:
 }
 
 /**
- * Overview of the whole world, bottom right.
+ * Overview of the whole world — bottom right, or top right and smaller on a
+ * touch screen.
  *
  * The terrain is painted once into an offscreen canvas and then blitted: the
  * map never changes during a session, so redrawing ten thousand tiles every
@@ -55,10 +75,17 @@ export function Minimap({
 	map,
 	me,
 	others,
+	compact = false,
 }: {
 	map: TileMapData
 	me: WorldPlayerState | null
 	others: Map<string, WorldPlayerState>
+	/**
+	 * Touch layout: the map is drawn small, in the top-right corner. At its
+	 * natural 3px-per-tile it is 360px wide — most of a phone — and the bottom
+	 * corners belong to the joystick and the menu button.
+	 */
+	compact?: boolean
 }) {
 	const canvas = useRef<HTMLCanvasElement>(null)
 
@@ -144,24 +171,36 @@ export function Minimap({
 		if (me) marker(me, '#ffffff', '#065f46')
 	}, [terrain, me, others])
 
+	const surface = { width: map.width * SCALE, height: map.height * SCALE }
+
 	return (
-		<div className="pointer-events-none absolute bottom-3 right-3 rounded-md border border-white/20 bg-black/55 p-1 shadow-lg">
+		<div
+			className={`pointer-events-none absolute rounded-md border border-white/20 bg-black/55 p-1 shadow-lg ${
+				compact
+					? // Under the top bar, and never more than a third of the width.
+						'right-2 top-11 w-[33vw] max-w-[190px]'
+					: 'bottom-3 right-3'
+			}`}
+			// Outside the touch layout the minimap keeps its painted size; the
+			// canvas below is told to fill whichever width this box ends up with.
+			style={compact ? undefined : { width: surface.width }}
+		>
 			<div className="relative">
 				<canvas
 					ref={canvas}
-					width={map.width * SCALE}
-					height={map.height * SCALE}
+					width={surface.width}
+					height={surface.height}
 					role="img"
 					aria-label={`Carte du monde, ${map.camps?.length ?? 0} camps d'entraînement${
 						me ? `, tu es en ${me.x}, ${me.y}` : ''
 					}`}
-					className="block [image-rendering:pixelated]"
+					className="block h-auto w-full [image-rendering:pixelated]"
 				/>
 				{/* Invisible stand-ins for two markers the terrain is painted with.
 				    The welcome tour points at places, and a tile drawn into a canvas
 				    has no element to point at — these give it one. */}
-				{camp && <Landmark name="camps" x={camp.x} y={camp.y} />}
-				{center && <Landmark name="center" x={center.x} y={center.y} />}
+				{camp && <Landmark name="camps" x={camp.x} y={camp.y} surface={surface} />}
+				{center && <Landmark name="center" x={center.x} y={center.y} surface={surface} />}
 			</div>
 		</div>
 	)

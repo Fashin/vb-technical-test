@@ -1,61 +1,21 @@
-import type { ComponentType } from 'react'
-import {
-	GiCardPickup,
-	GiCardRandom,
-	GiCog,
-	GiCrossedSwords,
-	GiPodium,
-	GiPokecog,
-	GiScissors,
-	GiTrophy,
-} from 'react-icons/gi'
+import { ENTRIES, type HudAction, type HudBadges } from './entries'
 
-/** The panels the HUD can open. Nothing is wired to them yet. */
-export type HudAction =
-	| 'booster'
-	| 'collection'
-	| 'team'
-	| 'arena'
-	| 'ranking'
-	| 'achievements'
-	| 'barber'
-	| 'options'
-
-interface HudEntry {
-	action: HudAction
-	label: string
-	Icon: ComponentType<{ className?: string }>
-}
-
-const ENTRIES: HudEntry[] = [
-	{ action: 'booster', label: 'Booster', Icon: GiCardPickup },
-	{ action: 'collection', label: 'Ma collection', Icon: GiCardRandom },
-	{ action: 'team', label: 'Mon équipe', Icon: GiPokecog },
-	{ action: 'arena', label: 'Arène', Icon: GiCrossedSwords },
-	{ action: 'ranking', label: 'Classement', Icon: GiPodium },
-	{ action: 'achievements', label: 'Succès', Icon: GiTrophy },
-	{ action: 'barber', label: 'Coiffeur', Icon: GiScissors },
-	{ action: 'options', label: 'Options', Icon: GiCog },
-]
-
-interface HudBarProps {
+interface HudBarProps extends HudBadges {
 	/** Called with the entry that was clicked. */
 	onSelect?: (action: HudAction) => void
 	/** Highlighted entry, when its panel is open. */
 	active?: HudAction | null
-	/** Counters to surface on the icons, e.g. boosters waiting to be opened. */
-	badges?: Partial<Record<HudAction, number>>
 }
 
 /**
- * Bottom-left action bar.
+ * Bottom-left action bar, for pointers and keyboards.
  *
  * Icons only, with the name revealed on hover — the map is the screen, the HUD
  * should not eat into it. `aria-label` carries the name for anyone not using a
  * mouse, since the visible label is hover-only.
  *
- * The buttons are real and already report which one was pressed; wiring them
- * to their panels is the next step.
+ * Touch screens get `HudMenu` instead: eight 56px targets in a row do not fit
+ * a phone, and there is no hover to reveal what they do.
  */
 export function HudBar({ onSelect, active = null, badges }: HudBarProps) {
 	return (

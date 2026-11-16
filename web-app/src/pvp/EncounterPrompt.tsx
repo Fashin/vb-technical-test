@@ -8,20 +8,35 @@ import type { EncounterKind, Invitation, WorldPlayerState } from '../realtime'
  * Standing next to someone offers; being offered something asks. Neither is a
  * modal: the player can walk away mid-prompt, and walking away is exactly how
  * you refuse — the server drops the invitation when the distance grows.
+ *
+ * `compact` lifts them clear of the touch controls: the joystick and the menu
+ * button hold the bottom corners, and a prompt at 96px would land on both.
  */
+
+/** Distance from the bottom edge, with the touch controls in the way or not. */
+function lift(compact: boolean) {
+	return compact ? 'bottom-[11.5rem]' : 'bottom-24'
+}
 
 export function NeighbourPrompt({
 	neighbour,
 	busy,
 	onInvite,
+	compact = false,
 }: {
 	neighbour: WorldPlayerState
 	/** Set while an invitation of ours is waiting for an answer. */
 	busy: EncounterKind | null
 	onInvite: (kind: EncounterKind) => void
+	/** Touch layout: sit above the joystick rather than behind it. */
+	compact?: boolean
 }) {
 	return (
-		<div className="pointer-events-auto absolute bottom-24 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-white/15 bg-black/80 px-3 py-2 shadow-lg">
+		<div
+			className={`pointer-events-auto absolute left-1/2 flex max-w-[94vw] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-lg border border-white/15 bg-black/80 px-3 py-2 shadow-lg ${lift(
+				compact,
+			)}`}
+		>
 			<span className="text-base text-slate-200">
 				{busy ? `En attente de ${neighbour.name}…` : neighbour.name}
 			</span>
@@ -52,14 +67,21 @@ export function NeighbourPrompt({
 export function InvitationPrompt({
 	invitation,
 	onRespond,
+	compact = false,
 }: {
 	invitation: Invitation
 	onRespond: (accept: boolean) => void
+	/** Touch layout: sit above the joystick rather than behind it. */
+	compact?: boolean
 }) {
 	const duel = invitation.kind === 'duel'
 
 	return (
-		<div className="pointer-events-auto absolute bottom-24 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-white/15 bg-black/85 px-3 py-2 shadow-lg">
+		<div
+			className={`pointer-events-auto absolute left-1/2 flex max-w-[94vw] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-lg border border-white/15 bg-black/85 px-3 py-2 shadow-lg ${lift(
+				compact,
+			)}`}
+		>
 			<span className="flex items-center gap-2 text-base text-slate-100">
 				{duel ? (
 					<GiCrossedSwords className="h-5 w-5 text-amber-300" />

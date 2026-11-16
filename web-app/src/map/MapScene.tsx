@@ -16,11 +16,12 @@ import { RankingPanel } from '../ranking'
 import { TeamPanel } from '../teams'
 import { TrainingPanel } from '../training'
 import { TutorialOverlay, useTutorial } from '../tutorial'
-import { HudBar, type HudAction } from '../hud'
-import { ErrorBoundary, PanelError } from '../ui'
+import { HudBar, HudMenu, type HudAction } from '../hud'
+import { ErrorBoundary, PanelError, useIsCompact } from '../ui'
 import { useWorld } from '../world'
 import { CameraFollow, GROUND_Z_STRETCH, type MapBounds } from './CameraFollow'
 import { ContextWatch } from './ContextWatch'
+import { Joystick } from './Joystick'
 import { ACTOR_Z } from './depth'
 import { campAt, centerAt, type TileMapData } from './mapData'
 import { Minimap } from './Minimap'
@@ -52,12 +53,17 @@ interface MapSceneProps {
  * Without that, every step would cost a round trip.
  *
  * Keyboard input is bound to this wrapper, not to `window`, so the arrow keys
- * only act once the map is focused.
+ * only act once the map is focused. On a touch screen there are no arrow keys:
+ * the same input refs are driven by `Joystick` instead, and the icon bar is
+ * replaced by a side drawer — see `useIsCompact`.
  */
 export function MapScene({ className }: MapSceneProps) {
 	const { user, logout } = useAuth()
 	const { status, error, map, speed, me, others, move, correction, announceProfile } = useWorld(Boolean(user))
 	const { held, tapped, onKeyDown, onKeyUp, onBlur } = usePlayerControls()
+	// Touch phone, tablet, or simply a narrow window: joystick, side menu, and a
+	// minimap small enough to leave the map visible.
+	const compact = useIsCompact()
 	// Probed once, before anything tries to render: a browser that cannot give
 	// out a WebGL context makes `<Canvas>` throw, and that used to blank the page.
 	const webgl = supportsWebGL()
@@ -73,6 +79,12 @@ export function MapScene({ className }: MapSceneProps) {
 	// Which HUD entry is selected. The panels themselves do not exist yet, so
 	// clicking one only lights it up — and clicking it again puts it away.
 	const [panel, setPanel] = useState<HudAction | null>(null)
+	/**
+	 * Whether the touch drawer is out. Owned here rather than by `HudMenu`
+	 * because the welcome tour opens it too, to point at the entry it is
+	 * describing.
+	 */
+	const [menuOpen, setMenuOpen] = useState(false)
 	const boosters = useBoosters(Boolean(user))
 	const pvp = usePvp()
 	// The welcome tour, shown once per account — and only once the world has
@@ -123,6 +135,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 	 */
 	const overlay = [
 		panel,
+		menuOpen && 'menu',
 		tutorial.open && 'tutorial',
 		campId && 'camp',
 		atCenter && 'care',
@@ -255,38 +268,70 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 					{user?.displayName}
 					{others.size > 0 && ` · ${others.size} autre${others.size > 1 ? 's' : ''} en ligne`}
 				</span>
-				<button
-					type="button"
-					onClick={() => void logout()}
-					className="pointer-events-auto rounded bg-black/60 px-2 py-1 hover:bg-black/80"
-				>
-					Déconnexion
-				</button>
+				{/* On the touch layout this lives at the foot of the drawer: the
+				    top-right corner is the minimap's, and a 24px link is not a
+				    target for a thumb. */}
+				{!compact && (
+					<button
+						type="button"
+						onClick={() => void logout()}
+						className="pointer-events-auto rounded bg-black/60 px-2 py-1 hover:bg-black/80"
+					>
+						Déconnexion
+					</button>
+				)}
 			</div>
 
-			{ready && map && <Minimap map={map} me={me} others={others} />}
+			{ready && map && <Minimap map={map} me={me} others={others} compact={compact} />}
 
+			{/* The joystick, for anything without arrow keys. Hidden under the
+			    panels — which are modal anyway — but kept during the tour, whose
+			    first step points straight at it. */}
+			{ready && webgl && !lost && compact && (overlay === '' || overlay === 'tutorial') && (
+				<Joystick held={held} tapped={tapped} className="bottom-4 left-4 z-30" />
+			)}
+
+			{/* Clear of the joystick and the menu button on the touch layout, which
+			    both claim the bottom corners. */}
 			{standingOn && !campId && !atCenter ? (
 				<button
 					type="button"
 					onClick={() => (onCenter ? setAtCenter(true) : setCampId(standingOn.id))}
-					className={`absolute bottom-2 left-1/2 -translate-x-1/2 rounded px-3 py-1 text-sm font-medium ${
+					className={`absolute left-1/2 -translate-x-1/2 rounded font-medium ${
+						compact ? 'bottom-40 px-4 py-2 text-base' : 'bottom-2 px-3 py-1 text-sm'
+					} ${
 						onCenter ? 'bg-red-400/90 text-red-950 hover:bg-red-300' : 'bg-sky-500/90 text-sky-950 hover:bg-sky-400'
 					}`}
 				>
 					{onCenter ? 'Entrer dans le centre de soins' : 'Entrer dans le camp d’entraînement'}
 				</button>
 			) : (
-				<p className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm text-white">
-					Déplace-toi avec les flèches ou ZQSD / WASD
-				</p>
+				// The keyboard hint is for keyboards; the tour's first step teaches
+				// the joystick, and a permanent caption would only cover the map.
+				!compact && (
+					<p className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm text-white">
+						Déplace-toi avec les flèches ou ZQSD / WASD
+					</p>
+				)
 			)}
 
-			<HudBar
-				active={panel}
-				badges={{ booster: boosters.state?.pending ?? 0 }}
-				onSelect={(action) => setPanel(panel === action ? null : action)}
-			/>
+			{compact ? (
+				<HudMenu
+					open={menuOpen}
+					onOpenChange={setMenuOpen}
+					active={panel}
+					badges={{ booster: boosters.state?.pending ?? 0 }}
+					trainerName={user?.displayName}
+					onSelect={(action) => setPanel(panel === action ? null : action)}
+					onLogout={() => void logout()}
+				/>
+			) : (
+				<HudBar
+					active={panel}
+					badges={{ booster: boosters.state?.pending ?? 0 }}
+					onSelect={(action) => setPanel(panel === action ? null : action)}
+				/>
+			)}
 
 			{/* One boundary for every overlay: a panel that throws while rendering
 			    takes itself down, not the map, the HUD or the connection. */}
@@ -321,6 +366,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 					<InvitationPrompt
 						invitation={pvp.invitation}
 						onRespond={(accept) => pvp.respond(pvp.invitation!.id, accept, pvp.invitation!.kind)}
+						compact={compact}
 					/>
 				) : (
 					ready &&
@@ -332,6 +378,7 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 							neighbour={neighbour}
 							busy={pvp.awaiting}
 							onInvite={(kind) => pvp.invite(neighbour.userId, kind)}
+							compact={compact}
 						/>
 					)
 				)}
@@ -340,7 +387,9 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 					<button
 						type="button"
 						onClick={pvp.dismissError}
-						className="absolute bottom-24 left-1/2 -translate-x-1/2 rounded bg-red-500/90 px-3 py-1 text-sm font-medium text-red-950"
+						className={`absolute left-1/2 -translate-x-1/2 rounded bg-red-500/90 px-3 py-1 text-sm font-medium text-red-950 ${
+							compact ? 'bottom-56' : 'bottom-24'
+						}`}
 					>
 						{pvp.error}
 					</button>
@@ -381,7 +430,18 @@ function nearestNeighbour(me: WorldPlayerState, others: Map<string, WorldPlayerS
 				)}
 
 				{/* Last, and above everything: the tour dims whatever is on screen. */}
-				{tutorial.open && <TutorialOverlay onDone={tutorial.finish} />}
+				{tutorial.open && (
+					<TutorialOverlay
+						compact={compact}
+						menuOpen={menuOpen}
+						onNeedMenu={setMenuOpen}
+						onDone={() => {
+							// The tour may have left the drawer open to point inside it.
+							setMenuOpen(false)
+							tutorial.finish()
+						}}
+					/>
+				)}
 			</ErrorBoundary>
 		</div>
 	)
