@@ -183,7 +183,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 		<div
 			ref={backdrop}
 			tabIndex={-1}
-			className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-2 outline-none sm:p-4"
+			className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/60 p-2 outline-none sm:p-4"
 			onKeyDown={(event) => event.stopPropagation()}
 			onKeyUp={(event) => event.stopPropagation()}
 			onPointerDown={(event) => {
@@ -193,7 +193,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 			<section
 				role="dialog"
 				aria-label="Mon équipe"
-				className="flex h-full max-h-[96dvh] w-full max-w-[1500px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141c17] text-slate-100 shadow-2xl"
+				className="my-auto flex h-full max-h-[96dvh] w-full max-w-[1500px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141c17] text-slate-100 shadow-2xl"
 			>
 				<header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-white/10 px-4 py-3">
 					<div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
@@ -284,7 +284,7 @@ export function TeamPanel({ onClose }: { onClose: () => void }) {
 							</p>
 						) : (
 							<>
-								<div className="shrink-0 border-b border-white/10 px-4 py-3">
+								<div className="min-h-0 overflow-y-auto border-b border-white/10 px-4 py-3">
 									<div className="flex flex-wrap items-center gap-2">
 										{renaming ? (
 											<form

@@ -114,7 +114,7 @@ export function RecycleDialog({
 			tabIndex={-1}
 			// Above the collection panel it was opened from, and dark enough that
 			// the grid behind reads as out of reach rather than merely dimmed.
-			className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-2 outline-none sm:p-4"
+			className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/70 p-2 outline-none sm:p-4"
 			onKeyDown={(event) => event.stopPropagation()}
 			onKeyUp={(event) => event.stopPropagation()}
 			onPointerDown={(event) => {
@@ -124,7 +124,7 @@ export function RecycleDialog({
 			<section
 				role="dialog"
 				aria-label="Transformer mes doublons"
-				className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141c17] text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141c17] text-slate-100 shadow-2xl"
 			>
 				<header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 px-4 py-3">
 					<h2 className="flex items-center gap-2 text-lg font-semibold">

@@ -150,27 +150,21 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 	const healthy = care?.members.filter((member) => !member.inCare && member.health >= 1) ?? []
 
 	return (
-		<div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
+		<div className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/70 p-4">
 			<section
 				role="dialog"
 				aria-label="Centre de soins"
-				className="flex max-h-[88dvh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[88dvh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-start justify-between gap-3">
-					<div>
-						<Breadcrumb
-							trail={[
-								{ label: 'Carte', onClick: onClose },
-								{ label: 'Centre de soins' },
-							]}
-							icon={GiHospitalCross}
-							tone="text-red-300"
-						/>
-						<p className="mt-1 text-base text-slate-400">
-							Les PV perdus ne reviennent pas tout seuls. Le temps de soin dépend du niveau de la carte, de
-							sa rareté et de ce qu’elle a encaissé.
-						</p>
-					</div>
+				<header className="flex shrink-0 items-start justify-between gap-3">
+					<Breadcrumb
+						trail={[
+							{ label: 'Carte', onClick: onClose },
+							{ label: 'Centre de soins' },
+						]}
+						icon={GiHospitalCross}
+						tone="text-red-300"
+					/>
 					<button
 						type="button"
 						onClick={onClose}
@@ -181,72 +175,81 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 				</header>
 
 				{error && (
-					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
+					<p role="alert" className="mt-3 shrink-0 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 						{error}
 					</p>
 				)}
 
-				{care === null ? (
-					<p className="py-10 text-center text-base text-slate-500">Chargement…</p>
-				) : care.members.length === 0 ? (
-					<p className="py-10 text-center text-base text-slate-500">
-						Aucune équipe composée — passe par « Mon équipe » pour en monter une.
+				{/* The explanation and the roster share one scrolling region, so a
+				    screen too short for both still ends on the button below. */}
+				<div className="mt-1 min-h-0 flex-1 overflow-y-auto">
+					<p className="text-base text-slate-400">
+						Les PV perdus ne reviennent pas tout seuls. Le temps de soin dépend du niveau de la carte, de
+						sa rareté et de ce qu’elle a encaissé.
 					</p>
-				) : (
-					<div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-						{care.inCare.length > 0 && (
-							<>
-								<h3 className="text-xs uppercase tracking-wide text-slate-500">En soins</h3>
-								<ul className="mt-2 space-y-2">
-									{care.inCare.map((member) => (
-										<Patient key={member.cardId} member={member} now={now} />
-									))}
-								</ul>
-							</>
-						)}
 
-						{care.wounded.length > 0 && (
-							<>
-								<h3 className="mt-4 text-xs uppercase tracking-wide text-slate-500">
-									Au comptoir
-								</h3>
-								{/* Said once, above the list: every estimate under it is
-								    already discounted, and the reason is the roster. */}
-								{care.mentors.length > 0 && (
-									<p className="mt-1 text-sm text-violet-200/80">
-										{care.mentors.length} Pokémon au niveau maximum du palier (
-										{care.mentors.map((mentor) => mentor.name).join(', ')}) soignent leurs
-										cadets : les temps ci-dessous sont déjà réduits.
-									</p>
-								)}
-								<ul className="mt-2 space-y-2">
-									{care.wounded.map((member) => (
-										<Patient
-											key={member.cardId}
-											member={member}
-											now={now}
-											estimate={care.estimates[member.cardId]}
-											relief={care.relief[member.cardId]}
-										/>
-									))}
-								</ul>
-							</>
-						)}
+					{care === null ? (
+						<p className="py-10 text-center text-base text-slate-500">Chargement…</p>
+					) : care.members.length === 0 ? (
+						<p className="py-10 text-center text-base text-slate-500">
+							Aucune équipe composée — passe par « Mon équipe » pour en monter une.
+						</p>
+					) : (
+						<div className="mt-4">
+							{care.inCare.length > 0 && (
+								<>
+									<h3 className="text-xs uppercase tracking-wide text-slate-500">En soins</h3>
+									<ul className="mt-2 space-y-2">
+										{care.inCare.map((member) => (
+											<Patient key={member.cardId} member={member} now={now} />
+										))}
+									</ul>
+								</>
+							)}
 
-						{healthy.length > 0 && (
-							<>
-								<h3 className="mt-4 text-xs uppercase tracking-wide text-slate-500">
-									En pleine forme
-								</h3>
-								<ul className="mt-2 space-y-2">
-									{healthy.map((member) => (
-										<Patient key={member.cardId} member={member} now={now} />
-									))}
-								</ul>
-							</>
-						)}
-					</div>
-				)}
+							{care.wounded.length > 0 && (
+								<>
+									<h3 className="mt-4 text-xs uppercase tracking-wide text-slate-500">
+										Au comptoir
+									</h3>
+									{/* Said once, above the list: every estimate under it is
+									    already discounted, and the reason is the roster. */}
+									{care.mentors.length > 0 && (
+										<p className="mt-1 text-sm text-violet-200/80">
+											{care.mentors.length} Pokémon au niveau maximum du palier (
+											{care.mentors.map((mentor) => mentor.name).join(', ')}) soignent leurs
+											cadets : les temps ci-dessous sont déjà réduits.
+										</p>
+									)}
+									<ul className="mt-2 space-y-2">
+										{care.wounded.map((member) => (
+											<Patient
+												key={member.cardId}
+												member={member}
+												now={now}
+												estimate={care.estimates[member.cardId]}
+												relief={care.relief[member.cardId]}
+											/>
+										))}
+									</ul>
+								</>
+							)}
+
+							{healthy.length > 0 && (
+								<>
+									<h3 className="mt-4 text-xs uppercase tracking-wide text-slate-500">
+										En pleine forme
+									</h3>
+									<ul className="mt-2 space-y-2">
+										{healthy.map((member) => (
+											<Patient key={member.cardId} member={member} now={now} />
+										))}
+									</ul>
+								</>
+							)}
+						</div>
+					)}
+				</div>
 
 				{care && care.members.length > 0 && (
 					<button

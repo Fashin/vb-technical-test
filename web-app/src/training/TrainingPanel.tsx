@@ -317,13 +317,13 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 	}, [chaining, armed, busy, view.playing, error, camp, train])
 
 	return (
-		<div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
+		<div className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/70 p-4">
 			<section
 				role="dialog"
 				aria-label={camp ? `Camp d’entraînement ${camp.name}` : 'Camp d’entraînement'}
-				className="flex max-h-[88dvh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[88dvh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-start justify-between gap-3">
+				<header className="flex shrink-0 items-start justify-between gap-3">
 					<div className="min-w-0">
 						<Breadcrumb
 							trail={[
@@ -334,29 +334,6 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 							icon={GiBarracksTent}
 							tone="text-sky-300"
 						/>
-						{camp && (
-							<div className="mt-1 flex flex-wrap items-center gap-2">
-								<span className="text-base text-slate-400">{camp.title}</span>
-								<Band camp={camp} />
-								{/* The camp picks its own trainee, so say who walks in next. */}
-								<span className="text-xs text-slate-500">
-									{camp.nextTrainee
-										? `${camp.nextTrainee.name} ouvre (niveau ${camp.nextTrainee.level})`
-										: `ton équipe : niveau ${camp.teamLevel}`}
-								</span>
-							</div>
-						)}
-						{/* The ceiling is a property of the account, not of this camp:
-						    it is the same wherever the player trains, and it moves
-						    only when a master falls. */}
-						{cap && (
-							<p className="mt-1 text-xs text-slate-500">
-								Plafond actuel : niveau {cap.levelCap} · {cap.badges} badge
-								{cap.badges > 1 ? 's' : ''} d’arène
-								{cap.nextCamp &&
-									` · ${cap.nextCamp.name} s’ouvre à ${cap.nextCamp.badges} badges`}
-							</p>
-						)}
 					</div>
 					<button
 						type="button"
@@ -373,93 +350,119 @@ export function TrainingPanel({ campId, onClose }: { campId: string; onClose: ()
 					<p className="py-10 text-center text-base text-slate-500">Ce camp n’existe pas.</p>
 				) : (
 					<>
-						<p className="mt-3 text-base italic text-slate-400">« {camp.blurb} »</p>
-
-						<TeamPicker
-							teams={teams ?? []}
-							selected={teamId}
-							activeTeamId={activeTeamId}
-							onSelect={selectTeam}
-							disabled={busy || view.playing}
-						/>
-
-						{camp.roster > 0 && (
-							<p className="mt-2 text-sm text-slate-400">
-								{camp.roster === 1
-									? 'Un seul Pokémon de la tranche : il affrontera un partenaire.'
-									: `${camp.roster} Pokémon de la tranche entrent sur le terrain, un partenaire chacun. Celui qui met son partenaire K.O. passe la main.`}
-								{camp.benched > 0 && (
-									<span className="text-slate-500">
-										{' '}
-										{camp.benched === 1 ? '1 reste au banc' : `${camp.benched} restent au banc`} : hors de
-										la tranche {camp.minLevel}–{camp.maxLevel}, rien à apprendre ici et donc rien à y
-										perdre.
-									</span>
-								)}
-							</p>
-						)}
-
-						{/* Who spars here, so the band is something you can see. */}
-						<ul className="mt-3 flex flex-wrap gap-1" aria-label="Pokémon sauvages du camp">
-							{camp.wild.map((pokedexId) => (
-								<li key={pokedexId}>
-									<img
-										src={spriteUrlFor(pokedexId)}
-										alt=""
-										loading="lazy"
-										className="h-10 w-10 [image-rendering:pixelated] opacity-80"
-									/>
-								</li>
-							))}
-						</ul>
-
-						{camp.locked && (
-							<p className="mt-3 flex items-center gap-2 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
-								<GiTrophyCup className="h-5 w-5 shrink-0" />
-								Ce camp demande {camp.badgesRequired} badges d’arène — tu en as {camp.badgesOwned}. Va
-								battre un maître : c’est le badge qui ouvre la tranche de niveaux suivante.
-							</p>
-						)}
-						{!camp.locked && !camp.unlocked && (
-							<p className="mt-3 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
-								Ce camp n’accepte qu’à partir du niveau {camp.minLevel}. Entraîne-toi dans un camp plus bas
-								d’abord.
-							</p>
-						)}
-						{camp.unlocked && camp.allInCare && (
-							<p className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-sm text-red-200">
-								Tes Pokémon de ce palier sont blessés ou en soins. Passe par le centre de soins, au
-								carrefour du spawn.
-							</p>
-						)}
-						{camp.unlocked && camp.exhausted && (
-							<p className="mt-3 flex items-center gap-2 rounded-md bg-emerald-500/15 px-3 py-2 text-sm text-emerald-200">
-								<GiArrowDunk className="h-5 w-5 shrink-0" />
-								Plus personne de cette équipe n’est dans la tranche {camp.minLevel}–{camp.maxLevel} : tu
-								peux encore y sparrer, mais ce camp ne mène pas au-delà du niveau {camp.ceiling}. Le
-								palier suivant est ailleurs sur la carte.
-							</p>
-						)}
-
-						{error && (
-							<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
-								{error}
-							</p>
-						)}
-
-						{battle && (
-							<div className="mt-4">
-								<BattleField
-									player={sideWithPlaybackHp(battle.player, view.playerHp, view.playerActive)}
-									master={sideWithPlaybackHp(battle.master, view.masterHp, view.masterActive)}
-									view={view}
-								/>
-							</div>
-						)}
-
-						{/* The payout waits for the fight to finish playing. */}
+						{/* Everything between the header and the buttons scrolls. On a
+						    screen too short for the whole camp — a phone held upright —
+						    it is the middle that gives way, never the actions. */}
 						<div className="min-h-0 flex-1 overflow-y-auto">
-							{session && !view.playing && (
+							<div className="mt-1 flex flex-wrap items-center gap-2">
+								<span className="text-base text-slate-400">{camp.title}</span>
+								<Band camp={camp} />
+								{/* The camp picks its own trainee, so say who walks in next. */}
+								<span className="text-xs text-slate-500">
+									{camp.nextTrainee
+										? `${camp.nextTrainee.name} ouvre (niveau ${camp.nextTrainee.level})`
+										: `ton équipe : niveau ${camp.teamLevel}`}
+								</span>
+							</div>
+
+							{/* The ceiling is a property of the account, not of this camp:
+							    it is the same wherever the player trains, and it moves
+							    only when a master falls. */}
+							{cap && (
+								<p className="mt-1 text-xs text-slate-500">
+									Plafond actuel : niveau {cap.levelCap} · {cap.badges} badge
+									{cap.badges > 1 ? 's' : ''} d’arène
+									{cap.nextCamp &&
+										` · ${cap.nextCamp.name} s’ouvre à ${cap.nextCamp.badges} badges`}
+								</p>
+							)}
+
+							<p className="mt-3 text-base italic text-slate-400">« {camp.blurb} »</p>
+
+							<TeamPicker
+								teams={teams ?? []}
+								selected={teamId}
+								activeTeamId={activeTeamId}
+								onSelect={selectTeam}
+								disabled={busy || view.playing}
+							/>
+
+							{camp.roster > 0 && (
+								<p className="mt-2 text-sm text-slate-400">
+									{camp.roster === 1
+										? 'Un seul Pokémon de la tranche : il affrontera un partenaire.'
+										: `${camp.roster} Pokémon de la tranche entrent sur le terrain, un partenaire chacun. Celui qui met son partenaire K.O. passe la main.`}
+									{camp.benched > 0 && (
+										<span className="text-slate-500">
+											{' '}
+											{camp.benched === 1 ? '1 reste au banc' : `${camp.benched} restent au banc`} : hors de
+											la tranche {camp.minLevel}–{camp.maxLevel}, rien à apprendre ici et donc rien à y
+											perdre.
+										</span>
+									)}
+								</p>
+							)}
+
+							{/* Who spars here, so the band is something you can see. */}
+							<ul className="mt-3 flex flex-wrap gap-1" aria-label="Pokémon sauvages du camp">
+								{camp.wild.map((pokedexId) => (
+									<li key={pokedexId}>
+										<img
+											src={spriteUrlFor(pokedexId)}
+											alt=""
+											loading="lazy"
+											className="h-10 w-10 [image-rendering:pixelated] opacity-80"
+										/>
+									</li>
+								))}
+							</ul>
+
+							{camp.locked && (
+								<p className="mt-3 flex items-center gap-2 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
+									<GiTrophyCup className="h-5 w-5 shrink-0" />
+									Ce camp demande {camp.badgesRequired} badges d’arène — tu en as {camp.badgesOwned}. Va
+									battre un maître : c’est le badge qui ouvre la tranche de niveaux suivante.
+								</p>
+							)}
+							{!camp.locked && !camp.unlocked && (
+								<p className="mt-3 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
+									Ce camp n’accepte qu’à partir du niveau {camp.minLevel}. Entraîne-toi dans un camp plus bas
+									d’abord.
+								</p>
+							)}
+							{camp.unlocked && camp.allInCare && (
+								<p className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-sm text-red-200">
+									Tes Pokémon de ce palier sont blessés ou en soins. Passe par le centre de soins, au
+									carrefour du spawn.
+								</p>
+							)}
+							{camp.unlocked && camp.exhausted && (
+								<p className="mt-3 flex items-center gap-2 rounded-md bg-emerald-500/15 px-3 py-2 text-sm text-emerald-200">
+									<GiArrowDunk className="h-5 w-5 shrink-0" />
+									Plus personne de cette équipe n’est dans la tranche {camp.minLevel}–{camp.maxLevel} : tu
+									peux encore y sparrer, mais ce camp ne mène pas au-delà du niveau {camp.ceiling}. Le
+									palier suivant est ailleurs sur la carte.
+								</p>
+							)}
+
+							{error && (
+								<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
+									{error}
+								</p>
+							)}
+
+							{battle && (
+								<div className="mt-4">
+									<BattleField
+										player={sideWithPlaybackHp(battle.player, view.playerHp, view.playerActive)}
+										master={sideWithPlaybackHp(battle.master, view.masterHp, view.masterActive)}
+										view={view}
+									/>
+								</div>
+							)}
+
+							{/* The payout waits for the fight to finish playing. */}
+						{session && !view.playing && (
 								<>
 									<p className="mt-4 text-base">
 										{session.battle.status === 'won' ? 'Session réussie' : 'Session perdue'} —{' '}

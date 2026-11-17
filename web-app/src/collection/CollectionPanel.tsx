@@ -99,7 +99,7 @@ export function CollectionPanel({
 		<div
 			ref={backdrop}
 			tabIndex={-1}
-			className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-2 outline-none sm:p-4"
+			className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/60 p-2 outline-none sm:p-4"
 			// The map listens for arrow keys on its wrapper; the panel must not
 			// make the character walk.
 			onKeyDown={(event) => event.stopPropagation()}
@@ -111,7 +111,7 @@ export function CollectionPanel({
 			<section
 				role="dialog"
 				aria-label={title}
-				className="flex h-full max-h-[96dvh] w-full max-w-[1500px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141c17] text-slate-100 shadow-2xl"
+				className="my-auto flex h-full max-h-[96dvh] w-full max-w-[1500px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141c17] text-slate-100 shadow-2xl"
 			>
 				<header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-white/10 px-4 py-3">
 					<div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">

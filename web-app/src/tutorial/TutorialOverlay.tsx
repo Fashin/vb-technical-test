@@ -205,6 +205,20 @@ export function TutorialOverlay({
 				: { bottom: Math.max(0, host.height - box.top) + distance }
 			: { top: Math.max(MARGIN, host.height / 2 - 90) }
 
+	/**
+	 * What is left for the card once it has been placed.
+	 *
+	 * On a short screen — a phone held sideways, a small window — the step can
+	 * be taller than the room between the target and the edge. Capping it there
+	 * lets the text scroll inside the card instead of sliding off the top, which
+	 * is where the buttons that advance the tutorial live.
+	 */
+	const room = (spot: { top?: number; bottom?: number }) => {
+		if (host.height === 0) return undefined
+		const used = spot.top ?? spot.bottom ?? 0
+		return Math.max(120, host.height - used - MARGIN)
+	}
+
 	return (
 		<div
 			ref={root}
@@ -239,8 +253,8 @@ export function TutorialOverlay({
 			)}
 
 			<div
-				className="pointer-events-auto absolute rounded-xl border border-emerald-400/40 bg-[#141c17]/95 p-4 text-slate-100 shadow-2xl transition-all duration-300"
-				style={{ left: cardLeft, width: card, ...place(GAP) }}
+				className="pointer-events-auto absolute overflow-y-auto rounded-xl border border-emerald-400/40 bg-[#141c17]/95 p-4 text-slate-100 shadow-2xl transition-all duration-300"
+				style={{ left: cardLeft, width: card, maxHeight: room(place(GAP)), ...place(GAP) }}
 			>
 				<p className="text-xs font-medium uppercase tracking-wide text-emerald-300">
 					Étape {index + 1} / {steps.length}

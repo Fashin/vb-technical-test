@@ -127,13 +127,13 @@ export function RankingPanel({ onClose }: { onClose: () => void }) {
 	}, [])
 
 	return (
-		<div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
+		<div className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/70 p-4">
 			<section
 				role="dialog"
 				aria-label="Classement des dresseurs"
-				className="flex max-h-[88dvh] w-full max-w-4xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[88dvh] w-full max-w-4xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-start justify-between gap-3">
+				<header className="flex shrink-0 items-start justify-between gap-3">
 					<div>
 						<Breadcrumb
 							trail={[
@@ -157,7 +157,7 @@ export function RankingPanel({ onClose }: { onClose: () => void }) {
 				</header>
 
 				{error && (
-					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
+					<p role="alert" className="mt-3 shrink-0 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 						{error}
 					</p>
 				)}
@@ -169,7 +169,7 @@ export function RankingPanel({ onClose }: { onClose: () => void }) {
 				) : (
 					<>
 						{/* Column headings, so the two right-hand numbers are readable. */}
-						<div className="mt-4 flex items-center gap-3 px-3 text-xs uppercase tracking-wide text-slate-500">
+						<div className="mt-4 flex shrink-0 items-center gap-3 px-3 text-xs uppercase tracking-wide text-slate-500">
 							<span className="w-7 shrink-0" />
 							<span className="shrink-0" style={{ width: '2.75rem' }} />
 							<span className="min-w-0 flex-1">Dresseur</span>

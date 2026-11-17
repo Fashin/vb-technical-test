@@ -199,7 +199,7 @@ export function ArenaPanel({
 		<div
 			ref={backdrop}
 			tabIndex={-1}
-			className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 p-4 outline-none"
+			className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/55 p-4 outline-none"
 			onKeyDown={(event) => event.stopPropagation()}
 			onKeyUp={(event) => event.stopPropagation()}
 			onPointerDown={(event) => {
@@ -209,9 +209,9 @@ export function ArenaPanel({
 			<section
 				role="dialog"
 				aria-label="Arène"
-				className="flex max-h-[85dvh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[85dvh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-center justify-between">
+				<header className="flex shrink-0 items-center justify-between">
 					<Breadcrumb
 						trail={[
 							{ label: 'Carte', onClick: onClose },
@@ -229,26 +229,26 @@ export function ArenaPanel({
 					</button>
 				</header>
 
-				<p className="mt-1 text-base text-slate-400">
+				<p className="mt-1 shrink-0 text-base text-slate-400">
 					{masters === null
 						? 'Chargement…'
 						: `${beaten} maître${beaten > 1 ? 's' : ''} vaincu${beaten > 1 ? 's' : ''} sur ${masters.length}`}
 				</p>
 
 				{error && (
-					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
+					<p role="alert" className="mt-3 shrink-0 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 						{error}
 					</p>
 				)}
 
 				{!ready && !loadingTeam && (
-					<p className="mt-3 rounded-md bg-amber-500/15 px-3 py-2 text-base text-amber-200">
+					<p className="mt-3 shrink-0 rounded-md bg-amber-500/15 px-3 py-2 text-base text-amber-200">
 						Compose d’abord une équipe dans « Mon équipe » — tu ne peux pas défier un maître les mains vides.
 					</p>
 				)}
 
 				{ready && activeTeam && (
-					<p className="mt-3 flex items-center gap-2 text-sm text-slate-400">
+					<p className="mt-3 flex shrink-0 items-center gap-2 text-sm text-slate-400">
 						<span>Tu combats avec</span>
 						<span className="font-medium text-slate-200">{activeTeam.name}</span>
 						<span className="flex items-center gap-0.5">
@@ -265,7 +265,7 @@ export function ArenaPanel({
 				)}
 
 
-				<ul className="mt-4 flex-1 space-y-2 overflow-y-auto pr-1">
+				<ul className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
 					{masters?.map((master) => (
 						<MasterCard
 							key={master.id}

@@ -85,7 +85,7 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 		<div
 			ref={backdrop}
 			tabIndex={-1}
-			className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 p-4 outline-none"
+			className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/55 p-4 outline-none"
 			// The map listens for arrow keys on its wrapper; the panel is a
 			// separate context and must not make the character walk.
 			onKeyDown={(event) => event.stopPropagation()}
@@ -99,9 +99,9 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 			<section
 				role="dialog"
 				aria-label="Boosters"
-				className="w-full max-w-2xl rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[88dvh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-center justify-between">
+				<header className="flex shrink-0 items-center justify-between">
 					<Breadcrumb
 						trail={[
 							{ label: 'Carte', onClick: close },
@@ -120,13 +120,13 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 				</header>
 
 				{error && (
-					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
+					<p role="alert" className="mt-3 shrink-0 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 						{error}
 					</p>
 				)}
 
 				{cards ? (
-					<div className="relative mt-4">
+					<div className="relative mt-4 flex min-h-0 flex-1 flex-col">
 						{/* The burst is tinted by the best card in the pack, so the
 						    colour already hints at the pull before anything turns over. */}
 						{reveal.bursting && (
@@ -137,7 +137,7 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 							/>
 						)}
 
-						<p className="text-base text-slate-300">
+						<p className="shrink-0 text-base text-slate-300">
 							{instant
 								? `${openedPacks} booster${openedPacks > 1 ? 's' : ''} ouvert${openedPacks > 1 ? 's' : ''} \u00b7 tu as obtenu\u00a0:`
 								: reveal.done
@@ -152,13 +152,9 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 							)}
 						</p>
 
-						<ul
-							className={`relative mt-3 flex flex-wrap justify-center gap-2${
-								// A dozen packs is far taller than the dialog; let the pile
-								// scroll rather than push the « Retour » button off screen.
-								instant ? ' max-h-[46vh] overflow-y-auto pr-1' : ''
-							}`}
-						>
+						{/* The pile is what scrolls — a dozen packs, or a single one on a
+						    short screen — so the « Retour » button under it stays put. */}
+						<ul className="relative mt-3 flex min-h-0 flex-1 flex-wrap content-start justify-center gap-2 overflow-y-auto pr-1">
 							{cards.map((card, index) => (
 								<RevealCard key={card.id} card={card} revealed={index < reveal.revealed} />
 							))}
@@ -168,14 +164,14 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 							<>
 								{/* Said out loud, because the button used to read like a
 								    confirmation: there is nothing left to validate. */}
-								<p className="mt-3 text-center text-sm text-slate-400">
+								<p className="mt-3 shrink-0 text-center text-sm text-slate-400">
 									{instant ? 'Boosters ouverts' : 'Booster ouvert'} · ces cartes sont dans ta
 									collection.
 								</p>
 								<button
 									type="button"
 									onClick={dismiss}
-									className="mt-3 w-full rounded-md bg-emerald-500 px-4 py-2 font-medium text-emerald-950 hover:bg-emerald-400"
+									className="mt-3 w-full shrink-0 rounded-md bg-emerald-500 px-4 py-2 font-medium text-emerald-950 hover:bg-emerald-400"
 								>
 									Retour aux boosters
 								</button>
@@ -184,14 +180,17 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 							<button
 								type="button"
 								onClick={reveal.skip}
-								className="mt-5 w-full rounded-md border border-white/15 px-4 py-2 text-base text-slate-300 hover:bg-white/10 hover:text-white"
+								className="mt-5 w-full shrink-0 rounded-md border border-white/15 px-4 py-2 text-base text-slate-300 hover:bg-white/10 hover:text-white"
 							>
 								Tout révéler
 							</button>
 						)}
 					</div>
 				) : (
-					<div className="mt-4">
+					/* One scrolling body: on a screen too short for the countdown, the
+					   packs and the buttons, it is the panel that scrolls rather than
+					   anything being cut off below its edge. */
+					<div className="mt-4 min-h-0 flex-1 overflow-y-auto">
 						<div className="rounded-lg border border-white/10 bg-black/30 p-3">
 							<p className="text-base text-slate-400">Prochain booster</p>
 							<p className="mt-0.5 text-3xl font-semibold tabular-nums">

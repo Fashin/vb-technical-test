@@ -103,13 +103,13 @@ export function TradePanel({
 	const offerable = cards?.filter((card) => !card.inCare) ?? []
 
 	return (
-		<div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
+		<div className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/70 p-4">
 			<section
 				role="dialog"
 				aria-label={`Échange avec ${theirs.name}`}
-				className="flex max-h-[88dvh] w-full max-w-4xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[88dvh] w-full max-w-4xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-start justify-between gap-3">
+				<header className="flex shrink-0 items-start justify-between gap-3">
 					<div>
 						<Breadcrumb
 							trail={[
@@ -132,18 +132,18 @@ export function TradePanel({
 					</button>
 				</header>
 
-				<div className="mt-4 flex flex-wrap gap-3">
+				<div className="mt-4 flex shrink-0 flex-wrap gap-3">
 					<Offer side={mine} mine />
 					<Offer side={theirs} mine={false} />
 				</div>
 
 				{settled ? (
-					<p className="mt-4 rounded-lg bg-emerald-500/15 p-4 text-center text-lg font-semibold text-emerald-200">
+					<p className="mt-4 shrink-0 rounded-lg bg-emerald-500/15 p-4 text-center text-lg font-semibold text-emerald-200">
 						Échange conclu — les cartes ont changé de dresseur.
 					</p>
 				) : (
 					<>
-						<h3 className="mt-4 text-sm uppercase tracking-wide text-slate-500">
+						<h3 className="mt-4 shrink-0 text-sm uppercase tracking-wide text-slate-500">
 							Tes cartes {cards && `(${offerable.length})`}
 						</h3>
 						<ul className="mt-2 min-h-0 flex-1 overflow-y-auto">

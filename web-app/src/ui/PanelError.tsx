@@ -9,7 +9,7 @@
 export function PanelError({ error, onClose }: { error: Error; onClose: () => void }) {
 	return (
 		<div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
-			<div className="max-w-sm rounded-xl border border-white/10 bg-[#141c17] p-6 text-slate-300">
+			<div className="max-h-full max-w-sm overflow-y-auto rounded-xl border border-white/10 bg-[#141c17] p-6 text-slate-300">
 				<h2 className="text-lg font-semibold text-white">Ce panneau a rencontré une erreur</h2>
 
 				<p className="mt-2 text-base">

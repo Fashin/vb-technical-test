@@ -147,7 +147,7 @@ export function PokemonDetail({
 
 	return (
 		<div
-			className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-4"
+			className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/70 p-4"
 			onPointerDown={(event) => {
 				if (event.target === event.currentTarget) onClose()
 			}}
@@ -155,9 +155,9 @@ export function PokemonDetail({
 			<section
 				role="dialog"
 				aria-label={pokemon ? `Fiche de ${pokemon.name}` : 'Fiche Pokémon'}
-				className="flex max-h-[88dvh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[88dvh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-start justify-between gap-3">
+				<header className="flex shrink-0 items-start justify-between gap-3">
 					<div className="flex items-center gap-3">
 						<img
 							src={spriteUrlFor(pokedexId)}
@@ -191,7 +191,7 @@ export function PokemonDetail({
 				</header>
 
 				{error && (
-					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
+					<p role="alert" className="mt-3 shrink-0 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 						{error}
 					</p>
 				)}

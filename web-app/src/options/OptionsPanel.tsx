@@ -317,7 +317,7 @@ export function OptionsPanel({
 		<div
 			ref={backdrop}
 			tabIndex={-1}
-			className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 p-4 outline-none"
+			className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/55 p-4 outline-none"
 			onKeyDown={(event) => event.stopPropagation()}
 			onKeyUp={(event) => event.stopPropagation()}
 			onPointerDown={(event) => {
@@ -327,9 +327,9 @@ export function OptionsPanel({
 			<section
 				role="dialog"
 				aria-label="Options"
-				className="flex max-h-[85dvh] w-full max-w-lg flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[85dvh] w-full max-w-lg flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-center justify-between">
+				<header className="flex shrink-0 items-center justify-between">
 					<Breadcrumb
 						trail={[
 							{ label: 'Carte', onClick: onClose },
@@ -347,11 +347,11 @@ export function OptionsPanel({
 					</button>
 				</header>
 
-				<p className="mt-1 text-base text-slate-400">
+				<p className="mt-1 shrink-0 text-base text-slate-400">
 					{user?.displayName} · {user?.email}
 				</p>
 
-				<div className="mt-4 flex-1 space-y-4 overflow-y-auto">
+				<div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto">
 					{onReplayTutorial && (
 						<section className="rounded-lg border border-white/10 bg-black/25 p-4">
 							<h3 className="text-base font-semibold">Revoir le tutoriel</h3>

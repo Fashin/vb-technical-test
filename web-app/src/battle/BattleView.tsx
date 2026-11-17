@@ -340,16 +340,16 @@ export function BattleView({
 		<div
 			ref={backdrop}
 			tabIndex={-1}
-			className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-4 outline-none"
+			className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/70 p-4 outline-none"
 			onKeyDown={(event) => event.stopPropagation()}
 			onKeyUp={(event) => event.stopPropagation()}
 		>
 			<section
 				role="dialog"
 				aria-label={`Combat contre ${master.name}`}
-				className="flex max-h-[88dvh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[88dvh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-center justify-between">
+				<header className="flex shrink-0 items-center justify-between">
 					<Breadcrumb
 						trail={[
 							{ label: 'Arène', onClick: onClose },
@@ -372,19 +372,19 @@ export function BattleView({
 				{loading ? (
 					<p className="py-10 text-center text-base text-slate-500">Chargement…</p>
 				) : !battle ? (
-					<div className="mt-4">
+					<div className="mt-4 min-h-0 flex-1 overflow-y-auto">
 						<TeamPicker master={master} onPick={(id) => void start(id)} busy={busy} error={error} />
 					</div>
 				) : (
 					<>
 						{!narrated ? (
-							<p className="mt-3 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
+							<p className="mt-3 shrink-0 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
 								Le chatbot n’est pas configuré : les attaques sont improvisées par le serveur et le combat
 								n’est pas commenté.
 							</p>
 						) : (
 							improvised && (
-								<p className="mt-3 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
+								<p className="mt-3 shrink-0 rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-200">
 									Le chatbot n’a pas rendu de script exploitable : ce combat a été improvisé par le serveur.
 								</p>
 							)
@@ -394,7 +394,7 @@ export function BattleView({
 						    everything below it is the fight itself, so the two never
 						    share the screen. */}
 						{introducing && opening ? (
-							<div className="mt-4">
+							<div className="mt-4 min-h-0 flex-1 overflow-y-auto">
 								<BattleIntro
 									player={opening.player}
 									opponent={opening.opponent}
@@ -403,7 +403,7 @@ export function BattleView({
 							</div>
 						) : (
 							<>
-								<div className="mt-4">
+								<div className="mt-4 min-h-0 overflow-y-auto">
 									<BattleField
 										player={sideWithPlaybackHp(battle.player, view.playerHp, view.playerActive)}
 										master={sideWithPlaybackHp(battle.master, view.masterHp, view.masterActive)}
@@ -412,13 +412,13 @@ export function BattleView({
 								</div>
 
 								{error && (
-									<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
+									<p role="alert" className="mt-3 shrink-0 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 										{error}
 									</p>
 								)}
 
 								{/* Log */}
-								<ul className="mt-3 min-h-[6rem] flex-1 overflow-y-auto rounded-lg border border-white/10 bg-black/25 px-3">
+								<ul className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-lg border border-white/10 bg-black/25 px-3">
 									{told.length === 0 ? (
 										<li className="py-4 text-center text-base text-slate-500">
 											{busy ? 'Les dresseurs préparent leur stratégie…' : 'Le combat commence. À toi de lancer l’assaut.'}
@@ -438,7 +438,7 @@ export function BattleView({
 
 								{over ? (
 									<div
-										className={`mt-4 rounded-lg p-4 text-center ${
+										className={`mt-4 shrink-0 rounded-lg p-4 text-center ${
 											battle.status === 'won' ? 'bg-emerald-500/15' : 'bg-red-500/15'
 										}`}
 									>
@@ -485,7 +485,7 @@ export function BattleView({
 									 * would lie. What a player in a hurry actually wants is the
 									 * end of the animation, and that they can have.
 									 */
-									<div className="mt-4 w-full rounded-md border border-white/10 bg-black/30 px-4 py-3 text-center">
+									<div className="mt-4 w-full shrink-0 rounded-md border border-white/10 bg-black/30 px-4 py-3 text-center">
 										<p className="font-medium text-slate-400">Le combat fait rage…</p>
 										<button
 											type="button"
@@ -501,12 +501,12 @@ export function BattleView({
 											type="button"
 											onClick={() => void run()}
 											disabled={busy}
-											className="mt-4 w-full rounded-md bg-emerald-500 px-4 py-3 font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50"
+											className="mt-4 w-full shrink-0 rounded-md bg-emerald-500 px-4 py-3 font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50"
 										>
 											{busy ? 'Le combat s’écrit…' : 'Lancer le combat'}
 										</button>
 										{confirmForfeit ? (
-											<div className="mt-2 flex flex-wrap items-center justify-center gap-2 rounded-md bg-red-500/10 px-3 py-2">
+											<div className="mt-2 flex shrink-0 flex-wrap items-center justify-center gap-2 rounded-md bg-red-500/10 px-3 py-2">
 												<span className="text-sm text-red-200">
 													Abandonner compte comme une défaite, sans récompense.
 												</span>
@@ -531,7 +531,7 @@ export function BattleView({
 												type="button"
 												onClick={() => setConfirmForfeit(true)}
 												disabled={busy}
-												className="mt-2 self-center text-sm text-red-300/80 hover:text-red-200 hover:underline disabled:opacity-40"
+												className="mt-2 shrink-0 self-center text-sm text-red-300/80 hover:text-red-200 hover:underline disabled:opacity-40"
 											>
 												Abandonner le combat
 											</button>

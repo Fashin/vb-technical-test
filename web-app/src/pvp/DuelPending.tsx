@@ -37,14 +37,14 @@ export function DuelPending({
 	still?: boolean
 }) {
 	return (
-		<div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
+		<div className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/70 p-4">
 			<section
 				role="dialog"
 				aria-busy="true"
 				aria-label={`Duel contre ${opponentName}`}
-				className="flex w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[88dvh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-center justify-between">
+				<header className="flex shrink-0 items-center justify-between">
 					<Breadcrumb
 						trail={[{ label: 'Carte' }, { label: `Duel contre ${opponentName}` }]}
 						icon={GiCrossedSwords}
@@ -53,7 +53,7 @@ export function DuelPending({
 				</header>
 
 				{still || !you ? (
-					<div className="flex flex-col items-center gap-4 py-12">
+					<div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto py-12">
 						<div className="flex items-center gap-3" aria-hidden="true">
 							<GiCrossedSwords className="h-10 w-10 animate-pulse text-amber-300" />
 						</div>
@@ -75,7 +75,7 @@ export function DuelPending({
 						}`}</style>
 					</div>
 				) : (
-					<div className="mt-4">
+					<div className="mt-4 min-h-0 flex-1 overflow-y-auto">
 						<BattleIntro
 							player={{ name: you.name, appearance: you.appearance, lead: yourLead }}
 							opponent={{ name: opponentName, appearance: opponentAppearance, lead: opponentLead }}

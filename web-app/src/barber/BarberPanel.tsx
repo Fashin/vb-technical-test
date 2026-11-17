@@ -247,7 +247,7 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 		<div
 			ref={backdrop}
 			tabIndex={-1}
-			className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 p-4 outline-none"
+			className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/55 p-4 outline-none"
 			onKeyDown={(event) => event.stopPropagation()}
 			onKeyUp={(event) => event.stopPropagation()}
 			onPointerDown={(event) => {
@@ -257,9 +257,9 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 			<section
 				role="dialog"
 				aria-label="Coiffeur"
-				className="flex max-h-[85dvh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
+				className="my-auto flex max-h-[85dvh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#141c17] p-5 text-slate-100 shadow-2xl"
 			>
-				<header className="flex items-center justify-between">
+				<header className="flex shrink-0 items-center justify-between">
 					<Breadcrumb
 						trail={[
 							{ label: 'Carte', onClick: onClose },
@@ -277,7 +277,7 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 					</button>
 				</header>
 
-				<div className="mt-4 flex flex-1 gap-5 overflow-y-auto">
+				<div className="mt-4 flex min-h-0 flex-1 gap-5 overflow-y-auto">
 					<div className="flex shrink-0 flex-col items-center gap-2">
 						<div className="rounded-lg border border-white/10 bg-gradient-to-b from-emerald-900/40 to-black/40 p-3">
 							<TrainerPortrait appearance={draft} scale={8} label="Aperçu du dresseur" />
@@ -344,12 +344,12 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 				</div>
 
 				{error && (
-					<p role="alert" className="mt-3 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
+					<p role="alert" className="mt-3 shrink-0 rounded-md bg-red-500/15 px-3 py-2 text-base text-red-300">
 						{error}
 					</p>
 				)}
 
-				<div className="mt-4 flex gap-2">
+				<div className="mt-4 flex shrink-0 gap-2">
 					<button
 						type="button"
 						onClick={() => user && setDraft({ ...user.appearance })}
