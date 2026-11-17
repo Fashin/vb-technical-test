@@ -6,6 +6,7 @@ build
 tmp
 /out-tsc
 DEPLOY.md
+deploy.sh
 
 # dependencies
 node_modules

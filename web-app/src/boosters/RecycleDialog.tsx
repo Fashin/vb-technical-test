@@ -225,7 +225,7 @@ export function RecycleDialog({
 									{preview.boosters > 0 && <span className="text-emerald-300"> à +{preview.luck} %</span>}
 								</p>
 								<p className="mt-1 text-sm text-slate-500">
-									{rules?.shardsPerBooster ?? 10} éclats pour un booster. Plus les doublons sont rares, plus
+									{rules?.shardsPerBooster ?? 1000} éclats pour un booster. Plus les doublons sont rares, plus
 									le bonus monte (jusqu’à +{rules?.maxLuck ?? 3} %).
 									{preview.remainder > 0 &&
 										` ${preview.remainder} éclat${preview.remainder > 1 ? 's' : ''} resteront en réserve.`}

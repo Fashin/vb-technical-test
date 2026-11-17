@@ -34,12 +34,19 @@ export const SHARD_VALUE: Record<Exclude<Rarity, 'legendary'>, number> = {
 }
 
 /**
- * Shards for one pack — the brief's "ten commons for a pack", spelled out.
+ * Shards for one pack.
+ *
+ * Started at ten — "ten commons for a pack" — and that was a hundred times
+ * too generous: a beta session finished the game in one evening. A collection
+ * big enough to have spare duplicates produces hundreds of shards per
+ * transformation, so ten made recycling, not the arena, the fastest route to
+ * anything. A thousand puts it back where it was meant to sit: a long-running
+ * sink for the fourth Rattata, not an engine.
  *
  * Rarity therefore pays twice: a rare is five commons' worth of packs, and it
  * also pulls the batch's average up, which is what sets the luck below.
  */
-export const SHARDS_PER_BOOSTER = 10
+export const SHARDS_PER_BOOSTER = 1000
 
 export type RecyclableRarity = keyof typeof SHARD_VALUE
 

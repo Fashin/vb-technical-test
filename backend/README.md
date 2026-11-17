@@ -39,6 +39,26 @@ jeton court et le combat est relayé par le backend précisément pour ça.
 | `npm start` | Lance le serveur compilé (`dist/app.js`). |
 | `npm run typecheck` | Vérification de types seule, sans émission. |
 | `npm run lint` | ESLint sur `src`. |
+| `npm run names:fr` | Régénère `src/services/frenchNames.ts` depuis PokeAPI. |
+| `npm run reset:beta` | Remise à zéro de fin de bêta (voir ci-dessous). |
+
+### Remise à zéro de fin de bêta
+
+`scripts/reset-beta.mjs` efface tout ce que les joueurs ont généré — cartes,
+équipes, combats, duels, échanges, victoires d'arène, boosters chanceux,
+éclats — en conservant les comptes, puis donne à chacun le succès
+« Bêta-testeur » et la couronne qu'il débloque chez le coiffeur. Les sessions
+survivent, donc personne n'a à se reconnecter.
+
+```bash
+node scripts/reset-beta.mjs --dry-run   # compte tout, n'écrit rien
+node scripts/reset-beta.mjs             # demande confirmation ("reset")
+node scripts/reset-beta.mjs --yes       # sans question, pour un script de déploiement
+```
+
+`DB_PATH` est respecté comme par l'application. **Arrêter le backend avant** :
+il garde le fichier SQLite ouvert, et une copie de la base est écrite à côté
+de l'original (`app.db.before-reset-…`) avant la moindre suppression.
 
 ### En production
 

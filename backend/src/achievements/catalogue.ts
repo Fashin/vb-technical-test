@@ -31,6 +31,17 @@ export interface Achievement {
 /** The five legendaries a booster can draw. */
 export const LEGENDARIES = [144, 145, 146, 150, 151]
 
+/**
+ * The one achievement that is granted rather than derived.
+ *
+ * Everything else in this file is measured against a table that records what
+ * the player did. "Was here before the wipe" has no such table — the wipe
+ * removes them — so it reads a flag on the account instead, set once by
+ * `scripts/reset-beta.mjs`. It is also the only achievement that carries a
+ * cosmetic: the crown at the barber.
+ */
+export const BETA_TESTER = 'beta:tester'
+
 const masterAchievements: Achievement[] = [...MASTERS]
 	.sort((a, b) => a.tier - b.tier)
 	.map((master) => ({
@@ -137,6 +148,13 @@ export const ACHIEVEMENTS: Achievement[] = [
 		id: 'trade:first',
 		name: 'Donnant-donnant',
 		description: 'Conclure un échange avec un autre dresseur.',
+		category: 'dresseur',
+		target: 1,
+	},
+	{
+		id: BETA_TESTER,
+		name: 'Bêta-testeur',
+		description: 'Avoir joué avant la remise à zéro. Débloque la couronne chez le coiffeur.',
 		category: 'dresseur',
 		target: 1,
 	},

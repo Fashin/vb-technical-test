@@ -12,6 +12,10 @@ export interface Appearance {
 	hairColor: number
 	shirt: number
 	trousers: number
+	/**
+	 * Headwear. Mostly a free choice, with one exception: `CROWN_HAT` is a
+	 * reward, like the pins below, and is checked where the appearance is saved.
+	 */
 	hat: number
 	/** Beard or moustache; it takes the hair colour. */
 	facialHair: number
@@ -37,13 +41,23 @@ const SIZES: Record<keyof Appearance, number> = {
 	hairColor: 8,
 	shirt: 10,
 	trousers: 10,
-	hat: 3,
+	hat: 4,
 	facialHair: 5,
 	build: 2,
 	bottom: 2,
 	// Ten masters, ten pins, plus 0 for "no pin".
 	pin: 11,
 }
+
+/**
+ * The beta testers' crown: index into the web app's `HAT_STYLES`.
+ *
+ * Earned, not chosen — `sanitizeAppearance` only keeps it in range, and
+ * whether this account may actually wear it is checked where the appearance is
+ * saved, since only there is there a user to check against. Same shape as the
+ * badge pins, for the same reason.
+ */
+export const CROWN_HAT = 3
 
 export const DEFAULT_APPEARANCE: Appearance = {
 	skin: 0,

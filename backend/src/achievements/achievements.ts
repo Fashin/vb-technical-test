@@ -1,15 +1,18 @@
 import { db } from '../db'
 import { levelFromXp } from '../progression/levels'
-import { ACHIEVEMENTS, LEGENDARIES, type Achievement } from './catalogue'
+import { ACHIEVEMENTS, BETA_TESTER, LEGENDARIES, type Achievement } from './catalogue'
 
 /**
  * What a trainer has actually done, measured against the catalogue.
  *
- * Nothing is stored per player: every achievement is derived, on read, from
- * the tables that already record the facts — victories, cards, experience,
- * duels, trades. The same reasoning as the ranking (`ranking/leaderboard.ts`):
- * a derived standing cannot drift from reality, and no write path has to
- * remember to unlock anything.
+ * Almost nothing is stored per player: every achievement is derived, on read,
+ * from the tables that already record the facts — victories, cards,
+ * experience, duels, trades. The same reasoning as the ranking
+ * (`ranking/leaderboard.ts`): a derived standing cannot drift from reality,
+ * and no write path has to remember to unlock anything.
+ *
+ * The exception is `BETA_TESTER`, which records something no table can: that
+ * the account existed before its history was wiped. It reads a flag instead.
  *
  * One pass over the player's facts, then one pure mapping per achievement.
  */
@@ -37,6 +40,7 @@ interface Facts {
 	biggestTeam: number
 	duels: number
 	trades: number
+	betaTester: boolean
 }
 
 function factsFor(userId: string): Facts {
@@ -73,6 +77,11 @@ function factsFor(userId: string): Facts {
 
 	const duels = db.prepare('SELECT COUNT(*) AS won FROM duels WHERE winner_id = ?').get(userId) as { won: number }
 
+	// The one granted fact rather than a counted one — see `BETA_TESTER`.
+	const beta = db.prepare('SELECT beta_tester FROM users WHERE id = ?').get(userId) as
+		| { beta_tester: number }
+		| undefined
+
 	// Counted by trade, not by card: one swap of three cards is one trade.
 	const trades = db
 		.prepare('SELECT COUNT(DISTINCT trade_id) AS done FROM trades WHERE giver_id = ? OR taker_id = ?')
@@ -87,6 +96,7 @@ function factsFor(userId: string): Facts {
 		biggestTeam: team.biggest,
 		duels: duels.won,
 		trades: trades.done,
+		betaTester: beta?.beta_tester === 1,
 	}
 }
 
@@ -121,6 +131,8 @@ function measure(achievement: Achievement, facts: Facts): { progress: number; at
 			return { progress: facts.duels, at: null }
 		case 'trade:first':
 			return { progress: facts.trades, at: null }
+		case BETA_TESTER:
+			return { progress: facts.betaTester ? 1 : 0, at: null }
 		default:
 			return { progress: 0, at: null }
 	}

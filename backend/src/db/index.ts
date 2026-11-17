@@ -162,13 +162,27 @@ addColumn('cards', 'hp_lost', 'REAL NOT NULL DEFAULT 0')
 addColumn('cards', 'healed_at', 'INTEGER')
 
 // Leftover recycling shards: what a transformation produced but could not
-// turn into a whole pack. Kept rather than dropped, so nine duplicates are
-// never worth nothing — they wait for the tenth. See `boosters/recycle.ts`.
+// turn into a whole pack. Kept rather than dropped, so a batch that falls
+// short of a pack is never worth nothing — it waits for the next one. See
+// `boosters/recycle.ts` for what a pack costs.
 addColumn('users', 'shards', 'INTEGER NOT NULL DEFAULT 0')
 
 // The team taken into the arena. Nullable: a fresh account has none, and
 // deleting the selected team puts it back to NULL rather than dangling.
 addColumn('users', 'active_team_id', 'TEXT')
+
+/**
+ * Beta tester, and the only achievement in the game that is *granted* rather
+ * than derived.
+ *
+ * Every other achievement is read back out of the tables that record what the
+ * player did (see `achievements/achievements.ts`), which is why nothing is
+ * stored per player. "Was here before the wipe" is not a fact any of those
+ * tables hold — the wipe is precisely what removes them — so it needs a mark
+ * of its own. One flag, set once by `scripts/reset-beta.mjs`, and the crown it
+ * unlocks at the barber is checked against it.
+ */
+addColumn('users', 'beta_tester', 'INTEGER NOT NULL DEFAULT 0')
 
 /**
  * Cards drawn before the names were localised still carry "gengar".

@@ -1,4 +1,12 @@
-import { CLOTH_COLORS, HAIR_COLORS, PIN_COLORS, SKIN_TONES, type Appearance } from './appearance'
+import {
+	CLOTH_COLORS,
+	CROWN_GOLD,
+	CROWN_HAT,
+	HAIR_COLORS,
+	PIN_COLORS,
+	SKIN_TONES,
+	type Appearance,
+} from './appearance'
 
 /**
  * Procedural trainer sprite.
@@ -167,8 +175,36 @@ function drawFacialHair(ctx: Ctx, style: number, color: string): void {
 	}
 }
 
+/**
+ * The crown, seen from the front or the back.
+ *
+ * Three points on a band, which is the fewest that still reads as a crown at
+ * sixteen pixels across. The band sits on the same rows as the cap's brim —
+ * a crown rests on the brow, and anywhere higher left it floating above the
+ * head — with the hair showing in the row above it. The points clear the top
+ * of the frame by one pixel so they are not read as a clipped sprite.
+ *
+ * It is the only piece of headwear that ignores the shirt colour: see
+ * `CROWN_HAT`.
+ */
+function drawCrown(ctx: Ctx, back: boolean): void {
+	const dark = shade(CROWN_GOLD, 0.35)
+	const bright = shade(CROWN_GOLD, -0.2)
+
+	px(ctx, 4, 4, 8, 2, CROWN_GOLD) // the band
+	px(ctx, 4, 5, 8, 1, dark) // its lower edge, so the band reads as a rim
+	px(ctx, 4, 2, 1, 2, CROWN_GOLD) // left point
+	px(ctx, 7, 2, 2, 2, CROWN_GOLD) // centre point, one pixel taller
+	px(ctx, 7, 1, 2, 1, CROWN_GOLD)
+	px(ctx, 11, 2, 1, 2, CROWN_GOLD) // right point
+
+	// A jewel on the band, front only: from behind there is nothing to show.
+	if (!back) px(ctx, 7, 4, 2, 1, bright)
+}
+
 function drawHat(ctx: Ctx, style: number, color: string, back = false): void {
 	if (style === 0) return
+	if (style === CROWN_HAT) return drawCrown(ctx, back)
 	const dark = shade(color, 0.35)
 
 	if (style === 1 && back) {
@@ -262,8 +298,35 @@ function drawSideFacialHair(ctx: Ctx, style: number, color: string): void {
 	}
 }
 
+/**
+ * Whether a piece of headwear covers the top of the head.
+ *
+ * A cap and a bandana do, which is why the hair under them is drawn short.
+ * A crown does not — it rests *on* the hair — so the hair is drawn in full
+ * and the band is laid over it.
+ */
+function hidesHair(hat: number): boolean {
+	return hat !== 0 && hat !== CROWN_HAT
+}
+
+/**
+ * The crown in profile: the band edge-on, with the three points spaced along
+ * it rather than across it — the same three, seen from the side.
+ */
+function drawSideCrown(ctx: Ctx): void {
+	const dark = shade(CROWN_GOLD, 0.35)
+
+	px(ctx, 4, 4, 8, 2, CROWN_GOLD)
+	px(ctx, 4, 5, 8, 1, dark)
+	px(ctx, 4, 2, 1, 2, CROWN_GOLD) // back point
+	px(ctx, 7, 2, 2, 2, CROWN_GOLD) // the tall one, now over the ear
+	px(ctx, 7, 1, 2, 1, CROWN_GOLD)
+	px(ctx, 11, 2, 1, 2, CROWN_GOLD) // front point, above the brow
+}
+
 function drawSideHat(ctx: Ctx, style: number, color: string): void {
 	if (style === 0) return
+	if (style === CROWN_HAT) return drawSideCrown(ctx)
 	const dark = shade(color, 0.35)
 
 	if (style === 1) {
@@ -309,7 +372,7 @@ function drawSideFrame(ctx: Ctx, appearance: Appearance, frame: number): void {
 	px(ctx, 6, 6, 1, 2, skinDark) // ear
 
 	drawSideFacialHair(ctx, appearance.facialHair, hair)
-	drawSideHair(ctx, appearance.hair, hair, appearance.hat !== 0)
+	drawSideHair(ctx, appearance.hair, hair, hidesHair(appearance.hat))
 	drawSideHat(ctx, appearance.hat, shirt)
 
 	// Torso, two pixels narrower than the front view: a body seen edge-on
@@ -392,7 +455,7 @@ function drawFrame(ctx: Ctx, appearance: Appearance, frame: number, view: View =
 	const shirtDark = shade(shirt, 0.28)
 	const trousers = CLOTH_COLORS[appearance.trousers]
 	const trousersDark = shade(trousers, 0.3)
-	const hatHidesTop = appearance.hat !== 0
+	const hatHidesTop = hidesHair(appearance.hat)
 
 	// Head. No face from behind — that is the whole point of the back view.
 	px(ctx, 4, 3, 8, 7, skin)

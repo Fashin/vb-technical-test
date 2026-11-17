@@ -21,6 +21,8 @@ export interface UserRow {
 	booster_since: number
 	/** JSON appearance; empty string until the account is first drawn. */
 	appearance: string
+	/** 1 for an account that was playing before the beta wipe. */
+	beta_tester: number
 }
 
 /** What the client is allowed to see. */
@@ -31,6 +33,8 @@ export interface PublicUser {
 	spriteId: number
 	lastSeenAt: number
 	appearance: Appearance
+	/** Carries the crown at the barber; see `appearance/appearance.ts`. */
+	betaTester: boolean
 }
 
 export function toPublicUser(row: UserRow): PublicUser {
@@ -41,7 +45,22 @@ export function toPublicUser(row: UserRow): PublicUser {
 		spriteId: row.sprite_id,
 		lastSeenAt: row.last_seen_at,
 		appearance: appearanceOf(row),
+		betaTester: row.beta_tester === 1,
 	}
+}
+
+/**
+ * Whether this account wears the beta testers' crown.
+ *
+ * Read by id rather than taken off a row the caller already has: the one
+ * caller that matters is the appearance save, which holds a user id and no
+ * row, and a cosmetic unlock is not worth a second lookup elsewhere.
+ */
+export function isBetaTester(userId: string): boolean {
+	const row = db.prepare('SELECT beta_tester FROM users WHERE id = ?').get(userId) as
+		| { beta_tester: number }
+		| undefined
+	return row?.beta_tester === 1
 }
 
 /** The stored look, or the one generated from the id if never customised. */

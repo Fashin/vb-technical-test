@@ -20,6 +20,8 @@ export interface PublicUser {
 	spriteId: number
 	lastSeenAt: number
 	appearance: Appearance
+	/** Played before the beta wipe; unlocks the crown at the barber. */
+	betaTester: boolean
 }
 
 export interface ApiError {

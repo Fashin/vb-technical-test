@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { GiScissors, GiTrophyCup } from 'react-icons/gi'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { GiCrown, GiScissors, GiTrophyCup } from 'react-icons/gi'
 
 import { fetchMasters, type Master } from '../arena'
 import { Breadcrumb, useEscapeToClose } from '../ui'
@@ -9,6 +9,8 @@ import {
 	BOTTOMS,
 	BUILDS,
 	CLOTH_COLORS,
+	CROWN_GOLD,
+	CROWN_HAT,
 	FACIAL_HAIR,
 	HAIR_COLORS,
 	HAIR_STYLES,
@@ -55,27 +57,46 @@ interface ChoicesProps {
 	options: readonly string[]
 	value: number
 	onChange: (index: number) => void
+	/**
+	 * Options this account has not earned. They stay in the list, greyed and
+	 * disabled with `title` saying what unlocks them — the same treatment the
+	 * badge pins get below, and for the same reason: a locked row is how a
+	 * player finds out the reward exists.
+	 */
+	locked?: Record<number, string>
+	/** Marks drawn before an option's label, by index. */
+	adornments?: Record<number, ReactNode>
 }
 
-function Choices({ label, options, value, onChange }: ChoicesProps) {
+function Choices({ label, options, value, onChange, locked, adornments }: ChoicesProps) {
 	return (
 		<div>
 			<p className="text-sm text-slate-400">{label}</p>
 			<div className="mt-1 flex flex-wrap gap-1.5">
-				{options.map((option, index) => (
-					<button
-						key={option}
-						type="button"
-						onClick={() => onChange(index)}
-						aria-pressed={value === index}
-						className={
-							'rounded-md px-2 py-1 text-sm transition ' +
-							(value === index ? 'bg-white/20 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10')
-						}
-					>
-						{option}
-					</button>
-				))}
+				{options.map((option, index) => {
+					const reason = locked?.[index]
+					return (
+						<button
+							key={option}
+							type="button"
+							disabled={reason !== undefined}
+							title={reason}
+							onClick={() => onChange(index)}
+							aria-pressed={value === index}
+							className={
+								'flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition disabled:cursor-not-allowed ' +
+								(reason !== undefined
+									? 'bg-white/5 text-slate-600'
+									: value === index
+										? 'bg-white/20 text-white'
+										: 'bg-white/5 text-slate-300 hover:bg-white/10')
+							}
+						>
+							{adornments?.[index]}
+							{option}
+						</button>
+					)
+				})}
 			</div>
 		</div>
 	)
@@ -289,6 +310,20 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 							options={HAT_STYLES}
 							value={draft.hat}
 							onChange={(hat) => set({ hat })}
+							locked={
+								user?.betaTester
+									? undefined
+									: { [CROWN_HAT]: 'Couronne — réservée aux bêta-testeurs' }
+							}
+							adornments={{
+								[CROWN_HAT]: (
+									<GiCrown
+										aria-hidden
+										className="h-3.5 w-3.5"
+										style={{ color: user?.betaTester ? CROWN_GOLD : 'currentColor' }}
+									/>
+								),
+							}}
 						/>
 						<Swatches label="Carnation" colors={SKIN_TONES} value={draft.skin} onChange={(skin) => set({ skin })} />
 						<Swatches label="Haut" colors={CLOTH_COLORS} value={draft.shirt} onChange={(shirt) => set({ shirt })} />

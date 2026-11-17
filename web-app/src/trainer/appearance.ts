@@ -16,6 +16,11 @@ export interface Appearance {
 	hairColor: number
 	shirt: number
 	trousers: number
+	/**
+	 * Headwear: index into `HAT_STYLES`.
+	 *
+	 * A free choice except for the crown, which is earned — see `CROWN_HAT`.
+	 */
 	hat: number
 	/** Beard or moustache: index into `FACIAL_HAIR`. It takes the hair colour. */
 	facialHair: number
@@ -72,7 +77,21 @@ export const PIN_COLORS = [
 ]
 
 export const HAIR_STYLES = ['Court', 'Long', 'Couettes', 'Hérissé', 'Crâne rasé'] as const
-export const HAT_STYLES = ['Aucun', 'Casquette', 'Bandana'] as const
+export const HAT_STYLES = ['Aucun', 'Casquette', 'Bandana', 'Couronne'] as const
+
+/**
+ * The crown: the bêta-testeurs' reward, and the only piece of headwear that
+ * is not simply picked.
+ *
+ * It keeps its own gold rather than taking the shirt colour the way the cap
+ * and the bandana do — a crown in teal is a party hat. The server refuses to
+ * save it for an account without the achievement, so the barber shows it
+ * locked rather than hiding it: a reward nobody can see is not a reward.
+ */
+export const CROWN_HAT = HAT_STYLES.indexOf('Couronne')
+
+/** Crown gold, and the shadow its own drawing uses. */
+export const CROWN_GOLD = '#f5c419'
 
 /**
  * Facial hair. It has no colour of its own: it follows the hair, which is

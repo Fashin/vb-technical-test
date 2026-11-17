@@ -7,6 +7,7 @@ import {
 	deleteUser,
 	findByEmail,
 	findById,
+	isBetaTester,
 	normalizeEmail,
 	saveAppearance,
 	toPublicUser,
@@ -15,7 +16,7 @@ import {
 	updatePassword,
 } from '../auth/users'
 import { disconnectUser } from '../realtime'
-import { sanitizeAppearance } from '../appearance/appearance'
+import { CROWN_HAT, sanitizeAppearance } from '../appearance/appearance'
 import { pinsOf } from '../progression/badges'
 import { verifyPassword } from '../auth/passwords'
 
@@ -88,8 +89,9 @@ AuthController.get('/me', requireAuth, (req, res) => {
  * it is stored, so a crafted request cannot make another player's client
  * render something undefined.
  *
- * The badge pin is the one thing clamping cannot settle: every index in it is
- * a valid pin, but only the ones this account has won may be worn. It is
+ * Two things clamping cannot settle, because both are earned rather than
+ * chosen: the badge pin, where every index is a valid pin but only the ones
+ * this account has won may be worn, and the beta testers' crown. Both are
  * refused rather than quietly dropped — a save that silently returns a
  * different look than the one asked for is worse than a message.
  */
@@ -99,6 +101,12 @@ AuthController.put('/appearance', requireAuth, (req, res) => {
 	if (!pinsOf(req.user!.id).includes(appearance.pin)) {
 		return res.status(403).json({
 			error: { code: 'BADGE_NOT_EARNED', message: 'Ce badge n’a pas encore été gagné' },
+		})
+	}
+
+	if (appearance.hat === CROWN_HAT && !isBetaTester(req.user!.id)) {
+		return res.status(403).json({
+			error: { code: 'CROWN_NOT_EARNED', message: 'La couronne est réservée aux bêta-testeurs' },
 		})
 	}
 
