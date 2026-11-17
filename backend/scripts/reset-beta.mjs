@@ -23,19 +23,36 @@
  *   node scripts/reset-beta.mjs              # ask, then do it
  *   node scripts/reset-beta.mjs --yes        # no question (for a deploy script)
  *
- * `DB_PATH` is honoured, exactly as the app honours it, so the same command
- * works in production. **Stop the backend first**: it holds the SQLite file
- * open, and a player opening a booster halfway through the wipe would be
+ * `DB_PATH` is honoured exactly as the app honours it — including out of
+ * `backend/.env`, which is where it actually lives in production — so the same
+ * command works on the server. **Stop the backend first**: it holds the SQLite
+ * file open, and a player opening a booster halfway through the wipe would be
  * writing cards into a collection that is being deleted.
  */
 import Database from 'better-sqlite3'
+import { config as loadEnv } from 'dotenv'
 import { copyFileSync, existsSync } from 'node:fs'
 import { createInterface } from 'node:readline/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
+
+/**
+ * `.env`, read from the backend root rather than from the current directory.
+ *
+ * The app gets this for free — `src/config.ts` imports `dotenv/config`, and
+ * systemd starts it with `backend/` as its working directory. A script run by
+ * hand has no such guarantee, and the first version of this one skipped `.env`
+ * altogether: on the server it went looking for `backend/data/app.db`, found
+ * nothing, and reported an empty database while the real one sat untouched at
+ * the `DB_PATH` in `.env`. An existing variable in the environment still wins,
+ * which is how the dry run can be pointed at a copy.
+ */
+loadEnv({ path: join(HERE, '..', '.env'), quiet: true })
+
 const DB_PATH = process.env.DB_PATH ?? join(HERE, '..', 'data', 'app.db')
+const DB_SOURCE = process.env.DB_PATH ? 'DB_PATH' : 'defaut'
 
 const args = new Set(process.argv.slice(2))
 const dryRun = args.has('--dry-run') || args.has('-n')
@@ -68,7 +85,9 @@ const WIPED = [
 ]
 
 if (!existsSync(DB_PATH)) {
-	console.error(`Pas de base à ${DB_PATH} — rien à faire.`)
+	console.error(`Pas de base à ${DB_PATH} (${DB_SOURCE}).`)
+	console.error('Vérifie DB_PATH dans backend/.env, ou passe-le explicitement :')
+	console.error('  DB_PATH=/chemin/vers/app.db node scripts/reset-beta.mjs --dry-run')
 	process.exit(1)
 }
 
@@ -97,7 +116,7 @@ if (!columns.includes('beta_tester')) {
 const count = (table) => db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n
 const users = count('users')
 
-console.log(`Base : ${DB_PATH}`)
+console.log(`Base : ${DB_PATH} (${DB_SOURCE})`)
 console.log(`Comptes conservés : ${users}`)
 const verb = dryRun ? 'à supprimer' : 'supprimée(s)'
 for (const table of WIPED) console.log(`  ${table.padEnd(18)} ${count(table)} ligne(s) ${verb}`)

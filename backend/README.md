@@ -56,7 +56,9 @@ node scripts/reset-beta.mjs             # demande confirmation ("reset")
 node scripts/reset-beta.mjs --yes       # sans question, pour un script de déploiement
 ```
 
-`DB_PATH` est respecté comme par l'application. **Arrêter le backend avant** :
+`DB_PATH` est lu depuis `backend/.env` comme par l'application (une variable
+déjà présente dans l'environnement reste prioritaire, pratique pour viser une
+copie), et la base retenue est affichée en première ligne. **Arrêter le backend avant** :
 il garde le fichier SQLite ouvert, et une copie de la base est écrite à côté
 de l'original (`app.db.before-reset-…`) avant la moindre suppression.
 
