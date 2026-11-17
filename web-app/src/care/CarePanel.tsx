@@ -30,6 +30,9 @@ import type { CareState } from './api'
 /** How often the countdowns are redrawn. */
 const TICK_MS = 1000
 
+/** How often the server is asked again for a treatment it has not released yet. */
+const RELEASE_RETRY_MS = 2000
+
 function formatDelay(ms: number): string {
 	const total = Math.max(0, Math.round(ms / 1000))
 	const minutes = Math.floor(total / 60)
@@ -119,10 +122,16 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 	}, [])
 
 	// A treatment that has just finished is only released by the server, so ask
-	// it again rather than declaring the card healed here.
+	// it again rather than declaring the card healed here. The countdown above
+	// runs on the browser's clock and the release on the server's, so the first
+	// request can land a moment too early: keep asking until the card actually
+	// comes back out of care, otherwise the panel would say "pret" forever.
 	const due = care?.inCare.some((member) => member.healedAt !== null && member.healedAt <= now) ?? false
 	useEffect(() => {
-		if (due) load()
+		if (!due) return
+		load()
+		const timer = setInterval(load, RELEASE_RETRY_MS)
+		return () => clearInterval(timer)
 	}, [due, load])
 
 	const admit = async () => {
