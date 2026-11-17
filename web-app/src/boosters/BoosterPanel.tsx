@@ -38,12 +38,32 @@ function formatCountdown(ms: number): string {
  * already-opened pack back on screen.
  */
 export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; onClose: () => void }) {
-	const { state, remainingMs, cards, openedLuck, lucky, shards, opening, error, open, openLucky, dismiss, refresh } =
-		boosters
+	const {
+		state,
+		remainingMs,
+		cards,
+		openedLuck,
+		instant,
+		lucky,
+		shards,
+		opening,
+		error,
+		open,
+		openAll,
+		openLucky,
+		dismiss,
+		refresh,
+	} = boosters
 	/** The stack that the one-click open would spend — the best one. */
 	const bestLucky = lucky[0] ?? null
 	const luckyTotal = lucky.reduce((sum, stack) => sum + stack.count, 0)
-	const reveal = useReveal(cards)
+	const reveal = useReveal(cards, instant)
+	/**
+	 * How many packs the cards on screen came from. Only said out loud after
+	 * « Tout ouvrir », where the pile is the whole point and a bare grid of
+	 * forty cards says nothing about what was spent.
+	 */
+	const openedPacks = cards ? Math.round(cards.length / (state?.cardsPerBooster || 5)) : 0
 	const backdrop = useRef<HTMLDivElement>(null)
 
 	// Leaving the panel drops the reveal with it: the pack is already opened,
@@ -118,7 +138,11 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 						)}
 
 						<p className="text-base text-slate-300">
-							{reveal.done ? 'Tu as obtenu :' : 'Ouverture du booster…'}
+							{instant
+								? `${openedPacks} booster${openedPacks > 1 ? 's' : ''} ouvert${openedPacks > 1 ? 's' : ''} \u00b7 tu as obtenu\u00a0:`
+								: reveal.done
+									? 'Tu as obtenu :'
+									: 'Ouverture du booster…'}
 							{/* Which pack this was. Without it a recycled pack and a free
 							    one look identical, and the trade would feel like nothing. */}
 							{openedLuck > 0 && (
@@ -128,7 +152,13 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 							)}
 						</p>
 
-						<ul className="relative mt-3 flex flex-wrap justify-center gap-2">
+						<ul
+							className={`relative mt-3 flex flex-wrap justify-center gap-2${
+								// A dozen packs is far taller than the dialog; let the pile
+								// scroll rather than push the « Retour » button off screen.
+								instant ? ' max-h-[46vh] overflow-y-auto pr-1' : ''
+							}`}
+						>
 							{cards.map((card, index) => (
 								<RevealCard key={card.id} card={card} revealed={index < reveal.revealed} />
 							))}
@@ -139,7 +169,8 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 								{/* Said out loud, because the button used to read like a
 								    confirmation: there is nothing left to validate. */}
 								<p className="mt-3 text-center text-sm text-slate-400">
-									Booster ouvert · ces cartes sont dans ta collection.
+									{instant ? 'Boosters ouverts' : 'Booster ouvert'} · ces cartes sont dans ta
+									collection.
 								</p>
 								<button
 									type="button"
@@ -204,14 +235,30 @@ export function BoosterPanel({ boosters, onClose }: { boosters: BoostersValue; o
 							)}
 						</ul>
 
-						<button
-							type="button"
-							onClick={() => void open()}
-							disabled={opening || !state || state.pending === 0}
-							className="mt-4 w-full rounded-md bg-emerald-500 px-4 py-2 font-medium text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
-						>
-							{opening ? 'Ouverture…' : 'Ouvrir un booster'}
-						</button>
+						<div className="mt-4 flex gap-2">
+							<button
+								type="button"
+								onClick={() => void open()}
+								disabled={opening || !state || state.pending === 0}
+								className="flex-1 rounded-md bg-emerald-500 px-4 py-2 font-medium text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+							>
+								{opening ? 'Ouverture…' : 'Ouvrir un booster'}
+							</button>
+
+							{/* Only once there is more than one pack waiting: with a single
+							    one it would open exactly the same thing as the button
+							    beside it, minus the animation. */}
+							{state && state.pending > 1 && (
+								<button
+									type="button"
+									onClick={() => void openAll()}
+									disabled={opening}
+									className="rounded-md border border-emerald-400/50 px-4 py-2 font-medium text-emerald-200 transition hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-40"
+								>
+									{opening ? 'Ouverture…' : `Tout ouvrir (${state.pending})`}
+								</button>
+							)}
+						</div>
 
 						{/* Recycled packs. Drawn only once there is something to say
 						    about them — an empty block would teach the feature to a

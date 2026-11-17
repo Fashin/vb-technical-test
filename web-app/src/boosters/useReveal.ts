@@ -23,8 +23,12 @@ export interface RevealValue {
  * Honours `prefers-reduced-motion`: readers who asked for less movement get
  * the five cards immediately, with no burst and no flip. The animation is
  * decoration — the information must not depend on it.
+ *
+ * `instant` asks for the same thing for another reason: « Tout ouvrir » lands
+ * dozens of cards at once, and staggering them would turn a summary into a
+ * minute of waiting.
  */
-export function useReveal(cards: Card[] | null): RevealValue {
+export function useReveal(cards: Card[] | null, instant = false): RevealValue {
 	const [revealed, setRevealed] = useState(0)
 	const [bursting, setBursting] = useState(false)
 	const timers = useRef<ReturnType<typeof setTimeout>[]>([])
@@ -46,7 +50,7 @@ export function useReveal(cards: Card[] | null): RevealValue {
 		const reduced =
 			typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
-		if (reduced) {
+		if (reduced || instant) {
 			setBursting(false)
 			setRevealed(cards.length)
 			return
@@ -63,7 +67,7 @@ export function useReveal(cards: Card[] | null): RevealValue {
 		})
 
 		return clear
-	}, [cards])
+	}, [cards, instant])
 
 	const skip = useCallback(() => {
 		clear()

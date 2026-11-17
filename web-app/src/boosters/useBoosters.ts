@@ -14,12 +14,26 @@ export interface BoostersValue {
 	 * look exactly like a free one and the trade would feel like nothing.
 	 */
 	openedLuck: number
+	/**
+	 * True when the cards on screen came from « Tout ouvrir ». The reveal plays
+	 * no burst and no flip for them: a dozen packs opened in one go is a
+	 * summary, not a ceremony.
+	 */
+	instant: boolean
 	/** Lucky packs waiting, best first, and the leftover shards. */
 	lucky: BoosterState['lucky']
 	shards: number
 	opening: boolean
 	error: string | null
 	open: () => Promise<void>
+	/**
+	 * Spend the whole free stock in one go and show every card at once.
+	 *
+	 * Only the packs the clock handed out: lucky ones cost recycled cards, and
+	 * emptying that stock behind a single click is the kind of loss nobody
+	 * asked for.
+	 */
+	openAll: () => Promise<void>
 	/** Open the best pack the recycled duplicates bought. */
 	openLucky: () => Promise<void>
 	/** Put the reveal away and go back to the stock. */
@@ -50,6 +64,7 @@ export function useBoosters(enabled: boolean): BoostersValue {
 	const [remainingMs, setRemainingMs] = useState<number | null>(null)
 	const [cards, setCards] = useState<Card[] | null>(null)
 	const [openedLuck, setOpenedLuck] = useState(0)
+	const [instant, setInstant] = useState(false)
 	const [opening, setOpening] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 
@@ -149,6 +164,7 @@ export function useBoosters(enabled: boolean): BoostersValue {
 			setError(null)
 			try {
 				const result = await ask()
+				setInstant(false)
 				setCards(result.cards)
 				setOpenedLuck(result.luck)
 				// Through `applyState`, not `setState`: spending a pack restarts the
@@ -168,18 +184,59 @@ export function useBoosters(enabled: boolean): BoostersValue {
 	const open = useCallback(() => spend(api.openBooster), [spend])
 	const openLucky = useCallback(() => spend(api.openLuckyBooster), [spend])
 
-	const dismiss = useCallback(() => setCards(null), [])
+	/**
+	 * Open every pending pack, one request after another.
+	 *
+	 * The server opens a single pack per call, so this walks the stock down and
+	 * trusts the count it sends back rather than the one the panel started
+	 * with — another tab, or an arena win, may have changed it mid-way. A
+	 * failure stops the walk but keeps whatever already came back: those packs
+	 * are spent and their cards are in the collection.
+	 */
+	const openAll = useCallback(async () => {
+		setOpening(true)
+		setError(null)
+		const drawn: Card[] = []
+		try {
+			// Bounded by the stock the server reports after each open, so a
+			// server that stopped decrementing cannot loop forever.
+			let left = state?.pending ?? 0
+			while (left > 0) {
+				const result = await api.openBooster()
+				drawn.push(...result.cards)
+				applyState(result.state)
+				left = Math.min(left - 1, result.state.pending)
+			}
+		} catch (cause) {
+			setError(cause instanceof api.BoosterError ? cause.message : 'Serveur injoignable')
+			void refresh()
+		} finally {
+			if (drawn.length > 0) {
+				setInstant(true)
+				setOpenedLuck(0)
+				setCards(drawn)
+			}
+			setOpening(false)
+		}
+	}, [state, applyState, refresh])
+
+	const dismiss = useCallback(() => {
+		setCards(null)
+		setInstant(false)
+	}, [])
 
 	return {
 		state,
 		remainingMs,
 		cards,
 		openedLuck,
+		instant,
 		lucky: state?.lucky ?? [],
 		shards: state?.shards ?? 0,
 		opening,
 		error,
 		open,
+		openAll,
 		openLucky,
 		dismiss,
 		refresh: () => void refresh(),
