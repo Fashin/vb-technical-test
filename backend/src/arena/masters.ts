@@ -73,7 +73,7 @@ export const MASTERS: Master[] = [
 		team: [1, 43, 69, 44, 70, 2],
 		reward: 1,
 		badge: { name: 'Badge Feuille', pin: 1 },
-		appearance: { skin: 0, hair: 1, hairColor: 7, shirt: 2, trousers: 8, hat: 0, facialHair: 0, build: 1, bottom: 1, pin: 1 },
+		appearance: { skin: 0, hair: 1, hairColor: 7, shirt: 2, trousers: 8, hat: 0, facialHair: 0, build: 1, bottom: 1, pin: 1, aura: 0, crown: 0 },
 	},
 	{
 		id: 'cendre',
@@ -85,7 +85,7 @@ export const MASTERS: Master[] = [
 		team: [4, 37, 77, 58, 5, 126],
 		reward: 1,
 		badge: { name: 'Badge Braise', pin: 2 },
-		appearance: { skin: 2, hair: 0, hairColor: 0, shirt: 0, trousers: 7, hat: 2, facialHair: 4, build: 0, bottom: 0, pin: 2 },
+		appearance: { skin: 2, hair: 0, hairColor: 0, shirt: 0, trousers: 7, hat: 2, facialHair: 4, build: 0, bottom: 0, pin: 2, aura: 0, crown: 0 },
 	},
 	{
 		id: 'maree',
@@ -97,7 +97,7 @@ export const MASTERS: Master[] = [
 		team: [7, 54, 61, 117, 8, 119],
 		reward: 1,
 		badge: { name: 'Badge Vague', pin: 3 },
-		appearance: { skin: 1, hair: 2, hairColor: 4, shirt: 1, trousers: 7, hat: 1, facialHair: 0, build: 1, bottom: 0, pin: 3 },
+		appearance: { skin: 1, hair: 2, hairColor: 4, shirt: 1, trousers: 7, hat: 1, facialHair: 0, build: 1, bottom: 0, pin: 3, aura: 0, crown: 0 },
 	},
 	{
 		id: 'volt',
@@ -109,7 +109,7 @@ export const MASTERS: Master[] = [
 		team: [81, 100, 25, 82, 26, 125],
 		reward: 2,
 		badge: { name: 'Badge Éclair', pin: 4 },
-		appearance: { skin: 5, hair: 3, hairColor: 3, shirt: 3, trousers: 1, hat: 0, facialHair: 1, build: 0, bottom: 0, pin: 4 },
+		appearance: { skin: 5, hair: 3, hairColor: 3, shirt: 3, trousers: 1, hat: 0, facialHair: 1, build: 0, bottom: 0, pin: 4, aura: 0, crown: 0 },
 	},
 	{
 		id: 'dedale',
@@ -121,7 +121,7 @@ export const MASTERS: Master[] = [
 		team: [46, 49, 12, 15, 127, 123],
 		reward: 2,
 		badge: { name: 'Badge Carapace', pin: 5 },
-		appearance: { skin: 3, hair: 0, hairColor: 1, shirt: 9, trousers: 8, hat: 1, facialHair: 2, build: 0, bottom: 0, pin: 5 },
+		appearance: { skin: 3, hair: 0, hairColor: 1, shirt: 9, trousers: 8, hat: 1, facialHair: 2, build: 0, bottom: 0, pin: 5, aura: 0, crown: 0 },
 	},
 	{
 		id: 'venin',
@@ -133,7 +133,7 @@ export const MASTERS: Master[] = [
 		team: [42, 24, 110, 71, 34, 89],
 		reward: 2,
 		badge: { name: 'Badge Fiole', pin: 6 },
-		appearance: { skin: 4, hair: 4, hairColor: 0, shirt: 4, trousers: 7, hat: 0, facialHair: 0, build: 1, bottom: 1, pin: 6 },
+		appearance: { skin: 4, hair: 4, hairColor: 0, shirt: 4, trousers: 7, hat: 0, facialHair: 0, build: 1, bottom: 1, pin: 6, aura: 0, crown: 0 },
 	},
 	{
 		id: 'orphee',
@@ -145,7 +145,7 @@ export const MASTERS: Master[] = [
 		team: [64, 103, 122, 80, 97, 65],
 		reward: 2,
 		badge: { name: 'Badge Spirale', pin: 7 },
-		appearance: { skin: 1, hair: 1, hairColor: 6, shirt: 5, trousers: 4, hat: 2, facialHair: 0, build: 1, bottom: 1, pin: 7 },
+		appearance: { skin: 1, hair: 1, hairColor: 6, shirt: 5, trousers: 4, hat: 2, facialHair: 0, build: 1, bottom: 1, pin: 7, aura: 0, crown: 0 },
 	},
 	{
 		id: 'granit',
@@ -157,7 +157,7 @@ export const MASTERS: Master[] = [
 		team: [28, 105, 112, 95, 75, 76],
 		reward: 3,
 		badge: { name: 'Badge Éclat', pin: 8 },
-		appearance: { skin: 3, hair: 4, hairColor: 4, shirt: 8, trousers: 7, hat: 0, facialHair: 3, build: 0, bottom: 0, pin: 8 },
+		appearance: { skin: 3, hair: 4, hairColor: 4, shirt: 8, trousers: 7, hat: 0, facialHair: 3, build: 0, bottom: 0, pin: 8, aura: 0, crown: 0 },
 	},
 	{
 		id: 'fracas',
@@ -169,7 +169,7 @@ export const MASTERS: Master[] = [
 		team: [57, 62, 106, 107, 67, 68],
 		reward: 3,
 		badge: { name: 'Badge Poing', pin: 9 },
-		appearance: { skin: 2, hair: 3, hairColor: 0, shirt: 7, trousers: 0, hat: 0, facialHair: 1, build: 0, bottom: 0, pin: 9 },
+		appearance: { skin: 2, hair: 3, hairColor: 0, shirt: 7, trousers: 0, hat: 0, facialHair: 1, build: 0, bottom: 0, pin: 9, aura: 0, crown: 0 },
 	},
 	{
 		id: 'draconis',
@@ -181,7 +181,7 @@ export const MASTERS: Master[] = [
 		team: [147, 142, 130, 148, 6, 149],
 		reward: 3,
 		badge: { name: 'Badge Croc', pin: 10 },
-		appearance: { skin: 0, hair: 1, hairColor: 5, shirt: 6, trousers: 7, hat: 0, facialHair: 3, build: 0, bottom: 0, pin: 10 },
+		appearance: { skin: 0, hair: 1, hairColor: 5, shirt: 6, trousers: 7, hat: 0, facialHair: 3, build: 0, bottom: 0, pin: 10, aura: 0, crown: 0 },
 	},
 ]
 

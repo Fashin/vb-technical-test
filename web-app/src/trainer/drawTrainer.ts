@@ -1,7 +1,7 @@
 import {
+	AURA_COLORS,
 	CLOTH_COLORS,
-	CROWN_GOLD,
-	CROWN_HAT,
+	CROWN_COLORS,
 	HAIR_COLORS,
 	PIN_COLORS,
 	SKIN_TONES,
@@ -175,36 +175,8 @@ function drawFacialHair(ctx: Ctx, style: number, color: string): void {
 	}
 }
 
-/**
- * The crown, seen from the front or the back.
- *
- * Three points on a band, which is the fewest that still reads as a crown at
- * sixteen pixels across. The band sits on the same rows as the cap's brim —
- * a crown rests on the brow, and anywhere higher left it floating above the
- * head — with the hair showing in the row above it. The points clear the top
- * of the frame by one pixel so they are not read as a clipped sprite.
- *
- * It is the only piece of headwear that ignores the shirt colour: see
- * `CROWN_HAT`.
- */
-function drawCrown(ctx: Ctx, back: boolean): void {
-	const dark = shade(CROWN_GOLD, 0.35)
-	const bright = shade(CROWN_GOLD, -0.2)
-
-	px(ctx, 4, 4, 8, 2, CROWN_GOLD) // the band
-	px(ctx, 4, 5, 8, 1, dark) // its lower edge, so the band reads as a rim
-	px(ctx, 4, 2, 1, 2, CROWN_GOLD) // left point
-	px(ctx, 7, 2, 2, 2, CROWN_GOLD) // centre point, one pixel taller
-	px(ctx, 7, 1, 2, 1, CROWN_GOLD)
-	px(ctx, 11, 2, 1, 2, CROWN_GOLD) // right point
-
-	// A jewel on the band, front only: from behind there is nothing to show.
-	if (!back) px(ctx, 7, 4, 2, 1, bright)
-}
-
 function drawHat(ctx: Ctx, style: number, color: string, back = false): void {
 	if (style === 0) return
-	if (style === CROWN_HAT) return drawCrown(ctx, back)
 	const dark = shade(color, 0.35)
 
 	if (style === 1 && back) {
@@ -229,6 +201,58 @@ function drawHat(ctx: Ctx, style: number, color: string, back = false): void {
 	// Bandana: a band across the forehead with a knot on the side.
 	px(ctx, 3, 4, 10, 2, color)
 	px(ctx, back ? 1 : 12, 5, 2, 2, dark)
+}
+
+/**
+ * The podium crown, worn above everything else on the head.
+ *
+ * Rows 0 to 2, which no other feature uses except the spiky hair's tufts — so
+ * it is drawn last and sits on top of hair and hat alike. That is the point:
+ * the leader of the ranking should not have to take their cap off to wear it,
+ * and the slot it would otherwise have taken is the one the bêta-testeurs'
+ * crown was moved out of.
+ *
+ * Three points and a band, with the band's lower row darkened: at this size
+ * that single shadow row is what stops it reading as a flat bar.
+ */
+function drawCrown(ctx: Ctx, crown: number, back = false): void {
+	if (crown <= 0 || crown >= CROWN_COLORS.length) return
+	const color = CROWN_COLORS[crown]
+	const dark = shade(color, 0.4)
+	const light = shade(color, -0.3)
+
+	// Band, across the top of the skull.
+	px(ctx, 4, 1, 8, 1, color)
+	px(ctx, 4, 2, 8, 1, dark)
+	// Three points. The middle one is taller, which is what makes the outline
+	// read as a crown rather than as a hat band.
+	px(ctx, 4, 0, 1, 1, color)
+	px(ctx, 7, 0, 2, 1, color)
+	px(ctx, 11, 0, 1, 1, color)
+	// The stone, on the front of the band only — from behind there is nothing
+	// to set it in.
+	if (!back) px(ctx, 7, 1, 2, 1, light)
+}
+
+/**
+ * The crown in profile.
+ *
+ * Same band and the same three points, read edge-on: the points are spaced
+ * along the head from nape to brow, and the stone moves to the front of the
+ * band where the face is.
+ */
+function drawSideCrown(ctx: Ctx, crown: number): void {
+	if (crown <= 0 || crown >= CROWN_COLORS.length) return
+	const color = CROWN_COLORS[crown]
+	const dark = shade(color, 0.4)
+	const light = shade(color, -0.3)
+
+	px(ctx, 4, 1, 9, 1, color)
+	px(ctx, 4, 2, 9, 1, dark)
+	px(ctx, 4, 0, 1, 1, color)
+	px(ctx, 7, 0, 2, 1, color)
+	px(ctx, 12, 0, 1, 1, color)
+	px(ctx, 10, 1, 2, 1, light) // the stone, towards the brow
 }
 
 /**
@@ -301,32 +325,16 @@ function drawSideFacialHair(ctx: Ctx, style: number, color: string): void {
 /**
  * Whether a piece of headwear covers the top of the head.
  *
- * A cap and a bandana do, which is why the hair under them is drawn short.
- * A crown does not — it rests *on* the hair — so the hair is drawn in full
- * and the band is laid over it.
+ * Both of them do, which is why the hair under a hat is drawn short — but the
+ * question is asked rather than assumed, so adding a headband or a flower
+ * crown is one entry here rather than a rewrite of every hair style.
  */
 function hidesHair(hat: number): boolean {
-	return hat !== 0 && hat !== CROWN_HAT
-}
-
-/**
- * The crown in profile: the band edge-on, with the three points spaced along
- * it rather than across it — the same three, seen from the side.
- */
-function drawSideCrown(ctx: Ctx): void {
-	const dark = shade(CROWN_GOLD, 0.35)
-
-	px(ctx, 4, 4, 8, 2, CROWN_GOLD)
-	px(ctx, 4, 5, 8, 1, dark)
-	px(ctx, 4, 2, 1, 2, CROWN_GOLD) // back point
-	px(ctx, 7, 2, 2, 2, CROWN_GOLD) // the tall one, now over the ear
-	px(ctx, 7, 1, 2, 1, CROWN_GOLD)
-	px(ctx, 11, 2, 1, 2, CROWN_GOLD) // front point, above the brow
+	return hat !== 0
 }
 
 function drawSideHat(ctx: Ctx, style: number, color: string): void {
 	if (style === 0) return
-	if (style === CROWN_HAT) return drawSideCrown(ctx)
 	const dark = shade(color, 0.35)
 
 	if (style === 1) {
@@ -374,6 +382,8 @@ function drawSideFrame(ctx: Ctx, appearance: Appearance, frame: number): void {
 	drawSideFacialHair(ctx, appearance.facialHair, hair)
 	drawSideHair(ctx, appearance.hair, hair, hidesHair(appearance.hat))
 	drawSideHat(ctx, appearance.hat, shirt)
+	// Last on the head: the crown goes over the hat, not instead of it.
+	drawSideCrown(ctx, appearance.crown)
 
 	// Torso, two pixels narrower than the front view: a body seen edge-on
 	// shows its depth, not its width.
@@ -470,6 +480,8 @@ function drawFrame(ctx: Ctx, appearance: Appearance, frame: number, view: View =
 	drawHair(ctx, appearance.hair, hair, hatHidesTop, back)
 	// The hat takes the shirt colour, so head and body read as one outfit.
 	drawHat(ctx, appearance.hat, shirt, back)
+	// Last on the head: the crown goes over the hat, not instead of it.
+	drawCrown(ctx, appearance.crown, back)
 
 	// Torso. The "Fine" build is drawn with narrower shoulders and a waist —
 	// at sixteen pixels across, a two-pixel pinch is all it takes to read.
@@ -522,6 +534,125 @@ function drawFrame(ctx: Ctx, appearance: Appearance, frame: number, view: View =
 }
 
 /**
+ * The aura, ring by ring: how far from the body it reaches, and how solid it
+ * is there.
+ *
+ * Two rings rather than a smooth falloff, because the sprite is sixteen pixels
+ * across and a gradient at that size is mud. Both alphas stay above the 0.5
+ * `alphaTest` the world's material uses — below it the glow would simply be
+ * discarded on the map while still showing in the portraits.
+ */
+const AURA_RINGS = [0.92, 0.6]
+
+/**
+ * How much further the glow reaches upward than sideways.
+ *
+ * An aura that is the same thickness all round reads as an outline; energy
+ * rises, so the upward distance is divided by this before it is measured and
+ * the flames stretch over the head.
+ */
+const AURA_LIFT = 2
+
+/**
+ * Scratch canvas the body is drawn into to find its silhouette.
+ *
+ * Module level and reused: one appearance means nine frames, and allocating a
+ * canvas per frame showed up when a crowd walked on screen. Nothing is kept
+ * between calls — it is cleared on the way in.
+ */
+let scratch: HTMLCanvasElement | null = null
+
+/** The frame's own pixels, to grow the glow out of. */
+function silhouette(appearance: Appearance, frame: number, view: View): Uint8ClampedArray | null {
+	scratch ??= document.createElement('canvas')
+	scratch.width = FRAME_W
+	scratch.height = FRAME_H
+
+	const ctx = scratch.getContext('2d', { willReadFrequently: true })
+	if (!ctx) return null
+
+	ctx.imageSmoothingEnabled = false
+	ctx.clearRect(0, 0, FRAME_W, FRAME_H)
+	drawFrame(ctx, appearance, frame, view)
+	return ctx.getImageData(0, 0, FRAME_W, FRAME_H).data
+}
+
+/** A palette colour at a given opacity. */
+function rgba(hex: string, alpha: number): string {
+	const n = parseInt(hex.slice(1), 16)
+	return `rgba(${(n >> 16) & 0xff}, ${(n >> 8) & 0xff}, ${n & 0xff}, ${alpha})`
+}
+
+/**
+ * The aura burning around the trainer — the bêta-testeurs' reward, and the
+ * arena's.
+ *
+ * Grown from the sprite's own silhouette rather than drawn as a shape: it
+ * follows whatever the character happens to be wearing, in every view and
+ * every frame of the walk, with nothing to keep in step by hand. Each empty
+ * pixel is measured against the nearest body pixel, and the ring it falls in
+ * decides how solid the glow is there.
+ *
+ * The outer ring is punched through by a cheap hash of the pixel and the frame
+ * number, so the edge is ragged and *moves*: three walk frames are three
+ * different flickers, which is what makes it burn rather than sit there.
+ */
+function drawAura(ctx: Ctx, appearance: Appearance, frame: number, view: View): void {
+	const color = AURA_COLORS[appearance.aura]
+	if (!color || color === 'transparent') return
+
+	const mask = silhouette(appearance, frame, view)
+	if (!mask) return
+
+	const solid = (x: number, y: number) =>
+		x >= 0 && x < FRAME_W && y >= 0 && y < FRAME_H && mask[(y * FRAME_W + x) * 4 + 3] > 128
+
+	// `dy > 0` means the body is *below* this pixel, so the pixel is above the
+	// body and the distance is the cheap one.
+	const span = AURA_RINGS.length
+	const measure = (dx: number, dy: number) =>
+		Math.max(Math.abs(dx), dy > 0 ? Math.ceil(dy / AURA_LIFT) : Math.abs(dy))
+
+	/** Which ring this pixel is in, 0 for "not in the aura at all". */
+	const ring = (x: number, y: number) => {
+		let best = 0
+		for (let dy = -span; dy <= span * AURA_LIFT; dy++) {
+			for (let dx = -span; dx <= span; dx++) {
+				if (!solid(x + dx, y + dy)) continue
+				const distance = measure(dx, dy)
+				if (distance >= 1 && distance <= span && (best === 0 || distance < best)) best = distance
+			}
+		}
+		return best
+	}
+
+	for (let y = 0; y < FRAME_H; y++) {
+		for (let x = 0; x < FRAME_W; x++) {
+			if (solid(x, y)) continue
+
+			const index = ring(x, y)
+			if (index === 0) continue
+
+			// Only the outermost ring flickers: punching holes in the inner one
+			// would eat into the character's own edge. The top row of the frame
+			// is flickered too, whichever ring it is in — the flames reach past
+			// it, and a solid row there reads as a flat lid rather than a glow
+			// running out of sprite.
+			const ragged = index === span || y === 0
+			if (ragged && (x * 5 + y * 3 + frame * 7) % 3 === 0) continue
+
+			px(ctx, x, y, 1, 1, rgba(color, AURA_RINGS[index - 1]))
+		}
+	}
+}
+
+/** One frame, with its aura behind it when the trainer has earned one. */
+function drawAuraFrame(ctx: Ctx, appearance: Appearance, frame: number, view: View): void {
+	if (appearance.aura > 0) drawAura(ctx, appearance, frame, view)
+	drawFrame(ctx, appearance, frame, view)
+}
+
+/**
  * Render both frames onto one canvas.
  *
  * `devicePixelRatio` is deliberately ignored: the sprite is drawn at its true
@@ -542,7 +673,7 @@ export function drawTrainer(appearance: Appearance): HTMLCanvasElement {
 		for (let frame = 0; frame < FRAMES; frame++) {
 			ctx.save()
 			ctx.translate((index * FRAMES + frame) * FRAME_W, 0)
-			drawFrame(ctx, appearance, frame, view)
+			drawAuraFrame(ctx, appearance, frame, view)
 			ctx.restore()
 		}
 	}
@@ -574,7 +705,7 @@ export function drawTrainerFrame(
 	ctx.clearRect(0, 0, canvas.width, canvas.height)
 	ctx.save()
 	ctx.scale(scale, scale)
-	drawFrame(ctx, appearance, frame % FRAMES, view)
+	drawAuraFrame(ctx, appearance, frame % FRAMES, view)
 	ctx.restore()
 }
 

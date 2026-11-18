@@ -51,3 +51,30 @@ export function writeList(key: string, values: string[]): void {
 		/* the list holds for this session; nothing else to do */
 	}
 }
+
+/**
+ * A number remembered in this browser — a volume, a zoom level, a count.
+ *
+ * Same guarantees as the flags above. Anything that is not a finite number is
+ * treated as absent rather than coerced: `Number('')` is 0, and a volume
+ * silently reading as "muted" because storage held an empty string would look
+ * like a broken speaker, not a broken preference.
+ */
+export function readNumber(key: string, fallback: number): number {
+	try {
+		const stored = window.localStorage.getItem(key)
+		if (stored === null) return fallback
+		const parsed = Number(stored)
+		return Number.isFinite(parsed) ? parsed : fallback
+	} catch {
+		return fallback
+	}
+}
+
+export function writeNumber(key: string, value: number): void {
+	try {
+		window.localStorage.setItem(key, String(value))
+	} catch {
+		/* the preference holds for this session; nothing else to do */
+	}
+}

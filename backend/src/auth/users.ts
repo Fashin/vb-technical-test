@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 
 import { db } from '../db'
 import { appearanceForId, parseAppearance, type Appearance } from '../appearance/appearance'
+import { crownFor } from '../ranking/crowns'
 import { hashPassword } from './passwords'
 
 /** Row as stored. `password_hash` never leaves this module's callers. */
@@ -33,8 +34,17 @@ export interface PublicUser {
 	spriteId: number
 	lastSeenAt: number
 	appearance: Appearance
-	/** Carries the crown at the barber; see `appearance/appearance.ts`. */
+	/** Carries the blue aura at the barber; see `appearance/appearance.ts`. */
 	betaTester: boolean
+	/**
+	 * The podium crown this account may wear right now, 0 for none.
+	 *
+	 * Sent with the account rather than left for the barber to work out of the
+	 * ranking: the entitlement is a server fact — place one, two or three —
+	 * and the client has no business re-deriving the standing to guess it.
+	 * See `ranking/crowns.ts`.
+	 */
+	podiumCrown: number
 }
 
 export function toPublicUser(row: UserRow): PublicUser {
@@ -46,11 +56,12 @@ export function toPublicUser(row: UserRow): PublicUser {
 		lastSeenAt: row.last_seen_at,
 		appearance: appearanceOf(row),
 		betaTester: row.beta_tester === 1,
+		podiumCrown: crownFor(row.id),
 	}
 }
 
 /**
- * Whether this account wears the beta testers' crown.
+ * Whether this account may wear the beta testers' aura.
  *
  * Read by id rather than taken off a row the caller already has: the one
  * caller that matters is the appearance save, which holds a user id and no
@@ -63,9 +74,20 @@ export function isBetaTester(userId: string): boolean {
 	return row?.beta_tester === 1
 }
 
-/** The stored look, or the one generated from the id if never customised. */
+/**
+ * The stored look, or the one generated from the id if never customised.
+ *
+ * The podium crown is checked here rather than trusted to the column: it is
+ * the one reward that can be lost, so a crown that no longer matches this
+ * account's place on the ranking is dropped on the way out. The stored value
+ * stays — someone who slips to second and climbs back gets the gold one
+ * again without a trip to the barber — and every screen that draws a trainer
+ * goes through this function, so none of them can show a stale crown.
+ */
 export function appearanceOf(row: UserRow): Appearance {
-	return row.appearance ? parseAppearance(row.appearance) : appearanceForId(row.id)
+	const appearance = row.appearance ? parseAppearance(row.appearance) : appearanceForId(row.id)
+	if (appearance.crown !== 0 && appearance.crown !== crownFor(row.id)) appearance.crown = 0
+	return appearance
 }
 
 export function saveAppearance(userId: string, appearance: Appearance): void {

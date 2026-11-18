@@ -179,10 +179,31 @@ addColumn('users', 'active_team_id', 'TEXT')
  * player did (see `achievements/achievements.ts`), which is why nothing is
  * stored per player. "Was here before the wipe" is not a fact any of those
  * tables hold — the wipe is precisely what removes them — so it needs a mark
- * of its own. One flag, set once by `scripts/reset-beta.mjs`, and the crown it
- * unlocks at the barber is checked against it.
+ * of its own. One flag, set once by `scripts/reset-beta.mjs`, and the blue
+ * aura it unlocks at the barber is checked against it.
  */
 addColumn('users', 'beta_tester', 'INTEGER NOT NULL DEFAULT 0')
+
+/**
+ * Looks saved while the bêta-testeurs' reward was a crown.
+ *
+ * The crown was headwear — index 3, in a list that now stops at the bandana —
+ * and the reward is an aura instead. Clamping on read would turn those crowns
+ * into bandanas, a change of outfit nobody asked for, so the slot is cleared
+ * here and the blue aura is lit in its place: someone who logged off wearing
+ * their reward logs back in still wearing it. The flag is checked rather than
+ * trusted to the old crown, since the appearance save refuses an aura that is
+ * not earned. `= 3` makes every later boot a pure read.
+ */
+db.exec(
+	`UPDATE users
+	 SET appearance = json_set(
+	       appearance,
+	       '$.hat', 0,
+	       '$.aura', CASE WHEN beta_tester = 1 THEN 1 ELSE COALESCE(json_extract(appearance, '$.aura'), 0) END
+	     )
+	 WHERE appearance <> '' AND json_valid(appearance) AND json_extract(appearance, '$.hat') = 3`,
+)
 
 /**
  * Cards drawn before the names were localised still carry "gengar".

@@ -16,8 +16,10 @@ import {
 	updatePassword,
 } from '../auth/users'
 import { disconnectUser } from '../realtime'
-import { CROWN_HAT, sanitizeAppearance } from '../appearance/appearance'
-import { pinsOf } from '../progression/badges'
+import { AURA_BETA, AURA_MASTER, sanitizeAppearance } from '../appearance/appearance'
+import { CROWN_REQUIREMENTS, crownFor } from '../ranking/crowns'
+import { MASTERS } from '../arena/masters'
+import { badgeCount, pinsOf } from '../progression/badges'
 import { verifyPassword } from '../auth/passwords'
 
 export const AuthController = Router()
@@ -90,10 +92,13 @@ AuthController.get('/me', requireAuth, (req, res) => {
  * render something undefined.
  *
  * Two things clamping cannot settle, because both are earned rather than
- * chosen: the badge pin, where every index is a valid pin but only the ones
- * this account has won may be worn, and the beta testers' crown. Both are
- * refused rather than quietly dropped — a save that silently returns a
- * different look than the one asked for is worse than a message.
+ * Three things clamping cannot settle, because all of them are earned rather
+ * than chosen: the badge pin, where every index is a valid pin but only the
+ * ones this account has won may be worn; the aura — blue for the
+ * bêta-testeurs, gold for whoever has beaten every master; and the podium
+ * crown, which belongs to the top three of the ranking. All are refused rather
+ * than quietly dropped: a save that silently returns a different look than the
+ * one asked for is worse than a message.
  */
 AuthController.put('/appearance', requireAuth, (req, res) => {
 	const appearance = sanitizeAppearance(req.body?.appearance)
@@ -104,9 +109,31 @@ AuthController.put('/appearance', requireAuth, (req, res) => {
 		})
 	}
 
-	if (appearance.hat === CROWN_HAT && !isBetaTester(req.user!.id)) {
+	if (appearance.aura === AURA_BETA && !isBetaTester(req.user!.id)) {
 		return res.status(403).json({
-			error: { code: 'CROWN_NOT_EARNED', message: 'La couronne est réservée aux bêta-testeurs' },
+			error: { code: 'AURA_NOT_EARNED', message: 'L’aura bleue est réservée aux bêta-testeurs' },
+		})
+	}
+
+	// Every master, not a count of badges this account happens to have: the
+	// gold aura is the arena's last reward, and the roster is what defines it.
+	if (appearance.aura === AURA_MASTER && badgeCount(req.user!.id) < MASTERS.length) {
+		return res.status(403).json({
+			error: { code: 'AURA_NOT_EARNED', message: 'L’aura dorée demande de battre tous les maîtres' },
+		})
+	}
+
+	// The crowns are the only unlock that can be lost again, so this is a
+	// question about *now*: the gold one for whoever leads the ranking, iron
+	// for second, bronze for third. `appearanceOf` drops a crown that has
+	// stopped being true, so a save is only ever allowed to store one the
+	// account is actually wearing. See `ranking/crowns.ts`.
+	if (appearance.crown !== 0 && appearance.crown !== crownFor(req.user!.id)) {
+		return res.status(403).json({
+			error: {
+				code: 'CROWN_NOT_EARNED',
+				message: CROWN_REQUIREMENTS[appearance.crown] ?? 'Cette couronne n’est pas la tienne',
+			},
 		})
 	}
 

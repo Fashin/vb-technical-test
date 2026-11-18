@@ -2,6 +2,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { Canvas } from '@react-three/fiber'
 import { Vector3 } from 'three'
 
+import { useBackgroundMusic } from '../audio'
 import { useAuth } from '../auth'
 import { BoosterPanel, useBoosters } from '../boosters'
 import { CarePanel } from '../care'
@@ -65,6 +66,10 @@ export function MapScene({ className }: MapSceneProps) {
 	// Touch phone, tablet, or simply a narrow window: joystick, side menu, and a
 	// minimap small enough to leave the map visible.
 	const compact = useIsCompact()
+	// The ambient loop, for as long as the world is on screen. Mounted here and
+	// not in `App` so the login screen stays quiet, and it waits for the first
+	// click or key press when the browser refuses audio before a gesture.
+	useBackgroundMusic()
 	// Probed once, before anything tries to render: a browser that cannot give
 	// out a WebGL context makes `<Canvas>` throw, and that used to blank the page.
 	const webgl = supportsWebGL()

@@ -47,7 +47,7 @@ jeton court et le combat est relayé par le backend précisément pour ça.
 `scripts/reset-beta.mjs` efface tout ce que les joueurs ont généré — cartes,
 équipes, combats, duels, échanges, victoires d'arène, boosters chanceux,
 éclats — en conservant les comptes, puis donne à chacun le succès
-« Bêta-testeur » et la couronne qu'il débloque chez le coiffeur. Les sessions
+« Bêta-testeur » et l'aura bleue qu'il débloque chez le coiffeur. Les sessions
 survivent, donc personne n'a à se reconnecter.
 
 ```bash
@@ -92,7 +92,7 @@ Tout est authentifié par `Authorization: Bearer <token>`, sauf `/auth/register`
 | `GET /arena/masters`, `POST /arena/battle`, `POST /arena/battle/run` | Arène : le chatbot écrit le combat, le moteur le résout. |
 | `GET /training/camps`, `POST /training/:campId/session` | Camps d'entraînement, XP et niveaux. |
 | `GET /care`, `POST /care/admit` | Centre de soins. |
-| `GET /ranking`, `GET /achievements` | Classement et succès, dérivés à la lecture. |
+| `GET /ranking`, `GET /achievements` | Classement et succès, dérivés à la lecture. Le podium du classement ouvre les couronnes (or, fer, bronze) chez le coiffeur. |
 
 Les duels et les échanges entre joueurs passent par socket.io
 (`pvp:*`, `trade:*`), pas par REST : les deux joueurs doivent se voir en direct.

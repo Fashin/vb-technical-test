@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { BoosterError, fetchCards, fetchTrainerCards, type Card, type Rarity } from '../boosters/api'
 import { RARITY } from '../boosters/rarity'
+import { DEX_TOTAL } from './dex'
 
 /** One pokemon the player owns, with however many copies they have of it. */
 export interface CollectionEntry {
@@ -61,6 +62,19 @@ export interface CollectionValue {
 	/** Type the list is narrowed to, or null for all of them. */
 	typeFilter: string | null
 	setTypeFilter: (type: string | null) => void
+	/**
+	 * Pokédex numbers the trainer has never pulled, ascending.
+	 *
+	 * The dex is a fixed 151, so the gaps are knowable without asking the
+	 * server: whatever is not in `entries` is missing. They are handed over as
+	 * bare ids on purpose — the panel draws them blacked out, and a name or a
+	 * rarity it never renders would only be something to leak.
+	 *
+	 * Not filtered and not sorted, because nothing is known about them to
+	 * filter or sort on: the panel hides them whenever a filter is active
+	 * rather than pretending a silhouette matched a search.
+	 */
+	missing: number[]
 	reload: () => void
 }
 
@@ -169,6 +183,17 @@ export function useCollection(userId?: string): CollectionValue {
 		return sorted
 	}, [grouped, rarityFilter, typeFilter, search, sort])
 
+	const missing = useMemo(() => {
+		// Nothing until the cards land: an empty collection and a collection
+		// still loading would otherwise look the same, and flashing all 151
+		// silhouettes before the real cards arrive would read as a reset.
+		if (!cards) return []
+		const owned = new Set(grouped.map((entry) => entry.pokedexId))
+		const gaps: number[] = []
+		for (let id = 1; id <= DEX_TOTAL; id += 1) if (!owned.has(id)) gaps.push(id)
+		return gaps
+	}, [cards, grouped])
+
 	const uniqueByRarity = useMemo(() => {
 		const counts: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, legendary: 0 }
 		for (const entry of grouped) counts[entry.rarity] += 1
@@ -200,6 +225,7 @@ export function useCollection(userId?: string): CollectionValue {
 		setSearch,
 		typeFilter,
 		setTypeFilter,
+		missing,
 		reload: () => setReloads((n) => n + 1),
 	}
 }

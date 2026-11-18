@@ -12,10 +12,7 @@ export interface Appearance {
 	hairColor: number
 	shirt: number
 	trousers: number
-	/**
-	 * Headwear. Mostly a free choice, with one exception: `CROWN_HAT` is a
-	 * reward, like the pins below, and is checked where the appearance is saved.
-	 */
+	/** Headwear. A free choice. */
 	hat: number
 	/** Beard or moustache; it takes the hair colour. */
 	facialHair: number
@@ -32,6 +29,25 @@ export interface Appearance {
 	 * is saved, since only there is there a user to check against.
 	 */
 	pin: number
+	/**
+	 * Aura burning around the trainer, 0 for none.
+	 *
+	 * Earned exactly like the pin: `sanitizeAppearance` only keeps it in range,
+	 * and whether this account may wear it — the blue one for a bêta-testeur,
+	 * the gold one for whoever has beaten every master — is checked where the
+	 * appearance is saved. See `AURA_BETA` and `AURA_MASTER`.
+	 */
+	aura: number
+	/**
+	 * Podium crown, 0 for none.
+	 *
+	 * Earned like the pin and the aura, but unlike them it can also be *lost*:
+	 * it belongs to the top three of the ranking, and the ranking moves. The
+	 * save refuses a crown the account is not on the podium for, and
+	 * `appearanceOf` drops one that has stopped being true. See
+	 * `ranking/crowns.ts`.
+	 */
+	crown: number
 }
 
 /** Number of entries in each palette, mirrored from the web app. */
@@ -41,23 +57,32 @@ const SIZES: Record<keyof Appearance, number> = {
 	hairColor: 8,
 	shirt: 10,
 	trousers: 10,
-	hat: 4,
+	hat: 3,
 	facialHair: 5,
 	build: 2,
 	bottom: 2,
 	// Ten masters, ten pins, plus 0 for "no pin".
 	pin: 11,
+	// None, blue, gold.
+	aura: 3,
+	// None, gold, iron, bronze — one per step of the podium.
+	crown: 4,
 }
 
 /**
- * The beta testers' crown: index into the web app's `HAT_STYLES`.
+ * The earned auras: indexes into the web app's `AURA_STYLES`.
  *
- * Earned, not chosen — `sanitizeAppearance` only keeps it in range, and
- * whether this account may actually wear it is checked where the appearance is
- * saved, since only there is there a user to check against. Same shape as the
- * badge pins, for the same reason.
+ * Earned, not chosen — `sanitizeAppearance` only keeps them in range, and
+ * whether this account may actually wear one is checked where the appearance
+ * is saved, since only there is there a user to check against. Same shape as
+ * the badge pins, for the same reason.
+ *
+ * They replaced the bêta-testeurs' crown: a crown competed with the hats for
+ * the one headwear slot and said nothing about the arena, while an aura costs
+ * no other choice and leaves room for a second tier — hence the gold one.
  */
-export const CROWN_HAT = 3
+export const AURA_BETA = 1
+export const AURA_MASTER = 2
 
 export const DEFAULT_APPEARANCE: Appearance = {
 	skin: 0,
@@ -70,6 +95,8 @@ export const DEFAULT_APPEARANCE: Appearance = {
 	build: 0,
 	bottom: 0,
 	pin: 0,
+	aura: 0,
+	crown: 0,
 }
 
 /** Clamp anything into a drawable appearance; unknown keys are dropped. */
@@ -114,7 +141,10 @@ export function appearanceForId(id: string): Appearance {
 		facialHair: at(104729, SIZES.facialHair),
 		build: at(9907, SIZES.build),
 		bottom: at(37, SIZES.bottom),
-		// Never random: a brand new trainer has won nothing to pin on.
+		// Never random: a brand new trainer has won nothing to pin on, no
+		// aura to burn and no place on the podium.
 		pin: 0,
+		aura: 0,
+		crown: 0,
 	}
 }

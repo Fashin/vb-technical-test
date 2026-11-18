@@ -37,8 +37,8 @@ export const LEGENDARIES = [144, 145, 146, 150, 151]
  * Everything else in this file is measured against a table that records what
  * the player did. "Was here before the wipe" has no such table — the wipe
  * removes them — so it reads a flag on the account instead, set once by
- * `scripts/reset-beta.mjs`. It is also the only achievement that carries a
- * cosmetic: the crown at the barber.
+ * `scripts/reset-beta.mjs`. It also carries a cosmetic: the blue aura at the
+ * barber. The gold one goes with `arena:all`.
  */
 export const BETA_TESTER = 'beta:tester'
 
@@ -70,7 +70,7 @@ export const ACHIEVEMENTS: Achievement[] = [
 	{
 		id: 'arena:all',
 		name: 'Maître de l’arène',
-		description: `Battre les ${MASTERS.length} maîtres de l’arène.`,
+		description: `Battre les ${MASTERS.length} maîtres de l’arène. Débloque l’aura dorée chez le coiffeur.`,
 		category: 'arene',
 		target: MASTERS.length,
 	},
@@ -154,7 +154,7 @@ export const ACHIEVEMENTS: Achievement[] = [
 	{
 		id: BETA_TESTER,
 		name: 'Bêta-testeur',
-		description: 'Avoir joué avant la remise à zéro. Débloque la couronne chez le coiffeur.',
+		description: 'Avoir joué avant la remise à zéro. Débloque l’aura bleue chez le coiffeur.',
 		category: 'dresseur',
 		target: 1,
 	},

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { GiCog } from 'react-icons/gi'
 
-import { Breadcrumb, Toggle, useEscapeToClose } from '../ui'
-import { setSoundEnabled, soundEnabled } from '../audio'
+import { Breadcrumb, Slider, useEscapeToClose } from '../ui'
+import { setVolume, useVolume } from '../audio'
 import { AuthError, useAuth } from '../auth'
 
 const PASSWORD_MIN = 8
@@ -261,27 +261,33 @@ function DangerSection() {
 }
 
 /**
- * The sound switch.
+ * The two volumes.
  *
- * Read from storage on mount rather than held in a context: the only thing
- * that needs the answer is `playHealJingle`, and it asks at the moment it is
- * about to play, so there is no shared state to keep in step.
+ * Separate sliders because the two kinds of sound are heard differently: the
+ * loop runs the whole session and is the first thing a player turns down, an
+ * effect is a moment of feedback and is worth keeping even in a silent game.
+ * Both read from the audio store, so the loop follows the music slider as it
+ * is dragged and the next effect picks up its own level on the spot.
  */
 function SoundSection() {
-	const [enabled, setEnabled] = useState(() => soundEnabled())
+	const music = useVolume('music')
+	const effects = useVolume('effects')
 
 	return (
 		<section className="rounded-lg border border-white/10 bg-black/25 p-4">
 			<h3 className="text-base font-semibold">Son</h3>
-			<div className="mt-3">
-				<Toggle
-					checked={enabled}
-					onChange={(next) => {
-						setEnabled(next)
-						setSoundEnabled(next)
-					}}
+			<div className="mt-3 space-y-3">
+				<Slider
+					value={music}
+					onChange={(next) => setVolume('music', next)}
+					label="Musique"
+					hint="La boucle d’ambiance qui tourne pendant la partie."
+				/>
+				<Slider
+					value={effects}
+					onChange={(next) => setVolume('effects', next)}
 					label="Effets sonores"
-					hint="Le jingle du centre de soins quand tu confies ton équipe."
+					hint="Les sons ponctuels, comme le jingle du centre de soins."
 				/>
 			</div>
 		</section>

@@ -1,16 +1,22 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { GiCrown, GiScissors, GiTrophyCup } from 'react-icons/gi'
+import { GiAura, GiQueenCrown, GiScissors, GiTrophyCup } from 'react-icons/gi'
 
 import { fetchMasters, type Master } from '../arena'
 import { Breadcrumb, useEscapeToClose } from '../ui'
 import { useAuth } from '../auth'
 import {
+	AURA_BETA,
+	AURA_COLORS,
+	AURA_MASTER,
+	AURA_REQUIREMENTS,
+	AURA_STYLES,
+	CROWN_COLORS,
+	CROWN_REQUIREMENTS,
+	CROWN_STYLES,
 	PIN_COLORS,
 	BOTTOMS,
 	BUILDS,
 	CLOTH_COLORS,
-	CROWN_GOLD,
-	CROWN_HAT,
 	FACIAL_HAIR,
 	HAIR_COLORS,
 	HAIR_STYLES,
@@ -186,6 +192,151 @@ function Pins({
 	)
 }
 
+/**
+ * The auras: the two rewards worn by the character rather than by its clothes.
+ *
+ * Listed whether they are earned or not, like the pins, and for the same
+ * reason — a locked row with the reason on it is how a player learns the
+ * reward exists at all. The dot is the glow itself rather than an icon, so the
+ * list says what the sprite will do.
+ */
+function Auras({
+	value,
+	locked,
+	onChange,
+}: {
+	value: number
+	/** Reasons, by aura index, for the ones this account has not earned. */
+	locked: Record<number, string>
+	onChange: (aura: number) => void
+}) {
+	return (
+		<div>
+			<p className="flex items-center gap-1.5 text-sm text-slate-400">
+				<GiAura className="h-4 w-4 text-sky-300" />
+				Aura
+			</p>
+
+			<div className="mt-1 flex flex-wrap gap-1.5">
+				{AURA_STYLES.map((style, index) => {
+					const reason = locked[index]
+					const color = AURA_COLORS[index]
+					return (
+						<button
+							key={style}
+							type="button"
+							disabled={reason !== undefined}
+							title={reason}
+							onClick={() => onChange(index)}
+							aria-pressed={value === index}
+							className={
+								'flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition disabled:cursor-not-allowed ' +
+								(reason !== undefined
+									? 'bg-white/5 text-slate-600'
+									: value === index
+										? 'bg-white/20 text-white'
+										: 'bg-white/5 text-slate-300 hover:bg-white/10')
+							}
+						>
+							{index > 0 && (
+								<span
+									aria-hidden
+									className="h-3 w-3 rounded-full border border-black/40"
+									style={{
+										background: reason === undefined ? color : 'transparent',
+										borderStyle: reason === undefined ? 'solid' : 'dashed',
+										// The swatch glows the way the sprite will.
+										boxShadow: reason === undefined ? `0 0 6px 1px ${color}` : undefined,
+									}}
+								/>
+							)}
+							{style}
+						</button>
+					)
+				})}
+			</div>
+
+			{Object.keys(locked).length > 0 && (
+				<p className="mt-1 text-xs text-slate-500">
+					{Object.values(locked).join(' · ')}.
+				</p>
+			)}
+		</div>
+	)
+}
+
+/**
+ * The podium crowns: the ranking's reward.
+ *
+ * Unlike every other row in this panel, the one that is open here can close
+ * again — the crown belongs to a place in the standing, not to something the
+ * account did once. So the locked rows do not say "to earn" but who holds
+ * them, and the server clears a crown whose place has been lost rather than
+ * leaving a stale one on the sprite.
+ */
+function Crowns({
+	value,
+	available,
+	onChange,
+}: {
+	value: number
+	/** The crown this account may wear right now, 0 for none. */
+	available: number
+	onChange: (crown: number) => void
+}) {
+	return (
+		<div>
+			<p className="flex items-center gap-1.5 text-sm text-slate-400">
+				<GiQueenCrown className="h-4 w-4 text-amber-300" />
+				Couronne du classement
+			</p>
+
+			<div className="mt-1 flex flex-wrap gap-1.5">
+				{CROWN_STYLES.map((style, index) => {
+					const locked = index !== 0 && index !== available
+					const color = CROWN_COLORS[index]
+					return (
+						<button
+							key={style}
+							type="button"
+							disabled={locked}
+							title={locked ? CROWN_REQUIREMENTS[index] : undefined}
+							onClick={() => onChange(index)}
+							aria-pressed={value === index}
+							className={
+								'flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition disabled:cursor-not-allowed ' +
+								(locked
+									? 'bg-white/5 text-slate-600'
+									: value === index
+										? 'bg-white/20 text-white'
+										: 'bg-white/5 text-slate-300 hover:bg-white/10')
+							}
+						>
+							{index > 0 && (
+								<span
+									aria-hidden
+									className="h-3 w-3 rounded-sm border border-black/40"
+									style={{
+										background: locked ? 'transparent' : color,
+										borderStyle: locked ? 'dashed' : 'solid',
+									}}
+								/>
+							)}
+							{style}
+						</button>
+					)
+				})}
+			</div>
+
+			<p className="mt-1 text-xs text-slate-500">
+				{available === 0
+					? 'Le podium du classement les porte : l’or au premier, le fer au deuxième, le bronze au troisième.'
+					: `${CROWN_REQUIREMENTS[available]} — elle se perd avec la place.`}
+			</p>
+		</div>
+	)
+}
+
 interface BarberPanelProps {
 	onClose: () => void
 	/** Called with the saved look so the world can broadcast it. */
@@ -226,6 +377,20 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 			cancelled = true
 		}
 	}, [])
+
+	/**
+	 * Auras this account cannot wear yet, with what unlocks them.
+	 *
+	 * The gold one needs every master beaten, which is read off the roster the
+	 * pins already use — and a roster that failed to load leaves it locked
+	 * rather than open: the server refuses it either way, and a button that
+	 * errors on save is worse than one that says why it is greyed.
+	 */
+	const lockedAuras: Record<number, string> = {}
+	if (!user?.betaTester) lockedAuras[AURA_BETA] = AURA_REQUIREMENTS[AURA_BETA]
+	if (masters.length === 0 || masters.some((master) => !master.defeated)) {
+		lockedAuras[AURA_MASTER] = AURA_REQUIREMENTS[AURA_MASTER]
+	}
 
 	const dirty = user ? appearanceKey(draft) !== appearanceKey(user.appearance) : false
 	const set = (patch: Partial<Appearance>) => setDraft((current) => ({ ...current, ...patch }))
@@ -310,20 +475,6 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 							options={HAT_STYLES}
 							value={draft.hat}
 							onChange={(hat) => set({ hat })}
-							locked={
-								user?.betaTester
-									? undefined
-									: { [CROWN_HAT]: 'Couronne — réservée aux bêta-testeurs' }
-							}
-							adornments={{
-								[CROWN_HAT]: (
-									<GiCrown
-										aria-hidden
-										className="h-3.5 w-3.5"
-										style={{ color: user?.betaTester ? CROWN_GOLD : 'currentColor' }}
-									/>
-								),
-							}}
 						/>
 						<Swatches label="Carnation" colors={SKIN_TONES} value={draft.skin} onChange={(skin) => set({ skin })} />
 						<Swatches label="Haut" colors={CLOTH_COLORS} value={draft.shirt} onChange={(shirt) => set({ shirt })} />
@@ -340,6 +491,12 @@ export function BarberPanel({ onClose, onSaved }: BarberPanelProps) {
 							onChange={(trousers) => set({ trousers })}
 						/>
 						<Pins masters={masters} value={draft.pin} onChange={(pin) => set({ pin })} />
+						<Auras value={draft.aura} locked={lockedAuras} onChange={(aura) => set({ aura })} />
+						<Crowns
+							value={draft.crown}
+							available={user?.podiumCrown ?? 0}
+							onChange={(crown) => set({ crown })}
+						/>
 					</div>
 				</div>
 

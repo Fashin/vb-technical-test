@@ -1,21 +1,14 @@
-import { readFlag, writeFlag } from '../ui'
+import { getVolume } from './volume'
 
 /**
- * Sound effects, and the switch that silences them.
+ * One-off sound effects: short feedback on an action, like the healing centre's
+ * jingle, as opposed to the loop in `music.ts`.
  *
- * Audio is the one thing a game must never force on a player: it is remembered
- * per browser, on by default, and read at the moment a sound is asked for so a
- * change in the options panel takes effect immediately.
+ * Audio is the one thing a game must never force on a player. The level comes
+ * from the "effects" slider, is remembered per browser, and is read at the
+ * moment a sound is asked for — so a change in the options panel applies to
+ * the very next effect, with nothing to keep in step.
  */
-const SOUND_KEY = 'pokemon:sound'
-
-export function soundEnabled(): boolean {
-	return readFlag(SOUND_KEY, true)
-}
-
-export function setSoundEnabled(enabled: boolean): void {
-	writeFlag(SOUND_KEY, enabled)
-}
 
 /**
  * Drop a file at this path in `public/` and it is played instead of the
@@ -91,12 +84,12 @@ const MELODY: [frequency: number, beat: number, length: number][] = PHRASE.map((
 	index % 4 === 3 ? SIXTEENTH * 1.8 : SIXTEENTH * 0.9,
 ])
 
-function synthesize(): void {
+function synthesize(level: number): void {
 	const ctx = audio()
 	if (!ctx) return
 	const start = ctx.currentTime + 0.02
 	for (const [frequency, beat, length] of MELODY) {
-		note(ctx, frequency, start + beat, length, 0.14)
+		note(ctx, frequency, start + beat, length, 0.14 * level)
 	}
 }
 
@@ -111,16 +104,19 @@ let track: HTMLAudioElement | null = null
  * them is a reason to interrupt a player who came here to heal their team.
  */
 export function playHealJingle(): void {
-	if (!soundEnabled()) return
+	const level = getVolume('effects')
+	// Dragged to the bottom: that is the mute, and it is checked here rather
+	// than played at zero so nothing is decoded for a player who wants silence.
+	if (level === 0) return
 
 	try {
 		track ??= new Audio(HEAL_TRACK)
-		track.volume = 0.5
+		track.volume = level
 		track.currentTime = 0
 		// Rejects when the file is absent or undecodable, which is the normal
 		// case until someone adds one — so that is where the synth takes over.
-		void track.play().catch(() => synthesize())
+		void track.play().catch(() => synthesize(level))
 	} catch {
-		synthesize()
+		synthesize(level)
 	}
 }

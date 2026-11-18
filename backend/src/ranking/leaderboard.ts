@@ -6,6 +6,7 @@ import { db } from '../db'
 import { levelFromXp } from '../progression/levels'
 import { CAMPS } from '../training/camps'
 import { listPlayers } from '../world/world'
+import { RANKING_ORDER, RANKING_SCORES } from './order'
 
 /**
  * The trainer ranking.
@@ -17,7 +18,8 @@ import { listPlayers } from '../world/world'
  *
  * The ladder's order is the arena: masters beaten first, because that is the
  * one thing you cannot buy with time. The Pokedex breaks ties, and raw
- * experience breaks what is left.
+ * experience breaks what is left. It lives in `order.ts`, shared with the
+ * podium crowns so the standing and the crowns can never disagree.
  */
 
 export interface RankedTrainer {
@@ -78,14 +80,11 @@ export function leaderboard(): RankedTrainer[] {
 	const rows = db
 		.prepare(
 			`SELECT u.id, u.display_name, u.sprite_id, u.appearance, u.last_seen_at,
-			        (SELECT COUNT(*) FROM master_victories v WHERE v.user_id = u.id)            AS masters,
-			        (SELECT COUNT(DISTINCT c.pokedex_id) FROM cards c WHERE c.user_id = u.id)   AS dex_owned,
+			        ${RANKING_SCORES},
 			        (SELECT COUNT(*) FROM cards c WHERE c.user_id = u.id)                       AS cards,
-			        (SELECT COALESCE(MAX(c.xp), 0) FROM cards c WHERE c.user_id = u.id)         AS best_xp,
-			        (SELECT COUNT(*) FROM duels d WHERE d.winner_id = u.id)                     AS duels,
 			        (SELECT COUNT(*) FROM cards c WHERE c.user_id = u.id AND c.healed_at IS NOT NULL) AS in_care
 			 FROM users u
-			 ORDER BY masters DESC, dex_owned DESC, duels DESC, best_xp DESC, u.created_at ASC`,
+			 ${RANKING_ORDER}`,
 		)
 		.all() as Row[]
 

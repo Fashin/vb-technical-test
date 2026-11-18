@@ -20,8 +20,14 @@ export interface PublicUser {
 	spriteId: number
 	lastSeenAt: number
 	appearance: Appearance
-	/** Played before the beta wipe; unlocks the crown at the barber. */
+	/** Played before the beta wipe; unlocks the blue aura at the barber. */
 	betaTester: boolean
+	/**
+	 * The podium crown this account may wear right now, 0 for none: gold for
+	 * first in the ranking, iron for second, bronze for third. Mirrored from
+	 * `backend/src/ranking/crowns.ts`.
+	 */
+	podiumCrown: number
 }
 
 export interface ApiError {

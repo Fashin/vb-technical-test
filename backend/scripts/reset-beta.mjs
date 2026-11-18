@@ -5,14 +5,14 @@
  * instead of a thousand — see `src/boosters/recycle.ts`), so the collections
  * it produced say nothing about the balanced game. They go. The accounts stay:
  * nobody should have to sign up twice, and the testers get something for the
- * evening they spent breaking it — the "Bêta-testeur" achievement and the
- * crown it unlocks at the barber.
+ * evening they spent breaking it — the "Bêta-testeur" achievement and the blue
+ * aura it unlocks at the barber.
  *
  * What is erased, per account:
  *   cards, teams and their members, battles, duels, trades, arena victories,
  *   lucky boosters, leftover shards, the selected team, and the badge pin and
- *   crown on the saved appearance (both are earned, and one of the two is
- *   being re-earned by this very script).
+ *   the aura on the saved appearance (both are earned, and the wipe un-earns
+ *   every badge — including the ten that light the gold aura).
  *
  * What is kept: the account itself — email, password, pseudo, sprite, the
  * look chosen at the barber, and where it logged off.
@@ -54,12 +54,12 @@ loadEnv({ path: join(HERE, '..', '.env'), quiet: true })
 const DB_PATH = process.env.DB_PATH ?? join(HERE, '..', 'data', 'app.db')
 const DB_SOURCE = process.env.DB_PATH ? 'DB_PATH' : 'defaut'
 
+/** Mirrored from `src/appearance/appearance.ts`: the bêta-testeurs' aura. */
+const AURA_BETA = 1
+
 const args = new Set(process.argv.slice(2))
 const dryRun = args.has('--dry-run') || args.has('-n')
 const assumeYes = args.has('--yes') || args.has('-y')
-
-/** Mirrored from `src/appearance/appearance.ts`. */
-const CROWN_HAT = 3
 
 /**
  * Tables emptied wholesale.
@@ -163,8 +163,8 @@ console.log(`Sauvegarde : ${backup}`)
  * The wipe and the reward, in one transaction.
  *
  * Together because they are one event: an account that lost its collection
- * without getting the crown would be the worst of both, and a crash between
- * the two is exactly how that happens.
+ * without getting its aura would be the worst of both, and a crash between the
+ * two is exactly how that happens.
  */
 const wipe = db.transaction(() => {
 	for (const table of WIPED) db.prepare(`DELETE FROM ${table}`).run()
@@ -178,19 +178,18 @@ const wipe = db.transaction(() => {
 		   beta_tester = 1`,
 	).run(Date.now())
 
-	// The pin and the crown are earned, and the wipe just un-earned every
-	// badge. Rather than parse the JSON here, the two fields are rewritten in
-	// SQLite's own JSON functions — the rest of the look is left exactly as the
-	// player set it. An empty appearance means "never customised" and is left
-	// empty, so the generated starting look keeps being used.
+	// The pin and the aura are earned, and the wipe just un-earned every badge.
+	// Rather than parse the JSON here, the two fields are rewritten in SQLite's
+	// own JSON functions — the rest of the look is left exactly as the player
+	// set it. The aura becomes the blue one rather than none: this very script
+	// grants the achievement that unlocks it, so every account comes out of the
+	// wipe already wearing its reward. An empty appearance means "never
+	// customised" and is left empty, so the generated starting look is used.
 	db.prepare(
 		`UPDATE users
-		 SET appearance = json_set(appearance, '$.pin', 0, '$.hat', CASE
-		       WHEN json_extract(appearance, '$.hat') = ? THEN 0
-		       ELSE json_extract(appearance, '$.hat')
-		     END)
+		 SET appearance = json_set(appearance, '$.pin', 0, '$.aura', ?)
 		 WHERE appearance <> '' AND json_valid(appearance)`,
-	).run(CROWN_HAT)
+	).run(AURA_BETA)
 
 	// Sessions survive: a tester who left a tab open stays logged in, and what
 	// they see on the next request is an empty collection, which is the point.
@@ -203,5 +202,5 @@ db.close()
 
 console.log(
 	`\nFait. ${users} compte(s) remis à zéro, avec un booster de bienvenue, ` +
-		'le succès « Bêta-testeur » et la couronne débloquée chez le coiffeur.',
+		'le succès « Bêta-testeur » et l’aura bleue débloquée chez le coiffeur.',
 )

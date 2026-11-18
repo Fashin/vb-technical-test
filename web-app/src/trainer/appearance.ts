@@ -16,11 +16,7 @@ export interface Appearance {
 	hairColor: number
 	shirt: number
 	trousers: number
-	/**
-	 * Headwear: index into `HAT_STYLES`.
-	 *
-	 * A free choice except for the crown, which is earned — see `CROWN_HAT`.
-	 */
+	/** Headwear: index into `HAT_STYLES`. A free choice. */
 	hat: number
 	/** Beard or moustache: index into `FACIAL_HAIR`. It takes the hair colour. */
 	facialHair: number
@@ -36,6 +32,24 @@ export interface Appearance {
 	 * the backend.
 	 */
 	pin: number
+	/**
+	 * Aura burning around the trainer: index into `AURA_STYLES`, 0 for none.
+	 *
+	 * Earned like the pin, and refused by the server the same way: the blue one
+	 * belongs to the bêta-testeurs, the gold one to whoever has beaten every
+	 * master. See `AURA_BETA` and `AURA_MASTER`.
+	 */
+	aura: number
+	/**
+	 * Podium crown: index into `CROWN_STYLES`, 0 for none.
+	 *
+	 * The ranking's reward, and the only one that can be taken back: gold for
+	 * whoever is first, iron for second, bronze for third. The server refuses a
+	 * crown the account is not on the podium for, and it also clears one on the
+	 * way out when the standing has moved — see `ranking/crowns.ts` on the
+	 * backend — so what arrives here is always a crown its wearer holds today.
+	 */
+	crown: number
 }
 
 export const SKIN_TONES = ['#f2c9a0', '#e0a878', '#c68642', '#8d5524', '#5c3317', '#ffd9b8']
@@ -77,21 +91,83 @@ export const PIN_COLORS = [
 ]
 
 export const HAIR_STYLES = ['Court', 'Long', 'Couettes', 'Hérissé', 'Crâne rasé'] as const
-export const HAT_STYLES = ['Aucun', 'Casquette', 'Bandana', 'Couronne'] as const
+export const HAT_STYLES = ['Aucun', 'Casquette', 'Bandana'] as const
 
 /**
- * The crown: the bêta-testeurs' reward, and the only piece of headwear that
- * is not simply picked.
+ * Auras: the two rewards worn by the character itself rather than by its
+ * wardrobe.
  *
- * It keeps its own gold rather than taking the shirt colour the way the cap
- * and the bandana do — a crown in teal is a party hat. The server refuses to
- * save it for an account without the achievement, so the barber shows it
- * locked rather than hiding it: a reward nobody can see is not a reward.
+ * A crown sat oddly on an account whose only claim was being early, and it
+ * fought with the hats — one slot, two meanings. An aura is drawn *around* the
+ * sprite instead, so it costs no other choice and still reads instantly at
+ * sixteen pixels: the trainer glows.
+ *
+ * Both are refused by the server unless they are earned, so the barber shows
+ * them locked rather than hiding them — a reward nobody can see is not a
+ * reward.
  */
-export const CROWN_HAT = HAT_STYLES.indexOf('Couronne')
+export const AURA_STYLES = ['Aucune', 'Bleue', 'Dorée'] as const
 
-/** Crown gold, and the shadow its own drawing uses. */
-export const CROWN_GOLD = '#f5c419'
+/**
+ * Aura colours, indexed by `Appearance.aura`.
+ *
+ * Index 0 is "no aura" and is never drawn; it holds a placeholder so the
+ * palette can be indexed directly.
+ */
+export const AURA_COLORS = ['transparent', '#7fd8ff', '#ffd75e']
+
+/** The bêta-testeurs' aura: a cold blue glow. */
+export const AURA_BETA = AURA_STYLES.indexOf('Bleue')
+
+/** Earned by beating every master in the arena: the same glow in gold. */
+export const AURA_MASTER = AURA_STYLES.indexOf('Dorée')
+
+/** What unlocks each aura, in words, for the barber's locked rows. */
+export const AURA_REQUIREMENTS: Record<number, string> = {
+	[AURA_BETA]: 'Aura bleue — réservée aux bêta-testeurs',
+	[AURA_MASTER]: 'Aura dorée — à gagner en battant tous les maîtres',
+}
+
+/**
+ * The podium crowns: first, second and third of the ranking.
+ *
+ * Headwear would have been the obvious slot and is the wrong one — it would
+ * cost the leader their cap, and the old bêta-testeurs' crown was moved out of
+ * that slot for exactly that reason. This one sits *above* the head instead,
+ * drawn over whatever is worn there, so a crown takes nothing away. It is also
+ * the one reward that is rented rather than owned: lose the place, lose the
+ * crown.
+ */
+export const CROWN_STYLES = ['Aucune', 'Or', 'Fer', 'Bronze'] as const
+
+/**
+ * Crown metals, indexed by `Appearance.crown`.
+ *
+ * Index 0 is "no crown" and is never drawn; it holds a placeholder so the
+ * palette can be indexed directly. Gold, iron and bronze read apart at
+ * sixteen pixels because they differ in hue as well as in brightness — three
+ * greys would have been three identical crowns.
+ */
+export const CROWN_COLORS = ['transparent', '#ffd75e', '#c9d2dc', '#cd7f32']
+
+/** The ranking's first place. */
+export const CROWN_GOLD = CROWN_STYLES.indexOf('Or')
+
+/** Second place. */
+export const CROWN_IRON = CROWN_STYLES.indexOf('Fer')
+
+/** Third place. */
+export const CROWN_BRONZE = CROWN_STYLES.indexOf('Bronze')
+
+/** Crowns in podium order, so a place maps straight onto one. */
+export const CROWNS = [CROWN_GOLD, CROWN_IRON, CROWN_BRONZE]
+
+/** What unlocks each crown, in words, for the barber's locked rows. */
+export const CROWN_REQUIREMENTS: Record<number, string> = {
+	[CROWN_GOLD]: 'Couronne d’or — au premier du classement',
+	[CROWN_IRON]: 'Couronne de fer — au deuxième du classement',
+	[CROWN_BRONZE]: 'Couronne de bronze — au troisième du classement',
+}
 
 /**
  * Facial hair. It has no colour of its own: it follows the hair, which is
@@ -118,6 +194,8 @@ export const DEFAULT_APPEARANCE: Appearance = {
 	build: 0,
 	bottom: 0,
 	pin: 0,
+	aura: 0,
+	crown: 0,
 }
 
 const SIZES: Record<keyof Appearance, number> = {
@@ -131,6 +209,8 @@ const SIZES: Record<keyof Appearance, number> = {
 	build: BUILDS.length,
 	bottom: BOTTOMS.length,
 	pin: PIN_COLORS.length,
+	aura: AURA_STYLES.length,
+	crown: CROWN_STYLES.length,
 }
 
 /** Clamp anything that arrives from the network into a drawable appearance. */
@@ -159,5 +239,7 @@ export function appearanceKey(appearance: Appearance): string {
 		appearance.build,
 		appearance.bottom,
 		appearance.pin,
+		appearance.aura,
+		appearance.crown,
 	].join('-')
 }

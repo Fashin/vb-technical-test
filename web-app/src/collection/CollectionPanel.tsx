@@ -5,6 +5,7 @@ import { FiSearch } from 'react-icons/fi'
 import { Breadcrumb, useEscapeToClose } from '../ui'
 import { CardFace } from '../boosters/CardFace'
 import { RecycleDialog } from '../boosters/RecycleDialog'
+import { LockedCard } from './LockedCard'
 import { PokemonDetail } from './PokemonDetail'
 import { RarityBars } from './RarityBars'
 import { TypeGrid } from './TypeGrid'
@@ -81,6 +82,7 @@ export function CollectionPanel({
 		setSearch,
 		typeFilter,
 		setTypeFilter,
+		missing,
 		reload,
 	} = useCollection(trainer?.userId)
 
@@ -214,15 +216,15 @@ export function CollectionPanel({
 							</div>
 						</div>
 
-						<div className="min-h-0 flex-1 overflow-y-auto p-4">
+						<div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
 							{loading ? null : total === 0 ? (
-								<p className="py-8 text-center text-base text-slate-500">
+								<p className="pt-4 text-center text-base text-slate-500">
 									{trainer
 										? `${trainer.name} n’a encore aucune carte.`
 										: 'Aucune carte pour l’instant — ouvre un booster pour commencer.'}
 								</p>
 							) : entries.length === 0 ? (
-								<p className="py-8 text-center text-base text-slate-500">
+								<p className="pt-4 text-center text-base text-slate-500">
 									Aucune carte ne correspond{filtering ? ' à cette recherche' : ''}.
 								</p>
 							) : (
@@ -261,6 +263,37 @@ export function CollectionPanel({
 										</li>
 									))}
 								</ul>
+							)}
+
+							{/*
+							 * What is still out there, blacked out.
+							 *
+							 * The dex is a fixed 151, so the gaps are part of the
+							 * collection too: the screen is where a player goes looking
+							 * for what they do not have, and an empty space says far less
+							 * than a silhouette they might recognise. Only the shape is
+							 * kept — the name and the level are withheld, so the tile is a
+							 * target rather than a spoiler.
+							 *
+							 * Hidden while a filter is on: nothing is known about these
+							 * beyond their number, so they cannot honestly answer a search
+							 * for "pika" or for the legendary tier. Hidden too when
+							 * browsing somebody else's collection, where the question is
+							 * what they own, not what they are missing.
+							 */}
+							{!loading && !trainer && !filtering && missing.length > 0 && (
+								<section className="space-y-2 border-t border-white/10 pt-4">
+									<h3 className="text-sm text-slate-500">
+										Encore à débloquer · {missing.length} Pokémon
+									</h3>
+									<ul className="grid auto-rows-[15rem] justify-center gap-2 [grid-template-columns:repeat(auto-fill,8rem)]">
+										{missing.map((pokedexId) => (
+											<li key={pokedexId}>
+												<LockedCard pokedexId={pokedexId} className="h-full" />
+											</li>
+										))}
+									</ul>
+								</section>
 							)}
 						</div>
 					</main>
