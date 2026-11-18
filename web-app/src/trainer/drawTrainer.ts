@@ -49,6 +49,56 @@ export type View = 'front' | 'back' | 'side'
 export const VIEW_INDEX: Record<View, number> = { front: 0, back: 1, side: 2 }
 
 /**
+ * Empty pixels kept around the body in every cell, for the flames to burn in.
+ *
+ * The body art is still laid out in its own 16x24 - every coordinate in
+ * `drawFrame` means what it always meant - and the cell is simply bigger than
+ * the body, with the body translated into it. Without this the aura had
+ * nowhere to go: three pixels over the head and three at the sides is a glow
+ * trapped in a box, which is exactly what it looked like. Fire rises, so the
+ * room is overwhelmingly above, and there is barely any below - the trainer is
+ * standing on the ground.
+ */
+export const PAD_X = 7
+export const PAD_TOP = 12
+export const PAD_BOTTOM = 2
+
+/** One cell of the sheet: the body plus the room the flames need. */
+export const CELL_W = FRAME_W + PAD_X * 2
+export const CELL_H = FRAME_H + PAD_TOP + PAD_BOTTOM
+
+/**
+ * Phases in the flame's own animation loop.
+ *
+ * The aura used to be animated only by the walk cycle, which meant a trainer
+ * standing still had a frozen aura - the one time you actually look at it. It
+ * now has a cycle of its own, orthogonal to the walk: every `(view, frame)`
+ * pair appears `AURA_PHASES` times in the sheet, and the renderer runs through
+ * the phases on a clock rather than on footsteps. The turbulence is driven by
+ * sines of `phase / AURA_PHASES * 2PI` at whole-number frequencies, so the
+ * last phase hands back to the first without a seam.
+ */
+export const AURA_PHASES = 8
+
+/**
+ * How fast the flame runs, in phases per second.
+ *
+ * Deliberately slower than the display: fire at sixty frames a second on a
+ * sprite this size is static noise. Ten is a flame that visibly licks.
+ */
+export const AURA_FPS = 10
+
+/**
+ * How many phases a given trainer's sheet actually holds.
+ *
+ * One, for everyone who has not earned an aura: eight identical copies of a
+ * trainer with no flames is eight times the texture for nothing.
+ */
+export function auraPhases(appearance: Appearance): number {
+	return appearance.aura > 0 ? AURA_PHASES : 1
+}
+
+/**
  * The gait, per frame.
  *
  * `lift` raises a leg by that many pixels — the swinging leg is drawn shorter,
@@ -534,35 +584,59 @@ function drawFrame(ctx: Ctx, appearance: Appearance, frame: number, view: View =
 }
 
 /**
- * The aura, ring by ring: how far from the body it reaches, and how solid it
- * is there.
+ * How the heat spreads out of the body, per pixel of travel.
  *
- * A few flat rings rather than a smooth falloff, because the sprite is sixteen
- * pixels across and a gradient at that size is mud. Every alpha stays above
- * the 0.5 `alphaTest` the world's material uses — below it the glow would
- * simply be discarded on the map while still showing in the portraits.
+ * The aura is no longer a distance measured around the silhouette - that is
+ * how it ended up a cube, and then a slightly rounded cube. It is a heat
+ * field: every body pixel is a source at full strength, and the heat is swept
+ * *upward* first, fanning one pixel sideways per row as it climbs, then bled
+ * sideways, then a little downward. Three cheap passes over the cell, and what
+ * comes out is the shape of something burning rather than an outline traced
+ * around a sprite - a plume over the head, flames licking up the arms, almost
+ * nothing under the shoes.
+ *
+ * `HEAT_RISE` is what sets the height: 0.855 per row means the plume is still
+ * alive some ten rows above the hair, which is what `PAD_TOP` is for.
  */
-const AURA_RINGS = [0.92, 0.74, 0.58]
+const HEAT_RISE = 0.855
+const HEAT_FAN = 0.9
+const HEAT_SIDE = 0.66
+const HEAT_SINK = 0.42
+
+/** Heat below this is not drawn at all - the edge of the flame. */
+const AURA_CUT = 0.27
+
+/** How hard the turbulence pushes that edge in and out, as a share of the heat. */
+const AURA_TURB = 0.55
 
 /**
- * How much further the glow reaches upward than sideways.
+ * How solid the glow is, in three bands from the body outwards.
  *
- * An aura that is the same thickness all round reads as an outline; energy
- * rises, so the upward distance is divided by this before it is measured and
- * the flames stretch over the head.
+ * Flat bands rather than a smooth falloff, because the sprite is sixteen
+ * pixels across and a gradient at that size is mud. Every alpha stays above
+ * the 0.5 `alphaTest` the world's material uses - below it the glow would
+ * simply be discarded on the map while still showing in the portraits.
  */
-const AURA_LIFT = 2
+const AURA_STEPS = [0.95, 0.8, 0.62]
+
+/**
+ * How far each band is blended towards white.
+ *
+ * The heart of a flame is hotter than its colour: the innermost band is nearly
+ * white, which is what stops a big aura from reading as a flat coloured blob.
+ */
+const AURA_WHITE = [0.45, 0.12, 0]
 
 /**
  * Scratch canvas the body is drawn into to find its silhouette.
  *
- * Module level and reused: one appearance means nine frames, and allocating a
- * canvas per frame showed up when a crowd walked on screen. Nothing is kept
- * between calls — it is cleared on the way in.
+ * Module level and reused: one appearance means nine poses and eight phases
+ * each, and allocating a canvas per cell showed up when a crowd walked on
+ * screen. Nothing is kept between calls - it is cleared on the way in.
  */
 let scratch: HTMLCanvasElement | null = null
 
-/** The frame's own pixels, to grow the glow out of. */
+/** The body's own pixels, to grow the flame out of. */
 function silhouette(appearance: Appearance, frame: number, view: View): Uint8ClampedArray | null {
 	scratch ??= document.createElement('canvas')
 	scratch.width = FRAME_W
@@ -577,116 +651,203 @@ function silhouette(appearance: Appearance, frame: number, view: View): Uint8Cla
 	return ctx.getImageData(0, 0, FRAME_W, FRAME_H).data
 }
 
-/** A palette colour at a given opacity. */
-function rgba(hex: string, alpha: number): string {
-	const n = parseInt(hex.slice(1), 16)
-	return `rgba(${(n >> 16) & 0xff}, ${(n >> 8) & 0xff}, ${n & 0xff}, ${alpha})`
-}
+/** The working buffers, all in cell coordinates and all reused. */
+const CELL = CELL_W * CELL_H
+const bodyMask = new Uint8Array(CELL)
+const heat = new Float32Array(CELL)
+const flame = new Float32Array(CELL)
 
 /**
- * The aura burning around the trainer — the bêta-testeurs' reward, and the
- * arena's.
+ * Fill `bodyMask` and `heat` for one pose.
  *
- * Grown from the sprite's own silhouette rather than drawn as a shape: it
- * follows whatever the character happens to be wearing, in every view and
- * every frame of the walk, with nothing to keep in step by hand. Each empty
- * pixel is measured against the nearest body pixel, and the ring it falls in
- * decides how solid the glow is there.
- *
- * The outer ring is punched through by a cheap hash of the pixel and the frame
- * number, so the edge is ragged and *moves*: three walk frames are three
- * different flickers, which is what makes it burn rather than sit there.
+ * Independent of the phase, so the sheet computes it once per `(view, frame)`
+ * and paints all eight phases out of it.
  */
-function drawAura(ctx: Ctx, appearance: Appearance, frame: number, view: View): void {
-	const color = AURA_COLORS[appearance.aura]
-	if (!color || color === 'transparent') return
-
+function buildHeat(appearance: Appearance, frame: number, view: View): boolean {
 	const mask = silhouette(appearance, frame, view)
-	if (!mask) return
+	if (!mask) return false
 
-	const solid = (x: number, y: number) =>
-		x >= 0 && x < FRAME_W && y >= 0 && y < FRAME_H && mask[(y * FRAME_W + x) * 4 + 3] > 128
-
-	// `dy > 0` means the body is *below* this pixel, so the pixel is above the
-	// body and the distance is the cheap one.
-	const span = AURA_RINGS.length
-	const measure = (dx: number, dy: number) =>
-		Math.max(Math.abs(dx), dy > 0 ? Math.ceil(dy / AURA_LIFT) : Math.abs(dy))
-
-	/** Which ring this pixel is in, 0 for "not in the aura at all". */
-	const ring = (x: number, y: number) => {
-		let best = 0
-		for (let dy = -span; dy <= span * AURA_LIFT; dy++) {
-			for (let dx = -span; dx <= span; dx++) {
-				if (!solid(x + dx, y + dy)) continue
-				const distance = measure(dx, dy)
-				if (distance >= 1 && distance <= span && (best === 0 || distance < best)) best = distance
-			}
-		}
-		return best
-	}
-
+	bodyMask.fill(0)
+	heat.fill(0)
 	for (let y = 0; y < FRAME_H; y++) {
 		for (let x = 0; x < FRAME_W; x++) {
-			if (solid(x, y)) continue
+			if (mask[(y * FRAME_W + x) * 4 + 3] <= 128) continue
+			const i = (y + PAD_TOP) * CELL_W + x + PAD_X
+			bodyMask[i] = 1
+			heat[i] = 1
+		}
+	}
 
-			const index = ring(x, y)
-			if (index === 0) continue
+	// Upward, bottom row to top: each pixel takes the hottest of the three
+	// below it, so the plume both climbs and fans out as it goes.
+	for (let y = CELL_H - 2; y >= 0; y--) {
+		for (let x = 0; x < CELL_W; x++) {
+			const below = (y + 1) * CELL_W + x
+			let b = heat[below]
+			// The fan sideways is penalised, or the plume climbs as a wedge as
+			// wide as it is tall instead of narrowing to a tip.
+			if (x > 0 && heat[below - 1] * HEAT_FAN > b) b = heat[below - 1] * HEAT_FAN
+			if (x < CELL_W - 1 && heat[below + 1] * HEAT_FAN > b) b = heat[below + 1] * HEAT_FAN
+			const i = y * CELL_W + x
+			if (b * HEAT_RISE > heat[i]) heat[i] = b * HEAT_RISE
+		}
+	}
 
-			// Only the outermost ring flickers: punching holes in the inner one
-			// would eat into the character's own edge. The top row of the frame
-			// is flickered too, whichever ring it is in — the flames reach past
-			// it, and a solid row there reads as a flat lid rather than a glow
-			// running out of sprite.
-			const ragged = index === span || y === 0
-			if (ragged && (x * 5 + y * 3 + frame * 7) % 3 === 0) continue
+	// Sideways, once each way, so the flame hugs the arms and the legs too.
+	for (let y = 0; y < CELL_H; y++) {
+		const row = y * CELL_W
+		for (let x = 1; x < CELL_W; x++) {
+			const v = heat[row + x - 1] * HEAT_SIDE
+			if (v > heat[row + x]) heat[row + x] = v
+		}
+		for (let x = CELL_W - 2; x >= 0; x--) {
+			const v = heat[row + x + 1] * HEAT_SIDE
+			if (v > heat[row + x]) heat[row + x] = v
+		}
+	}
 
-			px(ctx, x, y, 1, 1, rgba(color, AURA_RINGS[index - 1]))
+	// And a little downward, or the shoes stand in a hole.
+	for (let y = 1; y < CELL_H; y++) {
+		for (let x = 0; x < CELL_W; x++) {
+			const i = y * CELL_W + x
+			const v = heat[i - CELL_W] * HEAT_SINK
+			if (v > heat[i]) heat[i] = v
+		}
+	}
+	return true
+}
+
+/** A palette colour, blended towards white, at a given opacity. */
+function rgba(hex: string, alpha: number, white: number): string {
+	const n = parseInt(hex.slice(1), 16)
+	const channel = (shift: number) => {
+		const c = (n >> shift) & 0xff
+		return Math.round(c + (255 - c) * white)
+	}
+	return `rgba(${channel(16)}, ${channel(8)}, ${channel(0)}, ${alpha})`
+}
+
+/** The colour of this trainer's aura, or null when they have not earned one. */
+function auraColor(appearance: Appearance): string | null {
+	const color = AURA_COLORS[appearance.aura]
+	return !color || color === 'transparent' ? null : color
+}
+
+/**
+ * Paint one phase of the flame out of the heat field.
+ *
+ * The turbulence is three sines beaten against each other - their periods
+ * share no common multiple across the cell, so no two columns flicker alike -
+ * and all three advance with the phase at whole-number rates, which is what
+ * makes the loop seamless. Two of them run against `y`, so the disturbance
+ * crawls *up* the flame over the cycle, the way fire feeds itself.
+ *
+ * The faintest band is dropped where it has no lit neighbour: at this size a
+ * lone pixel of glow four pixels out reads as dirt on the screen rather than
+ * as a spark.
+ */
+function paintAura(ctx: Ctx, color: string, phase: number): void {
+	const t = (phase / AURA_PHASES) * Math.PI * 2
+	for (let y = 0; y < CELL_H; y++) {
+		for (let x = 0; x < CELL_W; x++) {
+			const i = y * CELL_W + x
+			if (heat[i] === 0) {
+				flame[i] = 0
+				continue
+			}
+			const turb =
+				0.55 * Math.sin(x * 1.35 - y * 0.3 + 2 * t) +
+				0.35 * Math.sin(x * 2.3 + y * 0.22 - t) +
+				0.25 * Math.sin(x * 0.7 + y * 0.5 - 3 * t)
+			// The disturbance grows as the flame rises: the fire is steady where
+			// it leaves the body and tears itself into points at the top.
+			const amp = AURA_TURB * (0.5 + 1.1 * (1 - y / CELL_H))
+			flame[i] = heat[i] * (1 + amp * turb)
+		}
+	}
+
+	const band = AURA_STEPS.map((alpha, index) => rgba(color, alpha, AURA_WHITE[index]))
+	const lit = (i: number) => flame[i] > AURA_CUT || bodyMask[i] === 1
+
+	for (let y = 0; y < CELL_H; y++) {
+		for (let x = 0; x < CELL_W; x++) {
+			const i = y * CELL_W + x
+			if (bodyMask[i] === 1) continue
+
+			const v = flame[i]
+			if (v <= AURA_CUT) continue
+
+			if (v < AURA_CUT * 1.6) {
+				const alone =
+					!(x > 0 && lit(i - 1)) &&
+					!(x < CELL_W - 1 && lit(i + 1)) &&
+					!(y > 0 && lit(i - CELL_W)) &&
+					!(y < CELL_H - 1 && lit(i + CELL_W))
+				if (alone) continue
+				px(ctx, x, y, 1, 1, band[2])
+				continue
+			}
+			px(ctx, x, y, 1, 1, v > AURA_CUT * 2.2 ? band[0] : band[1])
 		}
 	}
 }
 
-/** One frame, with its aura behind it when the trainer has earned one. */
-function drawAuraFrame(ctx: Ctx, appearance: Appearance, frame: number, view: View): void {
-	if (appearance.aura > 0) drawAura(ctx, appearance, frame, view)
+/** The body, drawn at its place inside the padded cell. */
+function paintBody(ctx: Ctx, appearance: Appearance, frame: number, view: View): void {
+	ctx.save()
+	ctx.translate(PAD_X, PAD_TOP)
 	drawFrame(ctx, appearance, frame, view)
+	ctx.restore()
 }
 
 /**
- * Render both frames onto one canvas.
+ * Render the whole sheet onto one canvas.
+ *
+ * Three poses per view, three views, and - for a trainer with an aura - eight
+ * phases of flame per pose, laid out in that nesting so that the renderer's
+ * cell index is `(view * FRAMES + frame) * phases + phase`. The heat field is
+ * built once per pose and all eight phases are painted out of it, which is why
+ * eight times the cells costs nowhere near eight times the work.
  *
  * `devicePixelRatio` is deliberately ignored: the sprite is drawn at its true
  * pixel size and scaled up by the renderer with nearest filtering, which is
  * what keeps the pixels square instead of blurred.
  */
 export function drawTrainer(appearance: Appearance): HTMLCanvasElement {
+	const phases = auraPhases(appearance)
 	const canvas = document.createElement('canvas')
-	canvas.width = FRAME_W * FRAMES * VIEWS
-	canvas.height = FRAME_H
+	canvas.width = CELL_W * FRAMES * VIEWS * phases
+	canvas.height = CELL_H
 
 	const ctx = canvas.getContext('2d')
 	if (!ctx) return canvas
 
 	ctx.imageSmoothingEnabled = false
-	// Three frames per view, in the order `VIEW_INDEX` declares.
+	const color = auraColor(appearance)
+
 	for (const [view, index] of Object.entries(VIEW_INDEX) as [View, number][]) {
 		for (let frame = 0; frame < FRAMES; frame++) {
-			ctx.save()
-			ctx.translate((index * FRAMES + frame) * FRAME_W, 0)
-			drawAuraFrame(ctx, appearance, frame, view)
-			ctx.restore()
+			const burning = color !== null && buildHeat(appearance, frame, view)
+			for (let phase = 0; phase < phases; phase++) {
+				ctx.save()
+				ctx.translate(((index * FRAMES + frame) * phases + phase) * CELL_W, 0)
+				if (burning) paintAura(ctx, color, phase)
+				paintBody(ctx, appearance, frame, view)
+				ctx.restore()
+			}
 		}
 	}
 	return canvas
 }
 
 /**
- * Draw a single frame scaled up, outside the 3D scene.
+ * Draw a single cell scaled up, outside the 3D scene.
  *
- * The editor preview wants the standing front view; the battle's opening
- * wants the profile, one stride at a time, so the two trainers can be seen
- * walking on. Same art either way — the sheet the world renders from is built
- * from this very function.
+ * The editor preview wants the standing front view; the battle's opening wants
+ * the profile, one stride at a time, so the two trainers can be seen walking
+ * on. Same art either way - the sheet the world renders from is built from
+ * this very function. `phase` is the flame's own cycle, which the portrait
+ * animates on its own clock so a standing trainer still burns.
  */
 export function drawTrainerFrame(
 	canvas: HTMLCanvasElement,
@@ -694,9 +855,10 @@ export function drawTrainerFrame(
 	scale: number,
 	view: View = 'front',
 	frame = 0,
+	phase = 0,
 ): void {
-	canvas.width = FRAME_W * scale
-	canvas.height = FRAME_H * scale
+	canvas.width = CELL_W * scale
+	canvas.height = CELL_H * scale
 
 	const ctx = canvas.getContext('2d')
 	if (!ctx) return
@@ -705,7 +867,13 @@ export function drawTrainerFrame(
 	ctx.clearRect(0, 0, canvas.width, canvas.height)
 	ctx.save()
 	ctx.scale(scale, scale)
-	drawAuraFrame(ctx, appearance, frame % FRAMES, view)
+
+	const color = auraColor(appearance)
+	const pose = frame % FRAMES
+	if (color !== null && buildHeat(appearance, pose, view)) {
+		paintAura(ctx, color, ((phase % AURA_PHASES) + AURA_PHASES) % AURA_PHASES)
+	}
+	paintBody(ctx, appearance, pose, view)
 	ctx.restore()
 }
 

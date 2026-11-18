@@ -193,6 +193,7 @@ function IntroSide({
 						view="side"
 						frame={frame}
 						label={trainer.name}
+						bleed
 					/>
 				</div>
 			)}

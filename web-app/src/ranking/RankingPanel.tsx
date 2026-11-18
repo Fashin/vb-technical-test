@@ -48,7 +48,12 @@ function Row({ trainer, isYou }: { trainer: RankedTrainer; isYou: boolean }) {
 			</span>
 
 			<div className="relative shrink-0 rounded-md border border-white/10 bg-gradient-to-b from-emerald-900/30 to-black/40 p-1">
-				<TrainerPortrait appearance={trainer.appearance} scale={2} label={`Portrait de ${trainer.name}`} />
+				<TrainerPortrait
+					appearance={trainer.appearance}
+					scale={2}
+					label={`Portrait de ${trainer.name}`}
+					bleed
+				/>
 				{trainer.online && (
 					<span
 						title="En ligne"
