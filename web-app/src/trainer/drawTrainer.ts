@@ -537,12 +537,12 @@ function drawFrame(ctx: Ctx, appearance: Appearance, frame: number, view: View =
  * The aura, ring by ring: how far from the body it reaches, and how solid it
  * is there.
  *
- * Two rings rather than a smooth falloff, because the sprite is sixteen pixels
- * across and a gradient at that size is mud. Both alphas stay above the 0.5
- * `alphaTest` the world's material uses — below it the glow would simply be
- * discarded on the map while still showing in the portraits.
+ * A few flat rings rather than a smooth falloff, because the sprite is sixteen
+ * pixels across and a gradient at that size is mud. Every alpha stays above
+ * the 0.5 `alphaTest` the world's material uses — below it the glow would
+ * simply be discarded on the map while still showing in the portraits.
  */
-const AURA_RINGS = [0.92, 0.6]
+const AURA_RINGS = [0.92, 0.74, 0.58]
 
 /**
  * How much further the glow reaches upward than sideways.
