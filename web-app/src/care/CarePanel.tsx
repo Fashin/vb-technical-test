@@ -14,7 +14,9 @@ import type { CareState } from './api'
  *
  * Hit points lost in a fight stay lost, so this is where a run ends and the
  * next one is paid for: you hand the wounded over, and they are unavailable
- * until their treatment is done. The wait is the cost, and it is longer the
+ * until their treatment is done. The counter looks at **every team**, and at
+ * the wounded cards benched since their last fight: a card hurt with the
+ * second roster is mended here like any other. The wait is the cost, and it is longer the
  * rarer the card — which is the whole reason to think twice before throwing a
  * legendary at a camp five levels above it.
  *
@@ -45,6 +47,7 @@ function Patient({
 	now,
 	estimate,
 	relief,
+	teams,
 }: {
 	member: TeamMember
 	now: number
@@ -52,6 +55,8 @@ function Patient({
 	estimate?: number
 	/** What the mentors divided that estimate by, when they did. */
 	relief?: number
+	/** The teams this card is in — the panel spans all of them. */
+	teams?: string[]
 }) {
 	const remaining = member.healedAt ? member.healedAt - now : 0
 
@@ -68,6 +73,11 @@ function Patient({
 					<LevelBadge level={member.level} />
 					{member.fainted && <span className="text-xs font-medium text-red-300">K.O.</span>}
 				</div>
+				{/* Which rosters this card answers to, since the centre shows them
+				    all at once. */}
+				<p className="mt-0.5 truncate text-xs text-slate-500">
+					{teams && teams.length > 0 ? teams.join(' · ') : 'Hors équipe'}
+				</p>
 				<HealthBar health={member.health} className="mt-1.5" />
 			</div>
 			<span className="shrink-0 text-right text-sm tabular-nums text-slate-400">
@@ -185,7 +195,8 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 				<div className="mt-1 min-h-0 flex-1 overflow-y-auto">
 					<p className="text-base text-slate-400">
 						Les PV perdus ne reviennent pas tout seuls. Le temps de soin dépend du niveau de la carte, de
-						sa rareté et de ce qu’elle a encaissé.
+						sa rareté et de ce qu’elle a encaissé. Toutes tes équipes passent au comptoir, pas seulement
+						celle qui est active.
 					</p>
 
 					{care === null ? (
@@ -201,7 +212,12 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 									<h3 className="text-xs uppercase tracking-wide text-slate-500">En soins</h3>
 									<ul className="mt-2 space-y-2">
 										{care.inCare.map((member) => (
-											<Patient key={member.cardId} member={member} now={now} />
+											<Patient
+												key={member.cardId}
+												member={member}
+												now={now}
+												teams={care.teams[member.cardId]}
+											/>
 										))}
 									</ul>
 								</>
@@ -218,7 +234,7 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 										<p className="mt-1 text-sm text-violet-200/80">
 											{care.mentors.length} Pokémon au niveau maximum du palier (
 											{care.mentors.map((mentor) => mentor.name).join(', ')}) soignent leurs
-											cadets : les temps ci-dessous sont déjà réduits.
+											cadets au sein de leur équipe : les temps ci-dessous sont déjà réduits.
 										</p>
 									)}
 									<ul className="mt-2 space-y-2">
@@ -229,6 +245,7 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 												now={now}
 												estimate={care.estimates[member.cardId]}
 												relief={care.relief[member.cardId]}
+												teams={care.teams[member.cardId]}
 											/>
 										))}
 									</ul>
@@ -242,7 +259,12 @@ export function CarePanel({ onClose }: { onClose: () => void }) {
 									</h3>
 									<ul className="mt-2 space-y-2">
 										{healthy.map((member) => (
-											<Patient key={member.cardId} member={member} now={now} />
+											<Patient
+												key={member.cardId}
+												member={member}
+												now={now}
+												teams={care.teams[member.cardId]}
+											/>
 										))}
 									</ul>
 								</>

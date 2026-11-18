@@ -8,6 +8,7 @@ export interface CareState {
 	at: { x: number; y: number } | null
 	/** True when the player is close enough to hand the team over. */
 	atCounter: boolean
+	/** Every card the centre can look at — all teams, plus benched wounded. */
 	members: TeamMember[]
 	/** Hurt and not yet being treated. */
 	wounded: TeamMember[]
@@ -25,8 +26,10 @@ export interface CareState {
 	 * them; `relief` is only there to explain where it came from.
 	 */
 	mentors: Mentor[]
-	/** The factor the wait was divided by, keyed by card. 1 means no mentor. */
+	/** The factor the wait was divided by, keyed by card. Absent means none. */
 	relief: Record<string, number>
+	/** The teams each card belongs to, keyed by card. Empty when benched. */
+	teams: Record<string, string[]>
 }
 
 export interface AdmitResult {
@@ -68,7 +71,7 @@ export function fetchCare(): Promise<{ care: CareState }> {
 	return send<{ care: CareState }>('/care')
 }
 
-/** Leave the wounded at the centre. With no list, the whole team's wounded. */
+/** Leave the wounded at the centre. With no list, every wounded card. */
 export function admitCards(cardIds?: string[]): Promise<AdmitResult> {
 	return send<AdmitResult>('/care/admit', {
 		method: 'POST',

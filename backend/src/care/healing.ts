@@ -1,7 +1,6 @@
 import { db } from '../db'
 import type { Rarity } from '../boosters/rarity'
 import { levelFromXp, MAX_LEVEL } from '../progression/levels'
-import { mentorFactor, type Mentor } from '../progression/mentors'
 
 /**
  * Wounds, and the time it takes to mend them.
@@ -145,12 +144,17 @@ export interface AdmitResult {
  * Take wounded cards into care.
  *
  * The end of the treatment is computed here, from the rarity, from how much
- * was actually lost and from the `mentors` on hand, and stored as a moment in
- * time. Everything afterwards is a comparison against the clock — which is
- * why the mentors have to be known now: a roster that changes during the
- * treatment must not move a bed that was already promised.
+ * was actually lost and from `relief` — the factor each card's own team mates
+ * are worth, keyed by card — and stored as a moment in time. Everything
+ * afterwards is a comparison against the clock, which is why the discount has
+ * to be known now: a roster that changes during the treatment must not move a
+ * bed that was already promised.
  */
-export function admit(userId: string, cardIds: string[], mentors: Mentor[] = []): AdmitResult {
+export function admit(
+	userId: string,
+	cardIds: string[],
+	relief: Record<string, number> = {},
+): AdmitResult {
 	settleCare(userId)
 	if (cardIds.length === 0) return { admitted: [], skipped: 0 }
 
@@ -184,8 +188,7 @@ export function admit(userId: string, cardIds: string[], mentors: Mentor[] = [])
 			}
 
 			const level = levelFromXp(row.xp)
-			const healedAt =
-				now + careDuration(row.rarity, row.hp_lost, level, mentorFactor(level, mentors))
+			const healedAt = now + careDuration(row.rarity, row.hp_lost, level, relief[row.id] ?? 1)
 			update.run(healedAt, row.id, userId)
 			admitted.push({ cardId: row.id, name: row.name, healedAt })
 		}
